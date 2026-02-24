@@ -271,11 +271,15 @@ def landing():
         print(f"[ERROR] Error in landing: {e}")
         return f"<h1>Error</h1><p>An error occurred: {str(e)}</p>", 500
 
-@app.route('/pictures/<filename>')
+@app.route('/pictures/<path:filename>')
 def serve_picture(filename):
-    """Serve images from the pictures folder."""
+    """Serve images from the Pictures folder (case-sensitive on Linux/Render)."""
     try:
-        return send_from_directory('pictures', filename)
+        filename = urllib.parse.unquote(filename)
+        pictures_dir = os.path.join(os.path.dirname(__file__), 'Pictures')
+        if not os.path.exists(pictures_dir):
+            pictures_dir = os.path.join(os.path.dirname(__file__), 'pictures')
+        return send_from_directory(pictures_dir, filename)
     except Exception as e:
         print(f"[ERROR] Error serving picture {filename}: {e}")
         return f"<h1>Error</h1><p>Image not found: {filename}</p>", 404

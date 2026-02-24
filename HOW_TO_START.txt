@@ -1,0 +1,18 @@
+HOW TO START THE SETUP UI
+========================
+
+EASIEST WAY (Windows):
+----------------------
+Double-click: START.bat
+
+OR
+
+From Command Line:
+------------------
+python -m streamlit run start.py
+
+NOTE: You cannot just type "start.py" - you need to use:
+      python -m streamlit run start.py
+
+The setup UI will open in your web browser at:
+http://localhost:8501

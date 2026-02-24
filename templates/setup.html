@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Setup Guide - CardLister Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .back-link {
+            color: #00d4ff;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+        .back-link:hover { text-decoration: underline; }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .intro {
+            color: #888;
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        .step {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 25px;
+        }
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .step-number {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .step h3 {
+            font-size: 1.4rem;
+        }
+        .step p {
+            color: #ccc;
+            line-height: 1.7;
+            margin-bottom: 15px;
+        }
+        .step a {
+            color: #00d4ff;
+            text-decoration: none;
+        }
+        .step a:hover { text-decoration: underline; }
+        .code-block {
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 15px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 15px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #00d4ff;
+        }
+        .warning {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin: 15px 0;
+        }
+        .warning strong { color: #ffc107; }
+        .tip {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin: 15px 0;
+        }
+        .tip strong { color: #28a745; }
+        .error-fix {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin: 15px 0;
+        }
+        .error-fix strong { color: #dc3545; }
+        .checklist {
+            list-style: none;
+            margin: 20px 0;
+        }
+        .checklist li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #ccc;
+        }
+        .checklist li:before {
+            content: "☐";
+            position: absolute;
+            left: 0;
+            color: #00d4ff;
+        }
+        .help-box {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 40px;
+            text-align: center;
+        }
+        .help-box h4 { color: #00d4ff; margin-bottom: 10px; }
+        .help-box p { color: #888; }
+        .help-box a {
+            display: inline-block;
+            margin-top: 15px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            color: #fff;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+        }
+        .btn-link {
+            display: inline-block;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin: 10px 5px;
+            font-weight: 600;
+        }
+        .btn-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
+        }
+        .screenshot-note {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Home</a>
+        
+        {% if oauth_error %}
+        <div class="error-fix" style="margin-bottom: 25px;">
+            <strong>OAuth Error:</strong> {{ oauth_error }}
+        </div>
+        {% endif %}
+        {% if is_hosted %}
+        <div class="tip" style="margin-bottom: 25px;">
+            <strong>🌐 Using CardLister Pro online?</strong> Each subscriber uses their own eBay account. 
+            Just complete Steps 1–4 below to get your eBay keys and token, then paste your token in the form at Step 4. 
+            No .env file needed — your token is saved to your account.
+        </div>
+        {% endif %}
+        
+        <h1>Complete Setup Guide</h1>
+        <p class="intro">Follow these steps to set up your eBay API credentials. This is a one-time setup that takes about 20-30 minutes. {% if not is_hosted %}Your credentials are stored locally on your computer{% else %}Your token is stored securely with your account{% endif %} - we never share them.</p>
+        
+        <div style="text-align: center; margin-bottom: 30px;">
+            <a href="https://developer.ebay.com/" target="_blank" class="btn-link">Go to eBay Developer Portal</a>
+            <a href="https://developer.ebay.com/my/auth?env=production&index=0&auth_type=oauth" target="_blank" class="btn-link">Get OAuth Token</a>
+        </div>
+        
+        <!-- Step 1 -->
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">1</div>
+                <h3>Create an eBay Developer Account</h3>
+            </div>
+            <p>Go to the eBay Developer Program and create a free account:</p>
+            <p><a href="https://developer.ebay.com/" target="_blank">https://developer.ebay.com/</a></p>
+            <p>Click "Join" or "Sign In" and use your existing eBay account or create a new one.</p>
+            <div class="tip">
+                <strong>💡 Tip:</strong> Use the same eBay account you use for selling. This ensures your listings appear on your seller account.
+            </div>
+        </div>
+        
+        <!-- Step 2 -->
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">2</div>
+                <h3>Create an Application (Keyset)</h3>
+            </div>
+            <p>Once logged in to the Developer Portal:</p>
+            <ul class="checklist">
+                <li>Click on "My Account" in the top right</li>
+                <li>Click "Application Keys" from the dropdown</li>
+                <li>Click "Create a keyset" button</li>
+                <li>Select <strong>Production</strong> (NOT Sandbox)</li>
+                <li>Give your app a name (e.g., "Card Listing Tool" or "My eBay Bot")</li>
+                <li>Click "Create"</li>
+            </ul>
+            <div class="warning">
+                <strong>⚠️ CRITICAL:</strong> Make sure to create <strong>PRODUCTION</strong> keys, not Sandbox keys. Sandbox is for testing only and won't work for real listings.
+            </div>
+            <p>After creating, you'll see three important values. <strong>Copy these immediately:</strong></p>
+            <ul class="checklist">
+                <li><strong>App ID (Client ID)</strong> - This is your OAuth Client ID</li>
+                <li><strong>Cert ID (Client Secret)</strong> - This is your OAuth Client Secret</li>
+                <li><strong>Dev ID</strong> - Your Developer ID</li>
+            </ul>
+            <div class="code-block">
+App ID (Client ID): Your-App-ID-Here
+Cert ID (Client Secret): Your-Cert-ID-Here
+Dev ID: Your-Dev-ID-Here
+            </div>
+            <div class="warning">
+                <strong>⚠️ Security:</strong> These credentials give full access to your eBay account. Never share them or commit them to public repositories.
+            </div>
+        </div>
+        
+        <!-- Step 3 -->
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">3</div>
+                <h3>Configure OAuth Redirect URI</h3>
+            </div>
+            <p>In your application settings, you need to set up the OAuth Redirect URI:</p>
+            <ul class="checklist">
+                <li>Go back to "My Account" → "Application Keys"</li>
+                <li>Click on your application name (the one you just created)</li>
+                <li>Scroll down to "OAuth Redirect URIs" section</li>
+                <li>Click "Add URI" or "Edit"</li>
+                <li>Add this exact Redirect URI {% if is_hosted %}(for online use){% endif %}:</li>
+            </ul>
+            {% if is_hosted and app_url %}
+            <div class="code-block">{{ app_url }}/callback</div>
+            <p>Add this URL in eBay Developer Portal <strong>and</strong> ensure the app owner has set <code>OAUTH_REDIRECT_URI={{ app_url }}/callback</code> in Render.</p>
+            {% else %}
+            <div class="code-block">http://localhost:8080/callback</div>
+            <p><strong>OR</strong> if using the hosted app:</p>
+            <div class="code-block">https://your-app-name.onrender.com/callback</div>
+            {% endif %}
+            <div class="tip">
+                <strong>💡 Important:</strong> The redirect URI must match EXACTLY what you put in your .env file. For most users, use <code>http://localhost:8080/callback</code>
+            </div>
+            <div class="warning">
+                <strong>⚠️ Common Error:</strong> If you get "redirect_uri_mismatch" error, make sure the URI in eBay Developer Portal matches EXACTLY (including http vs https, trailing slashes, etc.)
+            </div>
+        </div>
+        
+        <!-- Step 4 -->
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">4</div>
+                <h3>Get Your OAuth Refresh Token</h3>
+            </div>
+            <p>You need to authorize the app to access your eBay account. There are two methods:</p>
+            
+            <h4 style="color: #00d4ff; margin-top: 20px; margin-bottom: 10px;">Method A: Using eBay Developer Portal (Easiest)</h4>
+            <ul class="checklist">
+                <li>Go to: <a href="https://developer.ebay.com/my/auth?env=production&index=0&auth_type=oauth" target="_blank">eBay OAuth Token Page</a></li>
+                <li>Make sure "Production" is selected (not Sandbox)</li>
+                <li>Select all the scopes/permissions (or at least these):
+                    <ul style="margin-left: 20px; margin-top: 10px; color: #888;">
+                        <li>sell.inventory</li>
+                        <li>sell.account</li>
+                        <li>sell.fulfillment</li>
+                        <li>sell.marketing</li>
+                    </ul>
+                </li>
+                <li>Click "Get Token" or "Authorize"</li>
+                <li>Sign in with your eBay seller account</li>
+                <li>Click "I Agree" to authorize</li>
+                <li><strong>Copy the Refresh Token</strong> that appears (it's a long string starting with something like "v^1.1#i^1#r^0...")</li>
+            </ul>
+            
+            <h4 style="color: #00d4ff; margin-top: 20px; margin-bottom: 10px;">Method B: Using the Tool's Login Script</h4>
+            <ul class="checklist">
+                <li>Open terminal/command prompt in the tool's folder</li>
+                <li>Run: <code>python simple_login.py</code></li>
+                <li>A browser window will open</li>
+                <li>Sign in and authorize the application</li>
+                <li>The token will be saved automatically</li>
+            </ul>
+            
+            <div class="tip">
+                <strong>💡 Important:</strong> The refresh token is valid for 18 months. Save it securely - you'll need it for the .env file. If it expires, you'll need to get a new one.
+            </div>
+            
+            {% if is_hosted %}
+            <div style="background: rgba(40, 167, 69, 0.15); border: 2px solid rgba(40, 167, 69, 0.4); border-radius: 12px; padding: 25px; margin-top: 25px;">
+                <h4 style="color: #28a745; margin-bottom: 15px;">🔗 Connect eBay (Recommended)</h4>
+                <p style="color: #ccc; margin-bottom: 15px;">Click below to sign in with your eBay account. Your token will be saved automatically.</p>
+                <a href="/auth/ebay" class="btn-link" style="display: inline-block; margin-top: 10px;">Connect My eBay Account →</a>
+            </div>
+            {% endif %}
+            
+            <!-- Quick Token Update Form -->
+            <div style="background: rgba(0, 212, 255, 0.1); border: 2px solid rgba(0, 212, 255, 0.3); border-radius: 12px; padding: 25px; margin-top: 25px;">
+                <h4 style="color: #00d4ff; margin-bottom: 15px;">⚡ {{ 'Or paste your token manually:' if is_hosted else 'Quick Token Update' }}</h4>
+                <p style="color: #ccc; margin-bottom: 15px;">Paste your token here to update it instantly:</p>
+                <form id="tokenUpdateForm" onsubmit="updateToken(event)">
+                    <textarea 
+                        id="tokenInput" 
+                        placeholder="Paste your token here (starts with v^1.1#...)" 
+                        required
+                        style="width: 100%; min-height: 100px; padding: 15px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace; font-size: 0.9rem; margin-bottom: 15px; resize: vertical;"></textarea>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button type="submit" style="background: linear-gradient(90deg, #00d4ff, #7b2cbf); color: #fff; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                            💾 Save Token
+                        </button>
+                        <span id="tokenStatus" style="color: #888; font-size: 0.9rem;"></span>
+                    </div>
+                </form>
+            </div>
+            <div class="error-fix">
+                <strong>🔧 Fixing "unauthorized_client" Error:</strong> If you get this error, it means your APP_ID or CERT_ID is incorrect. Double-check:
+                <ul style="margin-top: 10px; margin-left: 20px;">
+                    <li>You copied the correct App ID (Client ID) from Production keyset</li>
+                    <li>You copied the correct Cert ID (Client Secret) from Production keyset</li>
+                    <li>You're using Production keys, not Sandbox keys</li>
+                    <li>The keys are in your .env file without extra spaces or quotes</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Step 5 -->
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">5</div>
+                <h3>{% if is_hosted %}You're Done!{% else %}Create Your .env File{% endif %}</h3>
+            </div>
+            {% if is_hosted %}
+            <p>You've saved your token above. Go to the <a href="/app">App</a> to start listing. No .env file needed for the hosted version.</p>
+            {% else %}
+            <p>Create or edit the <code>.env</code> file in the tool's folder. This file stores your credentials locally.</p>
+            <div class="code-block"># eBay Production Credentials
+EBAY_APP_ID=your_app_id_here
+EBAY_CERT_ID=your_cert_id_here
+EBAY_DEV_ID=your_dev_id_here
+
+# OAuth Settings
+USE_OAUTH=true
+OAUTH_REDIRECT_URI=http://localhost:8080/callback
+EBAY_REFRESH_TOKEN=your_refresh_token_here
+
+# Environment (MUST be production for real listings)
+EBAY_ENVIRONMENT=production</div>
+            <p><strong>Replace the placeholder values:</strong></p>
+            <ul class="checklist">
+                <li><code>your_app_id_here</code> → Your App ID (Client ID) from Step 2</li>
+                <li><code>your_cert_id_here</code> → Your Cert ID (Client Secret) from Step 2</li>
+                <li><code>your_dev_id_here</code> → Your Dev ID from Step 2</li>
+                <li><code>your_refresh_token_here</code> → Your Refresh Token from Step 4</li>
+            </ul>
+            <div class="warning">
+                <strong>⚠️ Security:</strong> Never share your .env file or commit it to Git. Add <code>.env</code> to your <code>.gitignore</code> file.
+            </div>
+            {% endif %}
+            {% if not is_hosted %}
+            <div class="tip">
+                <strong>💡 Example:</strong> Your .env file should look something like this (with your actual values):
+                <div class="code-block" style="margin-top: 10px;">EBAY_APP_ID=YourName-CardLis-SBX-1234567890-abc123
+EBAY_CERT_ID=SBX-1234567890-abc123-def456
+EBAY_DEV_ID=1234567890abcdef
+USE_OAUTH=true
+OAUTH_REDIRECT_URI=http://localhost:8080/callback
+EBAY_REFRESH_TOKEN=v^1.1#i^1#r^0#f^0#I^3#p^3#t^H4sIAAAA...
+EBAY_ENVIRONMENT=production</div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Step 6 -->
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">6</div>
+                <h3>Set Up Business Policies in eBay</h3>
+            </div>
+            <p>Before listing, make sure you have these policies set up in eBay Seller Hub:</p>
+            <ul class="checklist">
+                <li>Go to: <a href="https://www.ebay.com/sh/landing" target="_blank">eBay Seller Hub</a></li>
+                <li>Click "Account" → "Business Policies"</li>
+                <li>Create or verify you have:
+                    <ul style="margin-left: 20px; margin-top: 10px; color: #888;">
+                        <li><strong>Payment Policy:</strong> Usually "Managed Payments" (eBay handles this automatically)</li>
+                        <li><strong>Shipping Policy:</strong> Create a policy (e.g., "PWE" for Plain White Envelope, or flat rate shipping)</li>
+                        <li><strong>Return Policy:</strong> Create a policy (e.g., "No Returns Accepted" or your preferred return terms)</li>
+                    </ul>
+                </li>
+            </ul>
+            <div class="tip">
+                <strong>💡 Tip:</strong> The tool will automatically fetch your policies when you load the app. If policies are blank, check that your OAuth token is valid and has the <code>sell.account</code> scope.
+            </div>
+        </div>
+        
+        <!-- Step 7 -->
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">7</div>
+                <h3>Test Your Setup</h3>
+            </div>
+            <p>Now let's verify everything works:</p>
+            <ul class="checklist">
+                <li>Start the application: <code>python app.py</code></li>
+                <li>Open your browser to: <code>http://localhost:5001</code></li>
+                <li>Log in with your subscription email</li>
+                <li>Go to the app page</li>
+                <li>Click "🔄 Refresh Policies" - you should see your policies load</li>
+                <li>Try fetching a checklist from a Beckett URL</li>
+                <li>Create a small test listing (1-3 cards) to verify everything works</li>
+            </ul>
+            <div class="tip">
+                <strong>💡 Tip:</strong> Start with a small test listing (1-3 cards) to make sure everything works before listing a full set. You can delete test listings from eBay Seller Hub.
+            </div>
+        </div>
+        
+        <!-- Troubleshooting -->
+        <div class="step">
+            <div class="step-header">
+                <div class="step-number">!</div>
+                <h3>Troubleshooting Common Errors</h3>
+            </div>
+            
+            <h4 style="color: #ffc107; margin-top: 20px; margin-bottom: 10px;">Error: "unauthorized_client" - "The OAuth client was not found"</h4>
+            <div class="error-fix">
+                <p><strong>This means your APP_ID or CERT_ID is incorrect.</strong></p>
+                <ul style="margin-top: 10px;">
+                    <li>Double-check you copied the correct App ID (Client ID) from Production keyset</li>
+                    <li>Double-check you copied the correct Cert ID (Client Secret) from Production keyset</li>
+                    <li>Make sure you're using Production keys, not Sandbox keys</li>
+                    <li>Check your .env file - no extra spaces, quotes, or line breaks in the values</li>
+                    <li>Restart the application after updating .env</li>
+                </ul>
+            </div>
+            
+            <h4 style="color: #ffc107; margin-top: 20px; margin-bottom: 10px;">Error: "Invalid access token" or "Token expired"</h4>
+            <div class="error-fix">
+                <p><strong>Your OAuth token has expired.</strong></p>
+                <ul style="margin-top: 10px;">
+                    <li>Click the "🔑 Get OAuth Token" button in the app</li>
+                    <li>Or go to: <a href="https://developer.ebay.com/my/auth?env=production&index=0&auth_type=oauth" target="_blank">eBay OAuth Token Page</a></li>
+                    <li>Get a new refresh token and update your .env file</li>
+                    <li>Or run: <code>python simple_login.py</code> to get a new token automatically</li>
+                </ul>
+            </div>
+            
+            <h4 style="color: #ffc107; margin-top: 20px; margin-bottom: 10px;">Error: "redirect_uri_mismatch"</h4>
+            <div class="error-fix">
+                <p><strong>The redirect URI doesn't match.</strong></p>
+                <ul style="margin-top: 10px;">
+                    <li>Check that the redirect URI in eBay Developer Portal matches EXACTLY what's in your .env file</li>
+                    <li>Make sure it's the same (http vs https, trailing slashes, etc.)</li>
+                    <li>For most users, use: <code>http://localhost:8080/callback</code></li>
+                </ul>
+            </div>
+            
+            <h4 style="color: #ffc107; margin-top: 20px; margin-bottom: 10px;">Policies Dropdown is Blank</h4>
+            <div class="error-fix">
+                <p><strong>Policies aren't loading from eBay.</strong></p>
+                <ul style="margin-top: 10px;">
+                    <li>Check that your OAuth token is valid (not expired)</li>
+                    <li>Make sure your token has the <code>sell.account</code> scope</li>
+                    <li>Verify you have policies set up in eBay Seller Hub</li>
+                    <li>Click "🔄 Refresh Policies" button</li>
+                    <li>Check the browser console (F12) for error messages</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="help-box">
+            <h4>Still Need Help?</h4>
+            <p>If you're stuck or having issues with setup, we're here to help!</p>
+            <a href="/contact">Contact Support</a>
+        </div>
+    </div>
+    
+    <script>
+        async function updateToken(event) {
+            event.preventDefault();
+            const tokenInput = document.getElementById('tokenInput');
+            const statusSpan = document.getElementById('tokenStatus');
+            const token = tokenInput.value.trim();
+            
+            if (!token) {
+                statusSpan.textContent = '❌ Please paste a token';
+                statusSpan.style.color = '#dc3545';
+                return;
+            }
+            
+            statusSpan.textContent = '⏳ Saving token...';
+            statusSpan.style.color = '#00d4ff';
+            
+            try {
+                const response = await fetch('/api/update-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ token: token })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    statusSpan.textContent = '✅ Token saved successfully! Restart the app.';
+                    statusSpan.style.color = '#28a745';
+                    tokenInput.value = '';
+                    
+                    // Show success message
+                    setTimeout(() => {
+                        alert('Token saved! Please restart the application (stop and start python app.py) for changes to take effect.');
+                    }, 500);
+                } else {
+                    statusSpan.textContent = '❌ Error: ' + (data.error || 'Failed to save token');
+                    statusSpan.style.color = '#dc3545';
+                }
+            } catch (error) {
+                statusSpan.textContent = '❌ Error: ' + error.message;
+                statusSpan.style.color = '#dc3545';
+            }
+        }
+    </script>
+</body>
+</html>

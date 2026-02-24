@@ -1,0 +1,2403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CardLister Pro - eBay Card Listing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000000;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(0, 255, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 0, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(255, 255, 0, 0.1) 0%, transparent 50%),
+                linear-gradient(135deg, #000000 0%, #0a0014 50%, #000000 100%);
+            min-height: 100vh;
+            color: #ffffff;
+            padding: 20px;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.25;
+            z-index: 0;
+            background-image: 
+                url('https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=300&q=80'),
+                url('https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=300&q=80');
+            background-size: 200px 280px, 180px 252px;
+            background-position: 2% 8%, 98% 65%;
+            background-repeat: no-repeat;
+            background-blend-mode: screen;
+            filter: brightness(0.15) contrast(1.4) saturate(1.6) hue-rotate(180deg);
+            pointer-events: none;
+        }
+        .container {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+        
+        .version-badge {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-size: 0.85rem;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            z-index: 10000;
+            font-family: monospace;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00, #00ff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+            filter: drop-shadow(0 0 10px rgba(255, 0, 255, 0.3));
+        }
+        
+        header p { 
+            color: #cccccc; 
+            font-size: 1.1rem; 
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .card {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+        
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #00ffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+        }
+        
+        .card h2 .step {
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #cccccc;
+            font-size: 0.9rem;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #ffffff;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        /* Cards Table */
+        .cards-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .cards-table th, .cards-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .cards-table th {
+            color: #00ffff;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            background: rgba(0, 0, 0, 0.6);
+        }
+        
+        .cards-table input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #ffffff;
+            font-size: 0.95rem;
+        }
+        
+        .cards-table input:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+        }
+        
+        .cards-table .num-input { width: 100px; min-width: 100px; text-align: center; }
+        .cards-table .price-input { width: 80px; text-align: right; }
+        .cards-table .qty-input { width: 60px; text-align: center; }
+        
+        /* Player Name column - shorter */
+        .cards-table td:nth-child(3) input { 
+            width: 170px; 
+            max-width: 170px; 
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Team column - wider */
+        .cards-table td:nth-child(4) input { 
+            width: 190px; 
+            min-width: 190px; 
+        }
+        
+        .remove-btn {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff0000;
+            border: 2px solid rgba(255, 0, 0, 0.4);
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .remove-btn:hover { background: rgba(220, 53, 69, 0.3); }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .fetch-section {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+        
+        details summary {
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+        }
+        
+        details[open] summary {
+            margin-bottom: 10px;
+        }
+        
+        .add-card-btn {
+            background: rgba(0, 0, 0, 0.5);
+            color: #00ffff;
+            border: 2px dashed rgba(0, 255, 255, 0.4);
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            width: 100%;
+            margin-top: 15px;
+            transition: all 0.2s;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        
+        .add-card-btn:hover {
+            background: rgba(0, 255, 255, 0.1);
+            border-color: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+        }
+        
+        /* Bulk Add */
+        .bulk-add {
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .bulk-add h4 {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .bulk-add textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 0.9rem;
+            font-family: monospace;
+        }
+        
+        .bulk-add small {
+            color: #666;
+            display: block;
+            margin-top: 8px;
+        }
+        
+        .bulk-add button {
+            margin-top: 10px;
+            background: rgba(255, 0, 255, 0.2);
+            color: #ff00ff;
+            border: 2px solid rgba(255, 0, 255, 0.4);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+        }
+        
+        .bulk-add button:hover {
+            background: rgba(255, 0, 255, 0.3);
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.4);
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, #00ffff, #0099ff);
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            font-weight: 700;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.8), 0 5px 20px rgba(0, 255, 255, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(90deg, #00ff00, #00cc00);
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+            font-weight: 700;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8), 0 5px 20px rgba(0, 255, 0, 0.4);
+        }
+        
+        .btn-info {
+            background: linear-gradient(90deg, #ff00ff, #cc00cc);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+            font-weight: 700;
+        }
+        
+        .btn-info:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.8), 0 5px 20px rgba(255, 0, 255, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        /* Summary */
+        .summary {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+        
+        .summary h3 {
+            color: #00ffff;
+            margin-bottom: 15px;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .summary-item {
+            text-align: center;
+        }
+        
+        .summary-item .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .summary-item .label {
+            color: #aaaaaa;
+            font-size: 0.85rem;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Result */
+        .result {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .result.show { display: block; }
+        
+        .result.success {
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid rgba(0, 255, 0, 0.5);
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.4);
+        }
+        
+        .result.error {
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid rgba(255, 0, 0, 0.5);
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
+        }
+        
+        .result h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .result a {
+            color: #00ffff;
+            text-decoration: none;
+            font-size: 1.1rem;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        
+        .result a:hover { 
+            color: #ff00ff;
+            text-shadow: 0 0 15px rgba(255, 0, 255, 0.8);
+        }
+        
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.show { display: block; }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #00ffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .toast-success { background: #28a745; }
+        .toast-error { background: #dc3545; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        /* Walkthrough */
+        #walkthroughOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        #walkthroughOverlay.active { display: flex; }
+        .walkthrough-spotlight {
+            position: absolute;
+            border: 3px solid #00ff00;
+            border-radius: 8px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.7), 0 0 30px rgba(0, 255, 0, 0.6);
+            pointer-events: none;
+            transition: all 0.3s ease;
+            animation: spotlightPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes spotlightPulse {
+            0%, 100% { box-shadow: 0 0 0 9999px rgba(0,0,0,0.7), 0 0 30px rgba(0, 255, 0, 0.6); }
+            50% { box-shadow: 0 0 0 9999px rgba(0,0,0,0.75), 0 0 45px rgba(0, 255, 0, 0.9); }
+        }
+        .walkthrough-card {
+            position: relative;
+            z-index: 10001;
+            background: rgba(0, 20, 30, 0.98);
+            border: 3px solid #00ffff;
+            border-radius: 16px;
+            padding: 25px;
+            max-width: 420px;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
+        }
+        .walkthrough-card h3 {
+            color: #00ffff;
+            margin-bottom: 12px;
+            font-size: 1.3rem;
+        }
+        .walkthrough-card p {
+            color: #ccc;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .walkthrough-nav {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+        }
+        .walkthrough-nav button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            border: none;
+        }
+        .walkthrough-nav .btn-skip {
+            background: rgba(255,255,255,0.1);
+            color: #888;
+        }
+        .walkthrough-nav .btn-prev {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+        .walkthrough-nav .btn-next {
+            background: linear-gradient(90deg, #00ff00, #00d4ff);
+            color: #000;
+        }
+        .walkthrough-step-badge {
+            display: inline-block;
+            background: linear-gradient(90deg, #00ff00, #00ffff);
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Version Badge -->
+    <div class="version-badge" id="versionBadge">v3.7</div>
+    
+    <div class="container">
+        <header>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <a href="/" style="color: #00ffff; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">← Home</a>
+                <div>
+                    <span style="color: #aaaaaa; text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);">{{ email }}</span>
+                    <a href="/admin" style="color: #ff00ff; margin-left: 15px; text-decoration: none; text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);">Admin</a>
+                    <a href="/logout" style="color: #aaaaaa; margin-left: 15px; text-decoration: none;">Logout</a>
+                </div>
+            </div>
+            <h1>CardLister Pro</h1>
+            <p>List your card set on eBay in seconds</p>
+            <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button onclick="saveTemplate()" style="padding: 8px 16px; background: rgba(255, 0, 255, 0.2); color: #ff00ff; border: 2px solid rgba(255, 0, 255, 0.4); border-radius: 6px; cursor: pointer; font-size: 0.9rem; text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);" title="Save current listing as template (Ctrl+S)">
+                    💾 Save Template
+                </button>
+                <button onclick="loadTemplate()" style="padding: 8px 16px; background: rgba(255, 0, 255, 0.2); color: #ff00ff; border: 2px solid rgba(255, 0, 255, 0.4); border-radius: 6px; cursor: pointer; font-size: 0.9rem; text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);" title="Load saved template (Ctrl+O)">
+                    📂 Load Template
+                </button>
+                <button onclick="duplicateSelected()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4); border-radius: 6px; cursor: pointer; font-size: 0.9rem; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);" title="Duplicate all selected cards">
+                    📋 Duplicate Selected
+                </button>
+                <button onclick="showKeyboardShortcuts()" style="padding: 8px 16px; background: rgba(255,255,255,0.1); color: #888; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer; font-size: 0.9rem;" title="View keyboard shortcuts">
+                    ⌨️ Shortcuts
+                </button>
+                <button onclick="startWalkthrough()" style="padding: 8px 16px; background: rgba(0, 255, 0, 0.2); color: #00ff00; border: 2px solid rgba(0, 255, 0, 0.4); border-radius: 6px; cursor: pointer; font-size: 0.9rem; text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);" title="Step-by-step guide">
+                    📖 Walk Me Through
+                </button>
+            </div>
+            
+            <!-- Keyboard Shortcuts Modal -->
+            <div id="shortcutsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+                <div style="background: rgba(15, 15, 26, 0.95); border: 1px solid rgba(255,255,255,0.2); border-radius: 16px; padding: 30px; max-width: 500px; width: 90%;">
+                    <h3 style="color: #00ffff; margin-bottom: 20px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">⌨️ Keyboard Shortcuts</h3>
+                    <div style="color: #ccc; line-height: 2;">
+                        <div><strong>Ctrl/Cmd + S</strong> - Save template</div>
+                        <div><strong>Ctrl/Cmd + O</strong> - Load template</div>
+                        <div><strong>Ctrl/Cmd + E</strong> - Export CSV</div>
+                        <div><strong>Delete</strong> - Delete selected cards</div>
+                        <div><strong>Ctrl/Cmd + A</strong> - Select all cards</div>
+                    </div>
+                    <button onclick="hideKeyboardShortcuts()" style="margin-top: 20px; padding: 10px 20px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer; width: 100%;">Close</button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Step 1: Set Info -->
+        <div class="card">
+            <h2><span class="step">1</span> Set Information</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Set Name</label>
+                    <input type="text" id="setName" placeholder="e.g., 2024-25 Topps Chrome Basketball" value="2024-25 Topps Chrome Basketball">
+                </div>
+                <div class="form-group">
+                    <label>Default Image URL (Optional)</label>
+                    <input type="text" id="imageUrl" placeholder="Leave empty for no default image" value="">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Description (HTML supported) <span id="descriptionStatus" style="color: #00ffff; font-size: 0.85rem; margin-left: 10px;"></span></label>
+                <textarea id="description" placeholder="Your listing description... (Will be automatically filled when you fetch a checklist)"></textarea>
+            </div>
+        </div>
+        
+        <!-- Step 2: Fetch Checklist -->
+        <div class="card">
+            <h2><span class="step">2</span> Fetch Checklist</h2>
+            
+            <div class="fetch-section">
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Checklist URL (Beckett or Cardsmiths Breaks)</label>
+                        <input type="text" id="checklistUrl" placeholder="https://cardsmithsbreaks.com/full-checklist/2025-26-topps-chrome-basketball-hobby/">
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="checklistType" onchange="onChecklistTypeChange()">
+                            <option value="base">Base Cards</option>
+                            <option value="inserts">Insert Cards</option>
+                            <option value="autographs">Autographs</option>
+                            <option value="numbered">#'ed</option>
+                            <option value="parallels">Parallels</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="parallelTypeGroup" style="display: none;">
+                        <label>Parallel Type</label>
+                        <select id="parallelType">
+                            <option value="">Select parallel type...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Default Price ($)</label>
+                        <input type="number" id="defaultPrice" value="1.00" step="0.25" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Default Quantity</label>
+                        <input type="number" id="defaultQty" value="0" min="0">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-primary" onclick="fetchChecklist()" id="fetchBtn">
+                            Fetch Checklist
+                        </button>
+                    </div>
+                </div>
+                <div id="fetchStatus" style="margin-top: 10px; color: #888;"></div>
+            </div>
+        </div>
+        
+        <!-- Step 3: Cards -->
+        <div class="card" id="cardsSection">
+            <h2><span class="step">3</span> Your Cards</h2>
+            
+            <!-- Search Bar - Prominent above card list -->
+            <div id="cardSearchContainer" style="margin-bottom: 15px; display: none;">
+                <div style="position: relative; display: flex; align-items: center; gap: 10px;">
+                    <input type="text" id="cardSearch" placeholder="🔍 Search by card number or player name..." 
+                           style="flex: 1; padding: 12px 40px 12px 16px; border: 2px solid rgba(0, 255, 255, 0.4); border-radius: 8px; background: rgba(0, 0, 0, 0.5); color: #fff; font-size: 1rem; box-shadow: 0 0 15px rgba(0, 255, 255, 0.2); transition: all 0.3s ease;" 
+                           onkeyup="filterCards()" 
+                           oninput="filterCards()"
+                           onfocus="this.style.borderColor='rgba(0, 255, 255, 0.8)'; this.style.boxShadow='0 0 25px rgba(0, 255, 255, 0.4)';"
+                           onblur="this.style.borderColor='rgba(0, 255, 255, 0.4)'; this.style.boxShadow='0 0 15px rgba(0, 255, 255, 0.2)';">
+                    <button onclick="clearSearch()" id="clearSearchBtn" style="display: none; position: absolute; right: 8px; background: rgba(255, 0, 0, 0.3); border: 1px solid rgba(255, 0, 0, 0.5); border-radius: 4px; color: #ff6666; padding: 6px 10px; cursor: pointer; font-size: 0.9rem;" title="Clear search">✕</button>
+                    <span id="searchResultCount" style="color: #00ffff; font-size: 0.9rem; min-width: 100px; text-align: right; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);"></span>
+                </div>
+            </div>
+            
+            <div class="card-filters" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-secondary" onclick="selectAll()" style="padding: 8px 16px;">Select All</button>
+                <button class="btn btn-secondary" onclick="deselectAll()" style="padding: 8px 16px;">Deselect All</button>
+                <button class="btn btn-secondary" onclick="showBulkEdit()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4); text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">⚡ Bulk Edit</button>
+                <button class="btn btn-secondary" onclick="exportCSV()" style="padding: 8px 16px; background: rgba(0, 255, 0, 0.2); color: #00ff00; border: 2px solid rgba(0, 255, 0, 0.4); text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);">📥 Export CSV</button>
+                <button class="btn btn-secondary" onclick="importCSV()" style="padding: 8px 16px; background: rgba(0, 255, 0, 0.2); color: #00ff00; border: 2px solid rgba(0, 255, 0, 0.4); text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);">📤 Import CSV</button>
+                <select onchange="sortCards(this.value)" style="padding: 8px 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(0,0,0,0.3); color: #fff; cursor: pointer;">
+                    <option value="">Sort by...</option>
+                    <option value="number">Card Number</option>
+                    <option value="name">Name (A-Z)</option>
+                    <option value="price-high">Price (High to Low)</option>
+                    <option value="price-low">Price (Low to High)</option>
+                    <option value="qty">Quantity</option>
+                </select>
+                <button class="btn btn-secondary" onclick="validateCards()" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Check for missing data">✓ Validate</button>
+                <button class="btn btn-secondary" onclick="toggleZeroQtyFilter()" id="zeroQtyFilterBtn" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Hide/show cards with quantity 0">🔍 Hide Qty=0</button>
+                <button class="btn btn-secondary" onclick="clearCards()" style="padding: 8px 16px; background: rgba(255, 0, 0, 0.2); color: #ff0000; border: 2px solid rgba(255, 0, 0, 0.4); text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);">Clear All</button>
+            </div>
+            
+            <!-- Bulk Edit Modal -->
+            <div id="bulkEditModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center;">
+                <div style="background: rgba(0, 0, 0, 0.95); border: 3px solid rgba(0, 255, 255, 0.5); border-radius: 16px; padding: 30px; max-width: 500px; width: 90%; box-shadow: 0 0 40px rgba(0, 255, 255, 0.5);">
+                    <h3 style="color: #00ffff; margin-bottom: 20px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">⚡ Bulk Edit Selected Cards</h3>
+                    <div class="form-group">
+                        <label>Update Price (leave empty to keep current)</label>
+                        <input type="number" id="bulkPrice" step="0.25" min="0" placeholder="e.g., 2.50" style="width: 100%; padding: 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff;">
+                    </div>
+                    <div class="form-group">
+                        <label>Update Quantity (leave empty to keep current)</label>
+                        <input type="number" id="bulkQty" min="0" placeholder="e.g., 5" style="width: 100%; padding: 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff;">
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button onclick="applyBulkEdit()" style="flex: 1; padding: 12px; background: linear-gradient(90deg, #00d4ff, #7b2cbf); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Apply</button>
+                        <button onclick="hideBulkEdit()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Import CSV Modal -->
+            <div id="importCSVModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+                <div style="background: rgba(15, 15, 26, 0.95); border: 1px solid rgba(255,255,255,0.2); border-radius: 16px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="color: #00ffff; margin-bottom: 20px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">📤 Import Cards from CSV</h3>
+                    <p style="color: #888; margin-bottom: 15px; font-size: 0.9rem;">CSV format: number, name, price, quantity, team (optional)</p>
+                    <div class="form-group">
+                        <label>Paste CSV Data</label>
+                        <textarea id="csvInput" placeholder="1, LeBron James, 5.00, 2, Lakers&#10;2, Stephen Curry, 4.00, 1, Warriors" style="width: 100%; min-height: 200px; padding: 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace; font-size: 0.9rem;"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button onclick="processCSVImport()" style="flex: 1; padding: 12px; background: linear-gradient(90deg, #00ffff, #ff00ff); color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);">Import</button>
+                        <button onclick="hideCSVImport()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistics Summary -->
+            <div style="background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 12px; padding: 15px; margin-bottom: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);">
+                <div style="text-align: center;">
+                    <div style="color: #aaaaaa; font-size: 0.85rem; margin-bottom: 5px; text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);">Total Cards</div>
+                    <div style="color: #00ffff; font-size: 1.5rem; font-weight: bold; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);" id="statTotalCards">0</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Will List</div>
+                    <div style="color: #7b2cbf; font-size: 1.5rem; font-weight: bold;" id="statSelected" title="Cards with quantity > 0 that will be included in listing">0</div>
+                    <div style="color: #666; font-size: 0.7rem; margin-top: 3px;">(qty > 0 only)</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Total Value</div>
+                    <div style="color: #28a745; font-size: 1.5rem; font-weight: bold;" id="statTotalValue">$0.00</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Total Qty</div>
+                    <div style="color: #ffc107; font-size: 1.5rem; font-weight: bold;" id="statTotalQty">0</div>
+                </div>
+            </div>
+            
+            <div style="max-height: 400px; overflow-y: auto; border: 2px solid rgba(0, 255, 255, 0.2); border-radius: 8px; box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);">
+            <table class="cards-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)"></th>
+                        <th style="width: 100px; min-width: 100px;">#</th>
+                        <th style="width: 180px; max-width: 180px;">Player Name</th>
+                        <th style="width: 200px; min-width: 200px;">Team</th>
+                        <th style="width: 80px;">Price</th>
+                        <th style="width: 60px;">Qty</th>
+                        <th style="width: 60px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="cardsBody">
+                    <!-- Cards will be added here -->
+                </tbody>
+            </table>
+            
+            </div>
+            
+            <button class="add-card-btn" onclick="addCard()">+ Add Card Manually</button>
+            
+            <details style="margin-top: 15px;">
+                <summary style="cursor: pointer; color: #888;">Bulk Add (Paste Text)</summary>
+                <div class="bulk-add" style="margin-top: 10px;">
+                    <textarea id="bulkInput" placeholder="Paste cards here, one per line:
+1, LeBron James, 5.00
+2, Stephen Curry, 4.00
+3, Kevin Durant, 3.50"></textarea>
+                    <small>Format: number, name, price (one card per line)</small>
+                    <button onclick="bulkAddCards()">Add Cards from Text</button>
+                </div>
+            </details>
+        </div>
+        
+        <!-- Step 4: Policies -->
+        <div class="card">
+            <h2><span class="step">4</span> Shipping & Policies</h2>
+            <div style="margin-bottom: 15px;">
+                <button class="btn btn-secondary" onclick="loadPolicies()" style="padding: 8px 16px; font-size: 0.9rem;">
+                    🔄 Refresh Policies
+                </button>
+                <a href="https://developer.ebay.com/my/auth?env=production&index=0&auth_type=oauth" target="_blank" 
+                   style="padding: 8px 16px; font-size: 0.9rem; background: rgba(255, 0, 255, 0.2); color: #ff00ff; border: 2px solid rgba(255, 0, 255, 0.4); border-radius: 6px; text-decoration: none; display: inline-block; margin-left: 10px; text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);">
+                    🔑 Get OAuth Token
+                </a>
+                <button onclick="showTokenForm()" style="padding: 8px 16px; font-size: 0.9rem; background: rgba(40, 167, 69, 0.2); color: #28a745; border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 6px; cursor: pointer; margin-left: 10px;">
+                    📋 Paste Token
+                </button>
+                <span id="policyStatus" style="margin-left: 15px; color: #888; font-size: 0.9rem;"></span>
+            </div>
+            
+            <!-- Token Update Form (hidden by default) -->
+            <div id="tokenForm" style="display: none; background: rgba(0, 0, 0, 0.6); border: 2px solid rgba(0, 255, 255, 0.4); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);">
+                <h4 style="color: #00ffff; margin-bottom: 15px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">Update Token</h4>
+                <p style="color: #888; font-size: 0.9rem; margin-bottom: 15px;">Paste your new token from eBay Developer Portal:</p>
+                <textarea id="tokenInput" placeholder="Paste token here (starts with v^1.1#...)" 
+                    style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace; font-size: 0.85rem; margin-bottom: 10px; resize: vertical;"></textarea>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button onclick="saveToken()" style="padding: 10px 20px; background: linear-gradient(90deg, #00d4ff, #7b2cbf); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        💾 Save Token
+                    </button>
+                    <button onclick="hideTokenForm()" style="padding: 10px 20px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">
+                        Cancel
+                    </button>
+                    <span id="tokenStatus" style="color: #888; font-size: 0.9rem; margin-left: 10px;"></span>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Payment Policy</label>
+                    <select id="paymentPolicy">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Shipping Policy</label>
+                    <select id="shippingPolicy">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Return Policy</label>
+                    <select id="returnPolicy">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Summary -->
+        <div class="summary">
+            <h3>Summary</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="value" id="totalCards">0</div>
+                    <div class="label">Cards</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="totalValue">$0.00</div>
+                    <div class="label">Total Value</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="avgPrice">$0.00</div>
+                    <div class="label">Avg Price</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="actions">
+            <button class="btn btn-success" id="publishBtn" onclick="publishListing()" style="width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold;">🚀 Publish to eBay (Live Listing)</button>
+            <p style="color: #ffc107; margin-top: 10px; text-align: center; font-size: 0.9rem;">
+                ⚠️ Note: This will publish your listing LIVE on eBay immediately. eBay's Inventory API does not support drafts visible in Seller Hub.
+            </p>
+        </div>
+        
+        <!-- Loading -->
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Creating your listing...</p>
+        </div>
+        
+        <!-- Result -->
+        <div class="result" id="result"></div>
+    </div>
+    
+    <!-- Walkthrough Overlay -->
+    <div id="walkthroughOverlay">
+        <div id="walkthroughSpotlight" class="walkthrough-spotlight" style="display: none;"></div>
+        <div class="walkthrough-card" id="walkthroughCard" onclick="event.stopPropagation()">
+            <span class="walkthrough-step-badge" id="walkthroughBadge">Step 1 of 7</span>
+            <h3 id="walkthroughTitle">Step Title</h3>
+            <p id="walkthroughText">Instructions appear here.</p>
+            <div class="walkthrough-nav">
+                <button onclick="exitWalkthrough()" class="btn-skip">Skip</button>
+                <div>
+                    <button onclick="walkthroughPrev()" class="btn-prev" id="walkthroughPrevBtn">← Back</button>
+                    <button onclick="walkthroughNext()" class="btn-next" id="walkthroughNextBtn">Next →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let cards = [];
+        let policies = {};
+        
+        // Load policies on page load
+        async function loadPolicies() {
+            const statusDiv = document.getElementById('policyStatus');
+            if (!statusDiv) {
+                console.error('policyStatus element not found');
+                return;
+            }
+            statusDiv.textContent = 'Loading policies...';
+            statusDiv.style.color = '#00d4ff';
+            
+            try {
+                // Add timeout to prevent hanging
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                
+                const response = await fetch('/api/policies', {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                const data = await response.json();
+                
+                console.log('Policies API response:', data);
+                
+                if (data.error) {
+                    console.error('Policy API error:', data.error);
+                    let errorMsg = data.error;
+                    if (data.error.includes('401') || data.error.includes('Invalid access token') || data.error.includes('expired')) {
+                        errorMsg = 'Token expired. Click "Get OAuth Token" button above or run: python refresh_token.py';
+                        statusDiv.innerHTML = '⚠️ Token expired. <a href="https://developer.ebay.com/my/auth?env=production&index=0&auth_type=oauth" target="_blank" style="color: #00d4ff; text-decoration: underline;">Get OAuth Token</a> or <a href="/setup" style="color: #00d4ff; text-decoration: underline;">View Setup Guide</a>';
+                    } else if (data.error.includes('unauthorized_client') || data.error.includes('OAuth client was not found')) {
+                        errorMsg = 'OAuth client not found. Check your APP_ID and CERT_ID in .env file.';
+                        statusDiv.innerHTML = '⚠️ OAuth Error. <a href="/setup" style="color: #00d4ff; text-decoration: underline;">View Setup Guide</a>';
+                    } else {
+                        statusDiv.textContent = 'Error: ' + data.error;
+                    }
+                    statusDiv.style.color = '#dc3545';
+                    showToast(errorMsg, 'error');
+                    return;
+                }
+                
+                if (!response.ok) {
+                    console.error('Policy API failed:', response.status, data);
+                    let errorMsg = 'Failed: HTTP ' + response.status;
+                    if (response.status === 401) {
+                        errorMsg = 'Token expired. Click "Get OAuth Token" button above or run: python refresh_token.py';
+                        statusDiv.innerHTML = '⚠️ Token expired. <a href="https://developer.ebay.com/my/auth?env=production&index=0&auth_type=oauth" target="_blank" style="color: #00d4ff; text-decoration: underline;">Get OAuth Token</a> or <a href="/setup" style="color: #00d4ff; text-decoration: underline;">View Setup Guide</a>';
+                    } else {
+                        statusDiv.textContent = errorMsg;
+                    }
+                    statusDiv.style.color = '#dc3545';
+                    showToast(errorMsg, 'error');
+                    return;
+                }
+                
+                policies = data;
+                
+                // Populate dropdowns
+                const paymentSelect = document.getElementById('paymentPolicy');
+                const shippingSelect = document.getElementById('shippingPolicy');
+                const returnSelect = document.getElementById('returnPolicy');
+                
+                // Clear existing options
+                // Payment policy defaults to "Managed by eBay" (empty value = recommended)
+                paymentSelect.innerHTML = '<option value="" selected>Managed by eBay (Recommended)</option>';
+                shippingSelect.innerHTML = '<option value="">Select Shipping Policy</option>';
+                returnSelect.innerHTML = '<option value="">Select Return Policy</option>';
+                
+                let totalPolicies = 0;
+                
+                if (policies.payment && policies.payment.length > 0) {
+                    policies.payment.forEach(p => {
+                        paymentSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                    });
+                    totalPolicies += policies.payment.length;
+                } else {
+                    paymentSelect.innerHTML += `<option value="" disabled>No payment policies found</option>`;
+                }
+                
+                if (policies.shipping && policies.shipping.length > 0) {
+                    policies.shipping.forEach(p => {
+                        const selected = p.name.toUpperCase().includes('PWE') ? 'selected' : '';
+                        shippingSelect.innerHTML += `<option value="${p.id}" ${selected}>${p.name}</option>`;
+                    });
+                    totalPolicies += policies.shipping.length;
+                } else {
+                    shippingSelect.innerHTML += `<option value="" disabled>No shipping policies found</option>`;
+                }
+                
+                if (policies.returns && policies.returns.length > 0) {
+                    policies.returns.forEach(p => {
+                        const selected = !p.accepted ? 'selected' : '';
+                        const label = p.accepted ? p.name : `${p.name} (No Returns)`;
+                        returnSelect.innerHTML += `<option value="${p.id}" ${selected}>${label}</option>`;
+                    });
+                    totalPolicies += policies.returns.length;
+                } else {
+                    returnSelect.innerHTML += `<option value="" disabled>No return policies found</option>`;
+                }
+                
+                if (totalPolicies > 0) {
+                    statusDiv.textContent = `Loaded ${totalPolicies} policies`;
+                    statusDiv.style.color = '#28a745';
+                } else {
+                    statusDiv.textContent = 'No policies found. Check your eBay API setup.';
+                    statusDiv.style.color = '#ffc107';
+                }
+            } catch (error) {
+                console.error('Error loading policies:', error);
+                if (error.name === 'AbortError') {
+                    statusDiv.textContent = 'Request timed out. Check your connection or token.';
+                    statusDiv.style.color = '#ffc107';
+                    showToast('Policy loading timed out. Check your token or try refreshing.', 'error');
+                } else {
+                    statusDiv.textContent = 'Error: ' + error.message;
+                    statusDiv.style.color = '#dc3545';
+                    showToast('Error loading policies: ' + error.message, 'error');
+                }
+            }
+        }
+        
+        function onChecklistTypeChange() {
+            const type = document.getElementById('checklistType').value;
+            const parallelTypeGroup = document.getElementById('parallelTypeGroup');
+            // Show parallel type dropdown for both 'parallels' and 'numbered'
+            if (type === 'parallels' || type === 'numbered') {
+                parallelTypeGroup.style.display = 'block';
+            } else {
+                parallelTypeGroup.style.display = 'none';
+            }
+        }
+        
+        async function fetchChecklist() {
+            const url = document.getElementById('checklistUrl').value.trim();
+            const type = document.getElementById('checklistType').value;
+            const defaultPrice = document.getElementById('defaultPrice').value;
+            const defaultQty = document.getElementById('defaultQty').value;
+            const statusDiv = document.getElementById('fetchStatus');
+            const fetchBtn = document.getElementById('fetchBtn');
+            
+            if (!url) {
+                showToast('Please enter a checklist URL', 'error');
+                return;
+            }
+            
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = 'Fetching...';
+            statusDiv.innerHTML = '<span style="color: #00ffff; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">Fetching checklist... This may take a moment.</span>';
+            
+            try {
+                console.log('[FETCH] ========================================');
+                console.log('[FETCH] Starting fetch checklist');
+                console.log('[FETCH] URL:', url);
+                console.log('[FETCH] Type:', type);
+                console.log('[FETCH] UI Version:', UI_VERSION);
+                console.log('[FETCH] ========================================');
+                
+                // Add cache-busting timestamp
+                const cacheBuster = new Date().getTime();
+                const fetchUrl = `/api/fetch-checklist?t=${cacheBuster}&v=${UI_VERSION}`;
+                console.log('[FETCH] Request URL:', fetchUrl);
+                
+                const response = await fetch(fetchUrl, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0',
+                        'X-UI-Version': UI_VERSION
+                    },
+                    body: JSON.stringify({ url, type, defaultPrice, defaultQty })
+                });
+                
+                console.log('[FETCH] Response status:', response.status);
+                console.log('[FETCH] Response headers:', Object.fromEntries(response.headers.entries()));
+                
+                const result = await response.json();
+                console.log('[FETCH] Response data:', {
+                    success: result.success,
+                    count: result.count,
+                    source: result.source,
+                    version: result.version,
+                    timestamp: result.timestamp
+                });
+                
+                // Log card count - no restrictive validation (prefixed sets like Bowman Draft can have 400+ cards)
+                console.log('[FETCH] Received', result.count, 'cards from parser');
+                
+                console.log('[FETCH] Validation passed - processing', result.count, 'cards');
+                
+                if (result.success) {
+                    // For parallels/#'ed, populate parallel type dropdown
+                    if ((type === 'parallels' || type === 'numbered') && result.parallelTypes && result.parallelTypes.length > 0) {
+                        const parallelTypeSelect = document.getElementById('parallelType');
+                        parallelTypeSelect.innerHTML = '<option value="">All Parallels</option>';
+                        result.parallelTypes.forEach(pt => {
+                            const option = document.createElement('option');
+                            option.value = pt;
+                            option.textContent = pt;
+                            parallelTypeSelect.appendChild(option);
+                        });
+                        document.getElementById('parallelTypeGroup').style.display = 'block';
+                        console.log('[FETCH] Populated', result.parallelTypes.length, 'parallel types');
+                    }
+                    
+                    // Clear existing cards and add fetched ones
+                    cards = [];
+                    result.cards.forEach(card => {
+                        const id = Date.now() + Math.random();
+                        cards.push({
+                            id,
+                            number: card.number,
+                            name: card.name,
+                            team: card.team || '',
+                            price: parseFloat(card.price),
+                            qty: parseInt(card.quantity),
+                            selected: true,
+                            parallelType: card.parallelType || '',
+                            numbering: card.numbering || ''
+                        });
+                    });
+                    
+                    // Update set name if found
+                    if (result.setName) {
+                        document.getElementById('setName').value = result.setName;
+                    }
+                    
+                    // Update description if extracted from checklist page - AUTOMATICALLY
+                    if (result.description) {
+                        const descField = document.getElementById('description');
+                        const statusSpan = document.getElementById('descriptionStatus');
+                        if (descField) {
+                            // Clear any existing content first
+                            descField.value = '';
+                            // Set the extracted description
+                            descField.value = result.description;
+                            // Trigger input event to ensure any listeners are notified
+                            descField.dispatchEvent(new Event('input', { bubbles: true }));
+                            descField.dispatchEvent(new Event('change', { bubbles: true }));
+                            
+                            // Update status indicator
+                            if (statusSpan) {
+                                statusSpan.textContent = '✅ Auto-filled from checklist';
+                                statusSpan.style.color = '#00ff00';
+                                statusSpan.style.textShadow = '0 0 10px rgba(0, 255, 0, 0.8)';
+                                setTimeout(() => {
+                                    statusSpan.textContent = '';
+                                }, 8000);
+                            }
+                            
+                            showToast('✅ Description automatically extracted and filled!', 'success');
+                            console.log('[AUTO-FILL] ✅ Description auto-filled successfully');
+                            console.log('[AUTO-FILL] Description length:', result.description.length);
+                            console.log('[AUTO-FILL] Description preview:', result.description.substring(0, 150) + '...');
+                        } else {
+                            console.error('[ERROR] ❌ Description field not found!');
+                            showToast('Description extracted but field not found', 'error');
+                        }
+                    } else {
+                        // Clear status if no description
+                        const statusSpan = document.getElementById('descriptionStatus');
+                        if (statusSpan) {
+                            statusSpan.textContent = '';
+                        }
+                        console.log('[AUTO-FILL] ⚠️ No description in response');
+                    }
+                    
+                    renderCards();
+                    
+                    // Show search bar when cards are loaded
+                    const searchContainer = document.getElementById('cardSearchContainer');
+                    if (searchContainer && result.count > 0) {
+                        searchContainer.style.display = 'block';
+                    }
+                    
+                    statusDiv.innerHTML = `<span style="color: #00ff00;">Found ${result.count} cards from ${result.source}</span>`;
+                    showToast(`Loaded ${result.count} cards!`, 'success');
+                } else {
+                    // CRITICAL: Clear cards array on error to prevent showing old/cached data
+                    cards = [];
+                    renderCards();
+                    statusDiv.innerHTML = `<span style="color: #dc3545;">${result.error}</span>`;
+                    showToast(result.error, 'error');
+                }
+            } catch (error) {
+                // CRITICAL: Clear cards on error to prevent showing old/cached data
+                cards = [];
+                renderCards();
+                statusDiv.innerHTML = `<span style="color: #dc3545;">Error: ${error.message}</span>`;
+                showToast('Fetch failed: ' + error.message, 'error');
+            } finally {
+                fetchBtn.disabled = false;
+                fetchBtn.textContent = 'Fetch Checklist';
+            }
+        }
+        
+        function addCard(number = '', name = '', price = '1.00', qty = '0', team = '') {
+            const id = Date.now() + Math.random();
+            cards.push({ id, number, name, team, price: parseFloat(price), qty: parseInt(qty) || 0, selected: true });
+            renderCards();
+        }
+        
+        function removeCard(id) {
+            cards = cards.filter(c => c.id !== id);
+            renderCards();
+        }
+        
+        function updateCard(id, field, value) {
+            const card = cards.find(c => c.id === id);
+            if (card) {
+                if (field === 'price') value = parseFloat(value) || 0;
+                if (field === 'qty') value = parseInt(value) || 0; // Allow 0, don't default to 1
+                if (field === 'selected') value = Boolean(value);
+                card[field] = value;
+                
+                // Re-render to update visual styling for zero qty
+                if (field === 'qty') {
+                    renderCards();
+                    // Re-apply filters if zero qty filter is active
+                    if (hideZeroQty) {
+                        applyZeroQtyFilter();
+                    }
+                } else {
+                    updateSummary();
+                }
+            }
+        }
+        
+        function toggleSelectAll(checked) {
+            cards.forEach(c => c.selected = checked);
+            renderCards();
+        }
+        
+        function selectAll() {
+            cards.forEach(c => c.selected = true);
+            renderCards();
+        }
+        
+        function deselectAll() {
+            cards.forEach(c => c.selected = false);
+            renderCards();
+        }
+        
+        function clearCards() {
+            if (confirm('Clear all cards?')) {
+                cards = [];
+                renderCards();
+                // Hide search bar when cards are cleared
+                const searchContainer = document.getElementById('cardSearchContainer');
+                if (searchContainer) {
+                    searchContainer.style.display = 'none';
+                }
+                // Clear search input
+                const searchInput = document.getElementById('cardSearch');
+                if (searchInput) {
+                    searchInput.value = '';
+                }
+            }
+        }
+        
+        function filterCards() {
+            const searchInput = document.getElementById('cardSearch');
+            const clearBtn = document.getElementById('clearSearchBtn');
+            const resultCount = document.getElementById('searchResultCount');
+            
+            if (!searchInput) return;
+            
+            const search = searchInput.value.toLowerCase().trim();
+            const rows = document.querySelectorAll('#cardsBody tr');
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                // Get card number and name from the row
+                const numberInput = row.querySelector('.num-input');
+                const nameInput = row.querySelector('td:nth-child(3) input');
+                
+                const cardNumber = numberInput ? numberInput.value.toLowerCase().trim() : '';
+                const cardName = nameInput ? nameInput.value.toLowerCase().trim() : '';
+                
+                // Search in both card number and name (case-insensitive, partial match)
+                const matchesSearch = !search || 
+                    cardNumber.includes(search) || 
+                    cardName.includes(search);
+                
+                // Also check zero qty filter
+                const qtyInput = row.querySelector('.qty-input');
+                let matchesZeroQtyFilter = true;
+                if (hideZeroQty && qtyInput) {
+                    const qty = parseInt(qtyInput.value) || 0;
+                    matchesZeroQtyFilter = qty > 0;
+                }
+                
+                const shouldShow = matchesSearch && matchesZeroQtyFilter;
+                row.style.display = shouldShow ? '' : 'none';
+                if (shouldShow) visibleCount++;
+            });
+            
+            // Update clear button visibility
+            if (clearBtn) {
+                clearBtn.style.display = search ? 'block' : 'none';
+            }
+            
+            // Update result count
+            if (resultCount) {
+                if (search) {
+                    resultCount.textContent = `Showing ${visibleCount} of ${rows.length} cards`;
+                } else {
+                    resultCount.textContent = '';
+                }
+            }
+        }
+        
+        function clearSearch() {
+            const searchInput = document.getElementById('cardSearch');
+            if (searchInput) {
+                searchInput.value = '';
+                filterCards();
+                searchInput.focus();
+            }
+        }
+        
+        function renderCards() {
+            const tbody = document.getElementById('cardsBody');
+            if (!tbody) return;
+            
+            // Show/hide search bar based on whether we have cards
+            const searchContainer = document.getElementById('cardSearchContainer');
+            if (searchContainer) {
+                searchContainer.style.display = cards.length > 0 ? 'block' : 'none';
+            }
+            
+            tbody.innerHTML = cards.map(card => {
+                const qty = parseInt(card.qty) || 0;
+                const isZeroQty = qty === 0;
+                const rowStyle = isZeroQty ? 'opacity: 0.5; background: rgba(255,255,255,0.02);' : '';
+                const qtyStyle = isZeroQty ? 'border-color: rgba(255, 193, 7, 0.5); background: rgba(255, 193, 7, 0.1);' : '';
+                return `
+                <tr data-id="${card.id}" style="${rowStyle}">
+                    <td><input type="checkbox" ${card.selected ? 'checked' : ''} onchange="updateCard(${card.id}, 'selected', this.checked)"></td>
+                    <td><input type="text" class="num-input" value="${card.number}" onchange="updateCard(${card.id}, 'number', this.value)" placeholder="#" style="width: 100px; min-width: 100px;"></td>
+                    <td><input type="text" value="${card.name}" onchange="updateCard(${card.id}, 'name', this.value)" placeholder="Player Name" style="width: 170px; max-width: 170px;"></td>
+                    <td><input type="text" value="${card.team || ''}" onchange="updateCard(${card.id}, 'team', this.value)" placeholder="Team" style="width: 190px; min-width: 190px;"></td>
+                    <td><input type="number" class="price-input" value="${card.price}" step="0.25" min="0" onchange="updateCard(${card.id}, 'price', this.value)" style="width: 70px;"></td>
+                    <td><input type="number" class="qty-input" value="${card.qty}" min="0" onchange="updateCard(${card.id}, 'qty', this.value)" style="width: 50px; ${qtyStyle}" title="${isZeroQty ? 'Quantity 0 - will be excluded from listing' : ''}"></td>
+                    <td><button class="remove-btn" onclick="removeCard(${card.id})" style="padding: 4px 8px;">X</button></td>
+                </tr>
+            `;
+            }).join('');
+            updateSummary();
+        }
+        
+        function updateSummary() {
+            const selectedCards = cards.filter(c => c.selected);
+            // Only count cards with quantity > 0 for listing
+            const validSelectedCards = selectedCards.filter(c => c.qty > 0);
+            const total = selectedCards.length;
+            const validTotal = validSelectedCards.length;
+            const value = validSelectedCards.reduce((sum, c) => sum + (c.price * c.qty), 0);
+            const totalQty = validSelectedCards.reduce((sum, c) => sum + (parseInt(c.qty) || 0), 0);
+            const avg = validTotal > 0 ? value / validTotal : 0;
+            
+            // Update old summary (if exists)
+            const oldTotalCards = document.getElementById('totalCards');
+            const oldTotalValue = document.getElementById('totalValue');
+            const oldAvgPrice = document.getElementById('avgPrice');
+            if (oldTotalCards) oldTotalCards.textContent = `${validTotal} / ${cards.length} (${total} selected)`;
+            if (oldTotalValue) oldTotalValue.textContent = `$${value.toFixed(2)}`;
+            if (oldAvgPrice) oldAvgPrice.textContent = `$${avg.toFixed(2)}`;
+            
+            // Update new stats display (only count cards with qty > 0)
+            const statTotalCards = document.getElementById('statTotalCards');
+            const statSelected = document.getElementById('statSelected');
+            const statTotalValue = document.getElementById('statTotalValue');
+            const statTotalQty = document.getElementById('statTotalQty');
+            if (statTotalCards) statTotalCards.textContent = cards.length;
+            if (statSelected) {
+                const zeroQtyCount = total - validTotal;
+                statSelected.textContent = `${validTotal}${zeroQtyCount > 0 ? `/${total}` : ''}`;
+                statSelected.title = `${validTotal} cards with quantity > 0 will be listed${zeroQtyCount > 0 ? ` (${zeroQtyCount} with qty=0 will be excluded)` : ''}`;
+            }
+            if (statTotalValue) statTotalValue.textContent = `$${value.toFixed(2)}`;
+            if (statTotalQty) statTotalQty.textContent = totalQty;
+        }
+        
+        function showBulkEdit() {
+            const selected = cards.filter(c => c.selected);
+            if (selected.length === 0) {
+                showToast('Select cards to edit', 'error');
+                return;
+            }
+            const modal = document.getElementById('bulkEditModal');
+            modal.style.display = 'flex';
+            document.getElementById('bulkPrice').value = '';
+            document.getElementById('bulkQty').value = '';
+        }
+        
+        function hideBulkEdit() {
+            document.getElementById('bulkEditModal').style.display = 'none';
+        }
+        
+        function showCSVImport() {
+            const modal = document.getElementById('importCSVModal');
+            modal.style.display = 'flex';
+            document.getElementById('csvInput').value = '';
+        }
+        
+        function hideCSVImport() {
+            document.getElementById('importCSVModal').style.display = 'none';
+        }
+        
+        function showKeyboardShortcuts() {
+            document.getElementById('shortcutsModal').style.display = 'flex';
+        }
+        
+        function hideKeyboardShortcuts() {
+            document.getElementById('shortcutsModal').style.display = 'none';
+        }
+        
+        async function verifyDraft(groupKey) {
+            const statusDiv = document.getElementById('verifyStatus');
+            if (!statusDiv) return; // Status div might not exist if result was cleared
+            
+            statusDiv.textContent = 'Verifying...';
+            statusDiv.style.color = '#00d4ff';
+            
+            try {
+                const response = await fetch('/api/verify-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ groupKey: groupKey })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    let statusHtml = `<strong style="color: #28a745;">✓ Verified:</strong> `;
+                    statusHtml += `Group exists with ${result.totalVariants} variants. `;
+                    statusHtml += `${result.publishedOffers} published, ${result.draftOffers} drafts.`;
+                    
+                    if (result.draftOffers > 0 && result.publishedOffers === 0) {
+                        statusHtml += `<br><span style="color: #ffc107; margin-top: 5px; display: block;">⚠️ Offers are in draft state. They may not appear in Seller Hub until published.</span>`;
+                    }
+                    
+                    statusDiv.innerHTML = statusHtml;
+                    statusDiv.style.color = '#28a745';
+                } else {
+                    statusDiv.textContent = `✗ Error: ${result.error}`;
+                    statusDiv.style.color = '#dc3545';
+                }
+            } catch (error) {
+                statusDiv.textContent = `✗ Error: ${error.message}`;
+                statusDiv.style.color = '#dc3545';
+            }
+        }
+        
+        function applyBulkEdit() {
+            const selected = cards.filter(c => c.selected);
+            if (selected.length === 0) {
+                showToast('No cards selected', 'error');
+                return;
+            }
+            
+            const priceInput = document.getElementById('bulkPrice').value.trim();
+            const qtyInput = document.getElementById('bulkQty').value.trim();
+            
+            let updated = 0;
+            selected.forEach(card => {
+                if (priceInput) {
+                    card.price = parseFloat(priceInput) || 0;
+                    updated++;
+                }
+                if (qtyInput) {
+                    card.qty = parseInt(qtyInput) || 0;
+                    updated++;
+                }
+            });
+            
+            renderCards();
+            hideBulkEdit();
+            showToast(`Updated ${selected.length} card(s)`, 'success');
+        }
+        
+        function exportCSV() {
+            if (cards.length === 0) {
+                showToast('No cards to export', 'error');
+                return;
+            }
+            
+            const headers = ['Number', 'Name', 'Price', 'Quantity', 'Team'];
+            const rows = cards.map(c => [
+                c.number || '',
+                c.name || '',
+                c.price || 0,
+                c.qty || 0,
+                c.team || ''
+            ]);
+            
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            
+            // Download CSV
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cards_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showToast(`Exported ${cards.length} cards to CSV`, 'success');
+        }
+        
+        function importCSV() {
+            showCSVImport();
+        }
+        
+        function processCSVImport() {
+            const input = document.getElementById('csvInput').value.trim();
+            if (!input) {
+                showToast('Please paste CSV data', 'error');
+                return;
+            }
+            
+            const lines = input.split('\n').filter(line => line.trim());
+            let added = 0;
+            let errors = 0;
+            
+            lines.forEach((line, index) => {
+                const parts = line.split(',').map(p => p.trim());
+                if (parts.length >= 2) {
+                    const number = parts[0];
+                    const name = parts[1];
+                    const price = parseFloat(parts[2]) || 1.00;
+                    const qty = parseInt(parts[3]) || 0;
+                    const team = parts[4] || '';
+                    
+                    addCard(number, name, price, qty, team);
+                    added++;
+                } else {
+                    errors++;
+                }
+            });
+            
+            hideCSVImport();
+            if (added > 0) {
+                showToast(`Imported ${added} card(s)${errors > 0 ? ` (${errors} skipped)` : ''}`, 'success');
+            } else {
+                showToast('No valid cards found in CSV', 'error');
+            }
+        }
+        
+        function saveTemplate() {
+            const template = {
+                setName: document.getElementById('setName').value,
+                description: document.getElementById('description').value,
+                imageUrl: document.getElementById('imageUrl').value,
+                cards: cards,
+                timestamp: new Date().toISOString()
+            };
+            
+            const json = JSON.stringify(template, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `template_${template.setName.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showToast('Template saved!', 'success');
+        }
+        
+        function loadTemplate() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const template = JSON.parse(event.target.result);
+                        
+                        if (template.setName) document.getElementById('setName').value = template.setName;
+                        if (template.description) document.getElementById('description').value = template.description;
+                        if (template.imageUrl) document.getElementById('imageUrl').value = template.imageUrl;
+                        
+                        if (template.cards && Array.isArray(template.cards)) {
+                            if (confirm(`Load ${template.cards.length} cards? This will replace your current cards.`)) {
+                                cards = template.cards.map(c => ({
+                                    ...c,
+                                    id: Date.now() + Math.random() + Math.random() // Ensure unique IDs
+                                }));
+                                renderCards();
+                                showToast(`Loaded ${cards.length} cards from template`, 'success');
+                            }
+                        } else {
+                            showToast('Invalid template format', 'error');
+                        }
+                    } catch (error) {
+                        showToast('Error loading template: ' + error.message, 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        
+        function duplicateSelected() {
+            const selected = cards.filter(c => c.selected);
+            if (selected.length === 0) {
+                showToast('Select cards to duplicate', 'error');
+                return;
+            }
+            
+            selected.forEach(card => {
+                addCard(card.number, card.name, card.price, card.qty, card.team);
+            });
+            
+            showToast(`Duplicated ${selected.length} card(s)`, 'success');
+        }
+        
+        function sortCards(sortBy) {
+            if (!sortBy) return;
+            
+            switch(sortBy) {
+                case 'number':
+                    cards.sort((a, b) => {
+                        const numA = parseInt(a.number) || 0;
+                        const numB = parseInt(b.number) || 0;
+                        return numA - numB;
+                    });
+                    break;
+                case 'name':
+                    cards.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                    break;
+                case 'price-high':
+                    cards.sort((a, b) => (b.price || 0) - (a.price || 0));
+                    break;
+                case 'price-low':
+                    cards.sort((a, b) => (a.price || 0) - (b.price || 0));
+                    break;
+                case 'qty':
+                    cards.sort((a, b) => (b.qty || 0) - (a.qty || 0));
+                    break;
+            }
+            renderCards();
+            showToast(`Sorted by ${sortBy}`, 'success');
+        }
+        
+        let hideZeroQty = false;
+        
+        function toggleZeroQtyFilter() {
+            hideZeroQty = !hideZeroQty;
+            const btn = document.getElementById('zeroQtyFilterBtn');
+            btn.textContent = hideZeroQty ? '🔍 Show Qty=0' : '🔍 Hide Qty=0';
+            filterCards(); // Re-apply search filter which will also apply zero qty filter
+            applyZeroQtyFilter();
+        }
+        
+        function applyZeroQtyFilter() {
+            const rows = document.querySelectorAll('#cardsBody tr');
+            rows.forEach(row => {
+                const qtyInput = row.querySelector('.qty-input');
+                if (qtyInput) {
+                    const qty = parseInt(qtyInput.value) || 0;
+                    if (hideZeroQty && qty === 0) {
+                        row.style.display = 'none';
+                    } else {
+                        row.style.display = '';
+                    }
+                }
+            });
+        }
+        
+        function validateCards() {
+            const issues = [];
+            const selected = cards.filter(c => c.selected);
+            const cardsToCheck = selected.length > 0 ? selected : cards;
+            
+            // Only validate cards that will actually be listed (qty > 0)
+            const validCardsToCheck = cardsToCheck.filter(c => c.qty > 0);
+            
+            validCardsToCheck.forEach((card, index) => {
+                if (!card.number || card.number.trim() === '') {
+                    issues.push(`Card ${index + 1}: Missing card number`);
+                }
+                if (!card.name || card.name.trim() === '') {
+                    issues.push(`Card ${index + 1}: Missing name`);
+                }
+                if (!card.price || card.price <= 0) {
+                    issues.push(`Card ${index + 1} (${card.name || 'Unknown'}): Price is $0 or missing`);
+                }
+                if (card.qty === undefined || card.qty < 0) {
+                    issues.push(`Card ${index + 1} (${card.name || 'Unknown'}): Invalid quantity`);
+                }
+            });
+            
+            const zeroQtyCount = cardsToCheck.filter(c => (c.qty || 0) === 0).length;
+            const infoMsg = zeroQtyCount > 0 ? ` (${zeroQtyCount} card(s) with qty=0 will be excluded from listing)` : '';
+            
+            if (issues.length === 0) {
+                showToast(`✓ All ${validCardsToCheck.length} valid card(s) are ready!${infoMsg}`, 'success');
+            } else {
+                const message = `Found ${issues.length} issue(s):\n\n` + issues.slice(0, 10).join('\n') + (issues.length > 10 ? `\n...and ${issues.length - 10} more` : '') + infoMsg;
+                alert(message);
+                showToast(`Found ${issues.length} validation issue(s)${infoMsg}`, 'error');
+            }
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Don't trigger shortcuts when typing in inputs
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+                // Allow Ctrl+A for select all in inputs
+                if ((e.ctrlKey || e.metaKey) && e.key === 'a' && document.activeElement.tagName === 'INPUT') {
+                    return; // Let default behavior work
+                }
+                return;
+            }
+            
+            // Ctrl/Cmd + S to save template
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveTemplate();
+            }
+            // Ctrl/Cmd + O to load template
+            if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+                e.preventDefault();
+                loadTemplate();
+            }
+            // Ctrl/Cmd + E to export CSV
+            if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+                e.preventDefault();
+                exportCSV();
+            }
+            // Ctrl/Cmd + A to select all cards
+            if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+                e.preventDefault();
+                selectAll();
+            }
+            // Delete key to remove selected cards
+            if (e.key === 'Delete') {
+                const selected = cards.filter(c => c.selected);
+                if (selected.length > 0 && confirm(`Delete ${selected.length} selected card(s)?`)) {
+                    cards = cards.filter(c => !c.selected);
+                    renderCards();
+                    showToast(`Deleted ${selected.length} card(s)`, 'success');
+                }
+            }
+        });
+        
+        function bulkAddCards() {
+            const input = document.getElementById('bulkInput').value;
+            const lines = input.split('\n').filter(line => line.trim());
+            
+            lines.forEach(line => {
+                const parts = line.split(',').map(p => p.trim());
+                if (parts.length >= 2) {
+                    const number = parts[0];
+                    const name = parts[1];
+                    const price = parts[2] || '1.00';
+                    const qty = parts[3] || '0';
+                    addCard(number, name, price, qty);
+                }
+            });
+            
+            document.getElementById('bulkInput').value = '';
+            showToast(`Added ${lines.length} cards`, 'success');
+        }
+        
+        async function createListing() {
+            // Always publish live - eBay Inventory API doesn't support visible drafts
+            const selectedCards = cards.filter(c => c.selected);
+            
+            if (selectedCards.length === 0) {
+                showToast('Select at least one card', 'error');
+                return;
+            }
+            
+            // Only include cards with quantity > 0 (cards with qty=0 are automatically excluded)
+            const validCards = selectedCards.filter(c => c.name && c.number && c.qty > 0);
+            const zeroQtyCards = selectedCards.filter(c => (c.qty || 0) === 0);
+            
+            if (validCards.length === 0) {
+                showToast('No cards with quantity > 0 selected. Cards with quantity 0 are excluded from listings.', 'error');
+                return;
+            }
+            
+            if (zeroQtyCards.length > 0) {
+                const message = `${zeroQtyCards.length} selected card(s) have quantity 0 and will be excluded from the listing. Continue with ${validCards.length} card(s)?`;
+                if (!confirm(message)) {
+                    return;
+                }
+            }
+            
+            // Show loading immediately
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('result').classList.remove('show');
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result show';
+            resultDiv.innerHTML = '<h3>⏳ Creating listing...</h3><p>Please wait while we create your listing on eBay.</p>';
+            
+            const data = {
+                setName: document.getElementById('setName').value,
+                description: document.getElementById('description').value,
+                imageUrl: document.getElementById('imageUrl').value,
+                cards: validCards.map(c => ({
+                    number: c.number,
+                    name: c.name,
+                    price: c.price,
+                    quantity: c.qty
+                })),
+                paymentPolicyId: document.getElementById('paymentPolicy').value,
+                shippingPolicyId: document.getElementById('shippingPolicy').value,
+                returnPolicyId: document.getElementById('returnPolicy').value,
+                publish: true  // Always publish live
+            };
+            
+            // Calculate summary stats from the cards being sent (for display in result)
+            let totalQuantity = 0;
+            let totalValue = 0;
+            let cardCount = 0;
+            data.cards.forEach(card => {
+                const qty = parseInt(card.quantity) || 0;
+                const price = parseFloat(card.price) || 0;
+                if (qty > 0) {
+                    totalQuantity += qty;
+                    totalValue += price * qty;
+                    cardCount++;
+                }
+            });
+            const avgPrice = totalQuantity > 0 ? totalValue / totalQuantity : 0;
+            
+            // DEBUG: Log what we're sending
+            console.log('[DEBUG] ========== SENDING REQUEST ==========');
+            console.log('[DEBUG] publish: true (always live)');
+            console.log('[DEBUG] Summary: Cards=' + cardCount + ', Qty=' + totalQuantity + ', Avg=$' + avgPrice.toFixed(2));
+            console.log('[DEBUG] Full data:', JSON.stringify(data, null, 2));
+            console.log('[DEBUG] ======================================');
+            
+            try {
+                const response = await fetch('/api/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                // DEBUG: Log response
+                console.log('[DEBUG] Response status:', response.status);
+                console.log('[DEBUG] Response ok:', response.ok);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[ERROR] Response not OK:', response.status, errorText);
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        console.error('[ERROR] Error JSON:', errorJson);
+                    } catch (e) {
+                        console.error('[ERROR] Error text (not JSON):', errorText);
+                    }
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('[DEBUG] ========== RECEIVED RESPONSE ==========');
+                console.log('[DEBUG] result.status:', result.status);
+                console.log('[DEBUG] result.scheduled:', result.scheduled);
+                console.log('[DEBUG] result.sellerHubScheduled:', result.sellerHubScheduled);
+                console.log('[DEBUG] result.message:', result.message);
+                console.log('[DEBUG] result.success:', result.success);
+                console.log('[DEBUG] result.error:', result.error);
+                console.log('[DEBUG] Full result:', JSON.stringify(result, null, 2));
+                console.log('[DEBUG] =======================================');
+                
+                // Summary stats are already calculated above from data.cards
+                // (totalQuantity, totalValue, cardCount, avgPrice are in scope)
+                
+                // Check if there's an error in the result
+                if (result.error) {
+                    console.error('[ERROR] Result contains error:', result.error);
+                    console.error('[ERROR] Error code:', result.error_code);
+                    console.error('[ERROR] Action required:', result.action_required);
+                    
+                    // Show error in UI immediately
+                    document.getElementById('loading').classList.remove('show');
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.className = 'result show error';
+                    
+                    let errorHtml = `<h3>❌ Error Creating Listing</h3>`;
+                    errorHtml += `<p style="color: #dc3545; font-weight: 600;">${result.error}</p>`;
+                    
+                    if (result.error_code === '25007') {
+                        errorHtml += `<div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">`;
+                        errorHtml += `<p style="color: #ffc107; font-weight: 600; margin-bottom: 10px;">⚠️ Fulfillment Policy Issue</p>`;
+                        errorHtml += `<p style="color: #ccc; line-height: 1.6;">Your fulfillment policy is missing shipping service options.</p>`;
+                        errorHtml += `<p style="color: #ccc; margin-top: 10px;"><strong>To fix:</strong></p>`;
+                        errorHtml += `<ol style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">`;
+                        errorHtml += `<li>Go to <a href="https://www.ebay.com/sh/account/policies" target="_blank" style="color: #00d4ff;">eBay Seller Hub > Business Policies</a></li>`;
+                        errorHtml += `<li>Find your fulfillment policy (the one you selected in Step 3)</li>`;
+                        errorHtml += `<li>Edit the policy and add at least one shipping service (e.g., USPS First Class)</li>`;
+                        errorHtml += `<li>Save the policy</li>`;
+                        errorHtml += `<li>Try creating the listing again</li>`;
+                        errorHtml += `</ol>`;
+                        errorHtml += `</div>`;
+                    }
+                    
+                    if (result.group_key) {
+                        errorHtml += `<p style="color: #888; font-size: 0.9rem; margin-top: 15px;"><strong>Group Key:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">${result.group_key}</code></p>`;
+                    }
+                    
+                    resultDiv.innerHTML = errorHtml;
+                    showToast(result.error, 'error');
+                    throw new Error(result.error);
+                }
+                
+                document.getElementById('loading').classList.remove('show');
+                
+                const resultDiv = document.getElementById('result');
+                
+                if (false) {  // Removed scheduled draft support
+                    resultDiv.className = 'result show success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Scheduled Listing Created!</h3>
+                        <p style="font-size: 1.1rem; margin: 15px 0;"><strong>${result.cardsCreated} cards</strong> scheduled</p>
+                        <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
+                            <p style="color: #28a745; font-weight: 600; margin-bottom: 10px;">✅ Success! Your listing will appear in Seller Hub</p>
+                            <p style="color: #ccc; line-height: 1.6; margin-bottom: 10px;">
+                                Your listing is scheduled and will appear in <strong>Seller Hub</strong> where you can:
+                            </p>
+                            <ul style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">
+                                <li>✅ Edit the listing before it goes live</li>
+                                <li>✅ Add or change images</li>
+                                <li>✅ Modify description, price, or other details</li>
+                                <li>✅ Publish immediately or let it go live at scheduled time</li>
+                            </ul>
+                            <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">
+                                <strong>Note:</strong> It may take 1-2 minutes to appear in Seller Hub. Look in "Scheduled" or "Active Listings" section.
+                            </p>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-top: 15px;">
+                            <p style="color: #888; font-size: 0.85rem; margin: 5px 0;"><strong>Group Key:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${result.groupKey}</code></p>
+                            ${result.note ? `<p style="color: #28a745; font-size: 0.85rem; margin-top: 8px;">${result.note}</p>` : ''}
+                        </div>
+                        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
+                            <p style="color: #00d4ff; font-weight: 600; margin-bottom: 10px; text-align: center;">📊 Listing Summary</p>
+                            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Cards Listed</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Total Quantity</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Avg Price</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <a href="${result.sellerHubScheduled || result.sellerHubActive || 'https://www.ebay.com/sh/account/listings'}" target="_blank" style="padding: 10px 20px; background: rgba(40, 167, 69, 0.2); color: #28a745; border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 6px; text-decoration: none;">📅 View Scheduled Listings</a>
+                            <a href="${result.sellerHubActive || 'https://www.ebay.com/sh/account/listings?status=ACTIVE'}" target="_blank" style="padding: 10px 20px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; text-decoration: none;">📋 View Active Listings</a>
+                        </div>
+                    `;
+                } else if (result.status === 'scheduled' || result.scheduled) {
+                    // SCHEDULED DRAFT - Show scheduled listing message
+                    console.log('[DEBUG] Showing scheduled listing result');
+                    resultDiv.className = 'result show success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Scheduled Listing Created!</h3>
+                        <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
+                            <p style="color: #28a745; font-weight: 600; margin-bottom: 10px;">Your listing is scheduled and will appear in Seller Hub</p>
+                            <p style="color: #ccc; line-height: 1.6; margin-bottom: 10px;">
+                                Your listing is saved as a <strong>scheduled listing</strong> in <strong>Seller Hub > Scheduled Listings</strong> where you can:
+                            </p>
+                            <ul style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">
+                                <li>✅ Edit the listing before it goes live</li>
+                                <li>✅ Add or change photos</li>
+                                <li>✅ Modify description, price, or other details</li>
+                                <li>✅ Publish immediately or let it go live at scheduled time</li>
+                            </ul>
+                            <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">
+                                <strong>Note:</strong> It may take 1-2 minutes to appear in Seller Hub. Look in "Scheduled Listings" section.
+                            </p>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-top: 15px;">
+                            <p style="color: #888; font-size: 0.85rem; margin: 5px 0;"><strong>Group Key:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${result.groupKey}</code></p>
+                            <p style="color: #888; font-size: 0.85rem; margin: 5px 0;"><strong>Cards:</strong> ${result.cardsCreated} cards scheduled</p>
+                            ${result.note ? `<p style="color: #28a745; font-size: 0.85rem; margin-top: 8px;">${result.note}</p>` : ''}
+                            ${result.verificationStatus ? `<p style="color: ${result.verificationStatus === 'success' ? '#28a745' : '#ffc107'}; font-size: 0.85rem; margin-top: 8px;">Verification: ${result.verificationStatus}</p>` : ''}
+                        </div>
+                        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
+                            <p style="color: #00d4ff; font-weight: 600; margin-bottom: 10px; text-align: center;">📊 Listing Summary</p>
+                            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Cards Listed</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Total Quantity</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Avg Price</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <a href="${result.sellerHubScheduled || 'https://www.ebay.com/sh/lst/scheduled'}" target="_blank" style="padding: 10px 20px; background: rgba(40, 167, 69, 0.2); color: #28a745; border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 6px; text-decoration: none;">📅 View Scheduled Listings</a>
+                            <a href="${result.sellerHubActive || 'https://www.ebay.com/sh/account/listings?status=ACTIVE'}" target="_blank" style="padding: 10px 20px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; text-decoration: none;">📋 View Active Listings</a>
+                        </div>
+                    `;
+                } else if (result.status === 'published' || result.success) {
+                    console.log('[DEBUG] Showing published listing result');
+                    resultDiv.className = 'result show success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Listing Published!</h3>
+                        <p style="font-size: 1.1rem; margin: 15px 0; color: #28a745; font-weight: 600;">Your listing is now LIVE on eBay</p>
+                        <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
+                            <p style="color: #28a745; font-weight: 600; margin-bottom: 10px;">✏️ You Can Edit This Listing</p>
+                            <p style="color: #ccc; line-height: 1.6; margin-bottom: 10px;">
+                                Your listing is now in <strong>Active Listings</strong> in Seller Hub. You can:
+                            </p>
+                            <ul style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">
+                                <li>✅ Edit title, description, or prices</li>
+                                <li>✅ Add or change images</li>
+                                <li>✅ Modify quantities or other details</li>
+                                <li>✅ End the listing early if needed</li>
+                            </ul>
+                            <p style="color: #ffc107; font-weight: 600; margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255, 193, 7, 0.3);">
+                                ⚠️ Please check everything over in Seller Hub to make sure it's correct!
+                            </p>
+                        </div>
+                        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
+                            <p style="color: #00d4ff; font-weight: 600; margin-bottom: 10px; text-align: center;">📊 Listing Summary</p>
+                            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Cards Listed</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Total Quantity</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Avg Price</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <a href="${result.sellerHubActive || result.listingUrl || 'https://www.ebay.com/sh/account/listings?status=ACTIVE'}" target="_blank" style="padding: 12px 24px; background: rgba(40, 167, 69, 0.2); color: #28a745; border: 2px solid rgba(40, 167, 69, 0.5); border-radius: 6px; text-decoration: none; font-weight: 600;">✏️ Edit in Active Listings</a>
+                            ${result.listingUrl ? `<a href="${result.listingUrl}" target="_blank" style="padding: 12px 24px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 2px solid rgba(0, 212, 255, 0.5); border-radius: 6px; text-decoration: none; font-weight: 600;">🔗 View on eBay</a>` : ''}
+                        </div>
+                        <p style="margin-top: 15px; color: #888; text-align: center; font-size: 0.9rem;">
+                            Group Key: <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${result.groupKey || 'N/A'}</code>
+                        </p>
+                    `;
+                } else if (result.status === 'draft' || result.draft) {
+                    resultDiv.className = 'result show success';
+                    const instructions = result.instructions || [];
+                    resultDiv.innerHTML = `
+                        <h3>✅ Draft Created!</h3>
+                        <p style="font-size: 1.1rem; margin: 15px 0;"><strong>${result.cardsCreated} cards</strong> ready to publish</p>
+                        <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
+                            <p style="color: #ffc107; font-weight: 600; margin-bottom: 10px;">⚠️ Important: Finding Your Draft</p>
+                            <p style="color: #ccc; line-height: 1.6; margin-bottom: 10px;">
+                                Drafts created via Inventory API may <strong>NOT appear in the "Drafts" section</strong>. 
+                                Instead, check these locations:
+                            </p>
+                            <ul style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">
+                                <li><strong>1. "Unsold" tab</strong> - Most common location for draft offers</li>
+                                <li><strong>2. "Active Listings" tab</strong> - Sometimes appears here</li>
+                                <li><strong>3. Search by Group Key</strong> - Use the key below to search</li>
+                            </ul>
+                            <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">
+                                <strong>Note:</strong> It may take 1-2 minutes to appear. If not found, the offers exist but may need to be published to become visible listings.
+                            </p>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-top: 15px;">
+                            <p style="color: #888; font-size: 0.85rem; margin: 5px 0;"><strong>Group Key:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${result.groupKey}</code></p>
+                            <button onclick="verifyDraft('${result.groupKey}')" style="margin-top: 10px; padding: 8px 16px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; cursor: pointer; font-size: 0.9rem;">🔍 Verify Draft Status</button>
+                            <div id="verifyStatus" style="margin-top: 10px; color: #888; font-size: 0.85rem;"></div>
+                        </div>
+                        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
+                            <p style="color: #00d4ff; font-weight: 600; margin-bottom: 10px; text-align: center;">📊 Listing Summary</p>
+                            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Cards Listed</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Total Quantity</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
+                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Avg Price</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <a href="${result.sellerHubUnsold || 'https://www.ebay.com/sh/account/listings?status=UNSOLD'}" target="_blank" style="padding: 10px 20px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; text-decoration: none;">🔍 View Unsold Listings</a>
+                            <a href="${result.sellerHubActive || 'https://www.ebay.com/sh/account/listings?status=ACTIVE'}" target="_blank" style="padding: 10px 20px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; text-decoration: none;">📋 View Active Listings</a>
+                        </div>
+                    `;
+                } else if (result.status === 'ready') {
+                    resultDiv.className = 'result show success';
+                    resultDiv.innerHTML = `
+                        <h3>Draft Created!</h3>
+                        <p>${result.cardsCreated} cards ready to publish</p>
+                        <p style="color: #888;">Group Key: ${result.groupKey}</p>
+                        <p style="color: #ffc107; margin-top: 10px; font-size: 0.9rem;">Check Seller Hub > Unsold or Active Listings. Drafts may take 1-2 minutes to appear.</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result show error';
+                    resultDiv.innerHTML = `
+                        <h3>Error</h3>
+                        <p>${result.error || result.publishError || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('loading').classList.remove('show');
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Removed saveDraft() and saveScheduledDraft() - eBay Inventory API doesn't support visible drafts
+        
+        function publishListing() {
+            if (confirm('⚠️ This will publish your listing LIVE on eBay immediately and use listing credits.\n\nContinue?')) {
+                createListing();
+            }
+        }
+        
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function showTokenForm() {
+            document.getElementById('tokenForm').style.display = 'block';
+            document.getElementById('tokenInput').focus();
+        }
+        
+        function hideTokenForm() {
+            document.getElementById('tokenForm').style.display = 'none';
+            document.getElementById('tokenInput').value = '';
+            document.getElementById('tokenStatus').textContent = '';
+        }
+        
+        async function saveToken() {
+            const tokenInput = document.getElementById('tokenInput');
+            const statusSpan = document.getElementById('tokenStatus');
+            const token = tokenInput.value.trim();
+            
+            if (!token) {
+                statusSpan.textContent = '❌ Please paste a token';
+                statusSpan.style.color = '#dc3545';
+                return;
+            }
+            
+            statusSpan.textContent = '⏳ Saving...';
+            statusSpan.style.color = '#00d4ff';
+            
+            try {
+                const response = await fetch('/api/update-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ token: token })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    statusSpan.textContent = '✅ Token saved! Restart app.';
+                    statusSpan.style.color = '#28a745';
+                    tokenInput.value = '';
+                    showToast('Token saved! Please restart the application for changes to take effect.', 'success');
+                    
+                    // Auto-hide after 3 seconds
+                    setTimeout(() => {
+                        hideTokenForm();
+                        // Reload policies after a moment
+                        setTimeout(() => loadPolicies(), 1000);
+                    }, 3000);
+                } else {
+                    statusSpan.textContent = '❌ Error: ' + (data.error || 'Failed to save');
+                    statusSpan.style.color = '#dc3545';
+                    showToast('Failed to save token: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                statusSpan.textContent = '❌ Error: ' + error.message;
+                statusSpan.style.color = '#dc3545';
+                showToast('Error saving token: ' + error.message, 'error');
+            }
+        }
+        
+        // VERSION - Update this on every change
+        const UI_VERSION = '4.0';
+        document.getElementById('versionBadge').textContent = `v${UI_VERSION}`;
+        
+        // Clear all caches on app start
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                names.forEach(name => {
+                    caches.delete(name);
+                    console.log('[CACHE] Cleared cache:', name);
+                });
+            });
+        }
+        
+        // Clear localStorage cache
+        const cacheKeys = Object.keys(localStorage).filter(key => key.includes('cache') || key.includes('fetch'));
+        cacheKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log('[CACHE] Cleared localStorage:', key);
+        });
+        
+        console.log('[INIT] App initialized - Version', UI_VERSION);
+        console.log('[INIT] Cache cleared on startup');
+        
+        // Initialize
+        // Ensure loading spinner is hidden on page load
+        window.addEventListener('load', () => {
+            const loadingDiv = document.getElementById('loading');
+            if (loadingDiv) {
+                loadingDiv.classList.remove('show');
+            }
+            console.log('[INIT] Page loaded');
+        });
+        
+        // Load policies when page is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    if (document.getElementById('policyStatus')) {
+                        loadPolicies();
+                    }
+                }, 500); // Small delay to ensure page is fully loaded
+            });
+        } else {
+            setTimeout(() => {
+                if (document.getElementById('policyStatus')) {
+                    loadPolicies();
+                }
+            }, 500);
+        }
+        
+        // Start with empty cards - user will fetch from checklist
+        // Or add sample cards for testing:
+        // addCard('1', 'LeBron James', '5.00', '1', 'Lakers');
+        // addCard('2', 'Stephen Curry', '4.00', '1', 'Warriors');
+        // addCard('3', 'Kevin Durant', '3.50', '1', 'Suns');
+        
+        // ========== WALKTHROUGH ==========
+        const WALKTHROUGH_STEPS = [
+            { target: 'setName', title: '1. Set Name', text: 'Enter your card set name (e.g., 2024-25 Topps Chrome Basketball). This appears in your eBay listing title.' },
+            { target: 'checklistUrl', title: '2. Checklist URL', text: 'Paste the full Beckett or Cardsmiths Breaks checklist URL here. Example: beckett.com/news/2024-25-topps-chrome-basketball-cards/' },
+            { target: 'checklistType', title: '3. Card Type', text: 'Select the type: Base Cards, Insert Cards, Autographs, #\'ed, or Parallels. This filters which cards to fetch.' },
+            { target: 'fetchBtn', title: '4. Fetch Checklist', text: 'Click this button to load all cards from the URL. The description may auto-fill. Set default price and quantity first if needed.' },
+            { target: 'cardsSection', title: '5. Your Cards', text: 'After fetching, set Price and Quantity for each card. Only cards with quantity > 0 are listed. Use the search bar to find specific cards. Use Bulk Edit for many cards at once.' },
+            { target: 'paymentPolicy', title: '6. Policies', text: 'Select Payment, Shipping, and Return policies. Click Refresh if empty—you may need to paste your eBay token first (Step 4 section).' },
+            { target: 'publishBtn', title: '7. Publish', text: 'When ready, click to publish your listing LIVE on eBay. Make sure you have cards with qty > 0 and policies selected.' }
+        ];
+        let walkthroughStep = 0;
+        let walkthroughSpotlightEl = null;
+        
+        function startWalkthrough() {
+            walkthroughStep = 0;
+            const overlay = document.getElementById('walkthroughOverlay');
+            overlay.classList.add('active');
+            overlay.onclick = (e) => { if (e.target === overlay) exitWalkthrough(); };
+            document.addEventListener('keydown', walkthroughKeyHandler);
+            updateWalkthroughStep();
+        }
+        
+        function walkthroughKeyHandler(e) {
+            if (e.key === 'Escape') {
+                exitWalkthrough();
+                document.removeEventListener('keydown', walkthroughKeyHandler);
+            }
+        }
+        
+        function exitWalkthrough() {
+            document.getElementById('walkthroughOverlay').classList.remove('active');
+            document.removeEventListener('keydown', walkthroughKeyHandler);
+            if (walkthroughSpotlightEl) {
+                walkthroughSpotlightEl.remove();
+                walkthroughSpotlightEl = null;
+            }
+        }
+        
+        function updateWalkthroughStep() {
+            const step = WALKTHROUGH_STEPS[walkthroughStep];
+            const target = document.getElementById(step.target);
+            
+            document.getElementById('walkthroughBadge').textContent = `Step ${walkthroughStep + 1} of ${WALKTHROUGH_STEPS.length}`;
+            document.getElementById('walkthroughTitle').textContent = step.title;
+            document.getElementById('walkthroughText').textContent = step.text;
+            
+            document.getElementById('walkthroughPrevBtn').style.display = walkthroughStep === 0 ? 'none' : 'inline-block';
+            document.getElementById('walkthroughNextBtn').textContent = walkthroughStep === WALKTHROUGH_STEPS.length - 1 ? 'Done' : 'Next →';
+            
+            // Remove old spotlight
+            if (walkthroughSpotlightEl) {
+                walkthroughSpotlightEl.remove();
+                walkthroughSpotlightEl = null;
+            }
+            
+            // Create spotlight around target
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                setTimeout(() => {
+                    const rect = target.getBoundingClientRect();
+                    walkthroughSpotlightEl = document.createElement('div');
+                    walkthroughSpotlightEl.className = 'walkthrough-spotlight';
+                    walkthroughSpotlightEl.style.cssText = `top:${rect.top - 8}px;left:${rect.left - 8}px;width:${rect.width + 16}px;height:${rect.height + 16}px;`;
+                    document.getElementById('walkthroughOverlay').appendChild(walkthroughSpotlightEl);
+                    
+                    // Briefly flash the target
+                    const orig = target.style.outline || '';
+                    target.style.outline = '3px solid #00ff00';
+                    target.style.outlineOffset = '2px';
+                    setTimeout(() => {
+                        target.style.outline = orig;
+                        target.style.outlineOffset = '';
+                    }, 500);
+                }, 350);
+            }
+        }
+        
+        function walkthroughNext() {
+            if (walkthroughStep >= WALKTHROUGH_STEPS.length - 1) {
+                exitWalkthrough();
+                return;
+            }
+            walkthroughStep++;
+            updateWalkthroughStep();
+        }
+        
+        function walkthroughPrev() {
+            if (walkthroughStep > 0) {
+                walkthroughStep--;
+                updateWalkthroughStep();
+            }
+        }
+    </script>
+</body>
+</html>

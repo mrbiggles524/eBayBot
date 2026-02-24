@@ -1,0 +1,4 @@
+name,number,set_name,rarity,price,quantity,condition,image_url
+Lightning Bolt,1,Magic: The Gathering - Core Set 2021,Common,0.99,1,Near Mint,https://example.com/lightning_bolt.jpg
+Counterspell,2,Magic: The Gathering - Core Set 2021,Uncommon,1.49,1,Near Mint,https://example.com/counterspell.jpg
+Black Lotus,3,Magic: The Gathering - Core Set 2021,Rare,999.99,1,Near Mint,https://example.com/black_lotus.jpg

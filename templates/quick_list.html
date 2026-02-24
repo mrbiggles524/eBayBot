@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick List - eBay Card Listing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        
+        header p { color: #888; font-size: 1.1rem; }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #00d4ff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .card h2 .step {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        /* Cards Table */
+        .cards-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .cards-table th, .cards-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .cards-table th {
+            color: #888;
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        
+        .cards-table input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 0.95rem;
+        }
+        
+        .cards-table input:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+        
+        .cards-table .num-input { width: 60px; text-align: center; }
+        .cards-table .price-input { width: 80px; text-align: right; }
+        .cards-table .qty-input { width: 60px; text-align: center; }
+        
+        .remove-btn {
+            background: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .remove-btn:hover { background: rgba(220, 53, 69, 0.3); }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .fetch-section {
+            background: rgba(0, 212, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+        }
+        
+        details summary {
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+        }
+        
+        details[open] summary {
+            margin-bottom: 10px;
+        }
+        
+        .add-card-btn {
+            background: rgba(0, 212, 255, 0.1);
+            color: #00d4ff;
+            border: 1px dashed rgba(0, 212, 255, 0.3);
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            width: 100%;
+            margin-top: 15px;
+            transition: all 0.2s;
+        }
+        
+        .add-card-btn:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+        }
+        
+        /* Bulk Add */
+        .bulk-add {
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .bulk-add h4 {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .bulk-add textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 0.9rem;
+            font-family: monospace;
+        }
+        
+        .bulk-add small {
+            color: #666;
+            display: block;
+            margin-top: 8px;
+        }
+        
+        .bulk-add button {
+            margin-top: 10px;
+            background: rgba(123, 44, 191, 0.2);
+            color: #7b2cbf;
+            border: 1px solid rgba(123, 44, 191, 0.3);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .bulk-add button:hover {
+            background: rgba(123, 44, 191, 0.3);
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, #00d4ff, #0099cc);
+            color: #fff;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(90deg, #28a745, #20c997);
+            color: #fff;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        /* Summary */
+        .summary {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .summary h3 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .summary-item {
+            text-align: center;
+        }
+        
+        .summary-item .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .summary-item .label {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        
+        /* Result */
+        .result {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .result.show { display: block; }
+        
+        .result.success {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+            border-radius: 12px;
+        }
+        
+        .result.error {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            border-radius: 12px;
+        }
+        
+        .result h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .result a {
+            color: #00d4ff;
+            text-decoration: none;
+            font-size: 1.1rem;
+        }
+        
+        .result a:hover { text-decoration: underline; }
+        
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.show { display: block; }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .toast-success { background: #28a745; }
+        .toast-error { background: #dc3545; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Quick List</h1>
+            <p>List your card set on eBay in seconds</p>
+        </header>
+        
+        <!-- Step 1: Set Info -->
+        <div class="card">
+            <h2><span class="step">1</span> Set Information</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Set Name</label>
+                    <input type="text" id="setName" placeholder="e.g., 2024-25 Topps Chrome Basketball" value="2024-25 Topps Chrome Basketball">
+                </div>
+                <div class="form-group">
+                    <label>Default Image URL</label>
+                    <input type="text" id="imageUrl" placeholder="https://..." value="https://i.ebayimg.com/images/g/WYsAAOSwpkFnRxqE/s-l1600.webp">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Description (HTML supported)</label>
+                <textarea id="description" placeholder="Your listing description..."><p><strong>2024-25 Topps Chrome Basketball Cards</strong></p>
+<p>Select your card from the dropdown menu.</p>
+<p>All cards are in Near Mint or better condition.</p>
+<p>Ships in penny sleeve + top loader via PWE with eBay tracking.</p></textarea>
+            </div>
+        </div>
+        
+        <!-- Step 2: Fetch Checklist -->
+        <div class="card">
+            <h2><span class="step">2</span> Fetch Checklist</h2>
+            
+            <div class="fetch-section">
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Checklist URL (Beckett or Cardsmiths Breaks)</label>
+                        <input type="text" id="checklistUrl" placeholder="https://cardsmithsbreaks.com/full-checklist/2025-26-topps-chrome-basketball-hobby/">
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="checklistType">
+                            <option value="base">Base Cards</option>
+                            <option value="inserts">Insert Cards</option>
+                            <option value="parallels">Parallel Cards</option>
+                            <option value="numbered">Numbered/Autos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Default Price ($)</label>
+                        <input type="number" id="defaultPrice" value="1.00" step="0.25" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Default Quantity</label>
+                        <input type="number" id="defaultQty" value="1" min="1">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-primary" onclick="fetchChecklist()" id="fetchBtn">
+                            Fetch Checklist
+                        </button>
+                    </div>
+                </div>
+                <div id="fetchStatus" style="margin-top: 10px; color: #888;"></div>
+            </div>
+        </div>
+        
+        <!-- Step 3: Cards -->
+        <div class="card">
+            <h2><span class="step">3</span> Your Cards</h2>
+            
+            <div class="card-filters" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="cardSearch" placeholder="Search cards..." style="flex: 1; padding: 8px 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(0,0,0,0.3); color: #fff;" onkeyup="filterCards()">
+                <button class="btn btn-secondary" onclick="selectAll()" style="padding: 8px 16px;">Select All</button>
+                <button class="btn btn-secondary" onclick="deselectAll()" style="padding: 8px 16px;">Deselect All</button>
+                <button class="btn btn-secondary" onclick="clearCards()" style="padding: 8px 16px; background: rgba(220,53,69,0.2); color: #dc3545;">Clear All</button>
+            </div>
+            
+            <div style="max-height: 400px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+            <table class="cards-table">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)"></th>
+                        <th style="width: 60px;">#</th>
+                        <th>Player Name</th>
+                        <th style="width: 120px;">Team</th>
+                        <th style="width: 80px;">Price</th>
+                        <th style="width: 60px;">Qty</th>
+                        <th style="width: 60px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="cardsBody">
+                    <!-- Cards will be added here -->
+                </tbody>
+            </table>
+            
+            </div>
+            
+            <button class="add-card-btn" onclick="addCard()">+ Add Card Manually</button>
+            
+            <details style="margin-top: 15px;">
+                <summary style="cursor: pointer; color: #888;">Bulk Add (Paste Text)</summary>
+                <div class="bulk-add" style="margin-top: 10px;">
+                    <textarea id="bulkInput" placeholder="Paste cards here, one per line:
+1, LeBron James, 5.00
+2, Stephen Curry, 4.00
+3, Kevin Durant, 3.50"></textarea>
+                    <small>Format: number, name, price (one card per line)</small>
+                    <button onclick="bulkAddCards()">Add Cards from Text</button>
+                </div>
+            </details>
+        </div>
+        
+        <!-- Step 4: Policies -->
+        <div class="card">
+            <h2><span class="step">4</span> Shipping & Policies</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Payment Policy</label>
+                    <select id="paymentPolicy"></select>
+                </div>
+                <div class="form-group">
+                    <label>Shipping Policy</label>
+                    <select id="shippingPolicy"></select>
+                </div>
+                <div class="form-group">
+                    <label>Return Policy</label>
+                    <select id="returnPolicy"></select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Summary -->
+        <div class="summary">
+            <h3>Summary</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="value" id="totalCards">0</div>
+                    <div class="label">Cards</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="totalValue">$0.00</div>
+                    <div class="label">Total Value</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="avgPrice">$0.00</div>
+                    <div class="label">Avg Price</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="actions">
+            <button class="btn btn-primary" onclick="saveDraft()">Save as Draft</button>
+            <button class="btn btn-success" onclick="publishListing()">Publish to eBay</button>
+        </div>
+        
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Creating your listing...</p>
+        </div>
+        
+        <!-- Result -->
+        <div class="result" id="result"></div>
+    </div>
+    
+    <script>
+        let cards = [];
+        let policies = {};
+        
+        // Load policies on page load
+        async function loadPolicies() {
+            try {
+                const response = await fetch('/api/policies');
+                policies = await response.json();
+                
+                // Populate dropdowns
+                const paymentSelect = document.getElementById('paymentPolicy');
+                const shippingSelect = document.getElementById('shippingPolicy');
+                const returnSelect = document.getElementById('returnPolicy');
+                
+                policies.payment.forEach(p => {
+                    paymentSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                });
+                
+                policies.shipping.forEach(p => {
+                    const selected = p.name.toUpperCase().includes('PWE') ? 'selected' : '';
+                    shippingSelect.innerHTML += `<option value="${p.id}" ${selected}>${p.name}</option>`;
+                });
+                
+                policies.returns.forEach(p => {
+                    const selected = !p.accepted ? 'selected' : '';
+                    const label = p.accepted ? p.name : `${p.name} (No Returns)`;
+                    returnSelect.innerHTML += `<option value="${p.id}" ${selected}>${label}</option>`;
+                });
+            } catch (error) {
+                showToast('Error loading policies', 'error');
+            }
+        }
+        
+        async function fetchChecklist() {
+            const url = document.getElementById('checklistUrl').value.trim();
+            const type = document.getElementById('checklistType').value;
+            const defaultPrice = document.getElementById('defaultPrice').value;
+            const defaultQty = document.getElementById('defaultQty').value;
+            const statusDiv = document.getElementById('fetchStatus');
+            const fetchBtn = document.getElementById('fetchBtn');
+            
+            if (!url) {
+                showToast('Please enter a checklist URL', 'error');
+                return;
+            }
+            
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = 'Fetching...';
+            statusDiv.innerHTML = '<span style="color: #00d4ff;">Fetching checklist... This may take a moment.</span>';
+            
+            try {
+                const response = await fetch('/api/fetch-checklist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, type, defaultPrice, defaultQty })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Clear existing cards and add fetched ones
+                    cards = [];
+                    result.cards.forEach(card => {
+                        const id = Date.now() + Math.random();
+                        cards.push({
+                            id,
+                            number: card.number,
+                            name: card.name,
+                            team: card.team || '',
+                            price: parseFloat(card.price),
+                            qty: parseInt(card.quantity),
+                            selected: true
+                        });
+                    });
+                    
+                    // Update set name if found
+                    if (result.setName) {
+                        document.getElementById('setName').value = result.setName;
+                    }
+                    
+                    renderCards();
+                    statusDiv.innerHTML = `<span style="color: #28a745;">Found ${result.count} cards from ${result.source}</span>`;
+                    showToast(`Loaded ${result.count} cards!`, 'success');
+                } else {
+                    // CRITICAL: Clear cards on error to prevent showing old/cached data
+                    cards = [];
+                    renderCards();
+                    statusDiv.innerHTML = `<span style="color: #dc3545;">${result.error}</span>`;
+                    showToast(result.error, 'error');
+                }
+            } catch (error) {
+                // CRITICAL: Clear cards on error to prevent showing old/cached data
+                cards = [];
+                renderCards();
+                statusDiv.innerHTML = `<span style="color: #dc3545;">Error: ${error.message}</span>`;
+                showToast('Fetch failed: ' + error.message, 'error');
+            } finally {
+                fetchBtn.disabled = false;
+                fetchBtn.textContent = 'Fetch Checklist';
+            }
+        }
+        
+        function addCard(number = '', name = '', price = '1.00', qty = '1', team = '') {
+            const id = Date.now() + Math.random();
+            cards.push({ id, number, name, team, price: parseFloat(price), qty: parseInt(qty), selected: true });
+            renderCards();
+        }
+        
+        function removeCard(id) {
+            cards = cards.filter(c => c.id !== id);
+            renderCards();
+        }
+        
+        function updateCard(id, field, value) {
+            const card = cards.find(c => c.id === id);
+            if (card) {
+                if (field === 'price') value = parseFloat(value) || 0;
+                if (field === 'qty') value = parseInt(value) || 1;
+                if (field === 'selected') value = Boolean(value);
+                card[field] = value;
+                updateSummary();
+            }
+        }
+        
+        function toggleSelectAll(checked) {
+            cards.forEach(c => c.selected = checked);
+            renderCards();
+        }
+        
+        function selectAll() {
+            cards.forEach(c => c.selected = true);
+            renderCards();
+        }
+        
+        function deselectAll() {
+            cards.forEach(c => c.selected = false);
+            renderCards();
+        }
+        
+        function clearCards() {
+            if (confirm('Clear all cards?')) {
+                cards = [];
+                renderCards();
+            }
+        }
+        
+        function filterCards() {
+            const search = document.getElementById('cardSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('#cardsBody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(search) ? '' : 'none';
+            });
+        }
+        
+        function renderCards() {
+            const tbody = document.getElementById('cardsBody');
+            tbody.innerHTML = cards.map(card => `
+                <tr data-id="${card.id}">
+                    <td><input type="checkbox" ${card.selected ? 'checked' : ''} onchange="updateCard(${card.id}, 'selected', this.checked)"></td>
+                    <td><input type="text" class="num-input" value="${card.number}" onchange="updateCard(${card.id}, 'number', this.value)" placeholder="#" style="width: 50px;"></td>
+                    <td><input type="text" value="${card.name}" onchange="updateCard(${card.id}, 'name', this.value)" placeholder="Player Name"></td>
+                    <td><input type="text" value="${card.team || ''}" onchange="updateCard(${card.id}, 'team', this.value)" placeholder="Team" style="width: 100px;"></td>
+                    <td><input type="number" class="price-input" value="${card.price}" step="0.25" min="0" onchange="updateCard(${card.id}, 'price', this.value)" style="width: 70px;"></td>
+                    <td><input type="number" class="qty-input" value="${card.qty}" min="1" onchange="updateCard(${card.id}, 'qty', this.value)" style="width: 50px;"></td>
+                    <td><button class="remove-btn" onclick="removeCard(${card.id})" style="padding: 4px 8px;">X</button></td>
+                </tr>
+            `).join('');
+            updateSummary();
+        }
+        
+        function updateSummary() {
+            const selectedCards = cards.filter(c => c.selected);
+            const total = selectedCards.length;
+            const value = selectedCards.reduce((sum, c) => sum + (c.price * c.qty), 0);
+            const avg = total > 0 ? value / total : 0;
+            
+            document.getElementById('totalCards').textContent = `${total} / ${cards.length}`;
+            document.getElementById('totalValue').textContent = `$${value.toFixed(2)}`;
+            document.getElementById('avgPrice').textContent = `$${avg.toFixed(2)}`;
+        }
+        
+        function bulkAddCards() {
+            const input = document.getElementById('bulkInput').value;
+            const lines = input.split('\n').filter(line => line.trim());
+            
+            lines.forEach(line => {
+                const parts = line.split(',').map(p => p.trim());
+                if (parts.length >= 2) {
+                    const number = parts[0];
+                    const name = parts[1];
+                    const price = parts[2] || '1.00';
+                    addCard(number, name, price);
+                }
+            });
+            
+            document.getElementById('bulkInput').value = '';
+            showToast(`Added ${lines.length} cards`, 'success');
+        }
+        
+        async function createListing(publish) {
+            const selectedCards = cards.filter(c => c.selected);
+            
+            if (selectedCards.length === 0) {
+                showToast('Select at least one card', 'error');
+                return;
+            }
+            
+            const validCards = selectedCards.filter(c => c.name && c.number);
+            if (validCards.length === 0) {
+                showToast('Selected cards need number and name', 'error');
+                return;
+            }
+            
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('result').classList.remove('show');
+            
+            const data = {
+                setName: document.getElementById('setName').value,
+                description: document.getElementById('description').value,
+                imageUrl: document.getElementById('imageUrl').value,
+                cards: validCards.map(c => ({
+                    number: c.number,
+                    name: c.name,
+                    price: c.price,
+                    quantity: c.qty
+                })),
+                paymentPolicyId: document.getElementById('paymentPolicy').value,
+                shippingPolicyId: document.getElementById('shippingPolicy').value,
+                returnPolicyId: document.getElementById('returnPolicy').value,
+                publish: publish
+            };
+            
+            try {
+                const response = await fetch('/api/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                document.getElementById('loading').classList.remove('show');
+                
+                const resultDiv = document.getElementById('result');
+                
+                if (result.status === 'published') {
+                    resultDiv.className = 'result show success';
+                    resultDiv.innerHTML = `
+                        <h3>Listing Published!</h3>
+                        <p>Your listing is now live on eBay</p>
+                        <p><a href="${result.listingUrl}" target="_blank">${result.listingUrl}</a></p>
+                        <p style="margin-top: 15px; color: #888;">
+                            ${result.cardsCreated} cards listed | Group: ${result.groupKey}
+                        </p>
+                    `;
+                } else if (result.status === 'ready') {
+                    resultDiv.className = 'result show success';
+                    resultDiv.innerHTML = `
+                        <h3>Draft Created!</h3>
+                        <p>${result.cardsCreated} cards ready to publish</p>
+                        <p style="color: #888;">Group Key: ${result.groupKey}</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result show error';
+                    resultDiv.innerHTML = `
+                        <h3>Error</h3>
+                        <p>${result.error || result.publishError || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('loading').classList.remove('show');
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
+        function saveDraft() {
+            createListing(false);
+        }
+        
+        function publishListing() {
+            if (confirm('This will publish the listing LIVE on eBay. Continue?')) {
+                createListing(true);
+            }
+        }
+        
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        // Initialize
+        loadPolicies();
+        
+        // Start with empty cards - user will fetch from checklist
+        // Or add sample cards for testing:
+        // addCard('1', 'LeBron James', '5.00', '1', 'Lakers');
+        // addCard('2', 'Stephen Curry', '4.00', '1', 'Warriors');
+        // addCard('3', 'Kevin Durant', '3.50', '1', 'Suns');
+    </script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscribe - CardLister Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000000;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(0, 255, 255, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 0, 255, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(255, 255, 0, 0.15) 0%, transparent 50%),
+                linear-gradient(135deg, #000000 0%, #0a0014 50%, #000000 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            padding: 20px;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.25;
+            z-index: 0;
+            background-image: 
+                url('https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=400&q=80'),
+                url('https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=400&q=80');
+            background-size: 280px 400px, 240px 340px;
+            background-position: 2% 8%, 98% 65%;
+            background-repeat: no-repeat;
+            background-blend-mode: screen;
+            filter: brightness(0.15) contrast(1.4) saturate(1.6) hue-rotate(180deg);
+            pointer-events: none;
+        }
+        .subscribe-container {
+            position: relative;
+            z-index: 1;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        .header h1 {
+            font-size: 3rem;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00, #00ff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+            text-shadow: 0 0 40px rgba(0, 255, 255, 0.6);
+            filter: drop-shadow(0 0 15px rgba(255, 0, 255, 0.4));
+        }
+        .header p {
+            font-size: 1.2rem;
+            color: #cccccc;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .price-card {
+            background: rgba(0, 0, 0, 0.7);
+            border: 3px solid #00ffff;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s;
+            overflow: hidden;
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.3), inset 0 0 15px rgba(0, 255, 255, 0.1);
+        }
+        .price-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+        .price-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.6), 0 20px 50px rgba(0, 255, 255, 0.3);
+            border-color: #00ffff;
+        }
+        .price-card.featured {
+            border: 3px solid #ffff00;
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 35px rgba(255, 255, 0, 0.5), inset 0 0 20px rgba(255, 255, 0, 0.1);
+        }
+        .price-card.featured::before {
+            background: linear-gradient(90deg, #ffff00, #ff00ff);
+            box-shadow: 0 0 15px rgba(255, 255, 0, 0.9);
+        }
+        .price-card.featured:hover {
+            box-shadow: 0 0 50px rgba(255, 255, 0, 0.7), 0 20px 60px rgba(255, 0, 255, 0.4);
+        }
+        .badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #ff00ff, #ffff00);
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
+        }
+        .plan-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #00ffff;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+        }
+        .price {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 10px;
+            line-height: 1;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+        .price span {
+            font-size: 1.2rem;
+            color: #888;
+        }
+        .price-original {
+            font-size: 1.5rem;
+            color: #888;
+            text-decoration: line-through;
+            margin-bottom: 5px;
+        }
+        .price-discount {
+            color: #00ff00;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            text-shadow: 0 0 15px rgba(0, 255, 0, 0.8);
+            font-weight: 700;
+        }
+        .features {
+            list-style: none;
+            text-align: left;
+            margin: 30px 0;
+            padding: 0;
+        }
+        .features li {
+            padding: 12px 0;
+            color: #ffffff;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+        }
+        .features li:last-child { border-bottom: none; }
+        .features li:before {
+            content: "✓";
+            color: #00ff00;
+            margin-right: 12px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+        }
+        .paypal-btn {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            border: none;
+            border-radius: 10px;
+            color: #000;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+            margin-top: 20px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+        }
+        .paypal-btn:hover {
+            background: linear-gradient(90deg, #ff00ff, #ffff00);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.7), 0 5px 25px rgba(255, 255, 0, 0.4);
+        }
+        .secure-note {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            color: #aaaaaa;
+            font-size: 0.9rem;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+        .email-note {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(0, 255, 255, 0.4);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            color: #ffffff;
+        }
+        .email-note strong { 
+            color: #00ffff; 
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+        }
+        .links {
+            margin-top: 40px;
+            text-align: center;
+            color: #aaaaaa;
+        }
+        .links a { 
+            color: #00ffff; 
+            text-decoration: none; 
+            margin: 0 15px; 
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+        .links a:hover { 
+            color: #ff00ff;
+            text-shadow: 0 0 15px rgba(255, 0, 255, 0.8);
+        }
+        .subscribe-navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 30px;
+            background: rgba(0,0,0,0.85);
+            border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+        .subscribe-navbar .nav-logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+        }
+        .subscribe-navbar .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .subscribe-navbar .nav-links a {
+            color: #cccccc;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        .subscribe-navbar .nav-links a:hover { color: #00ffff; }
+        .subscribe-navbar .nav-links .btn-nav {
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            color: #000;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        body { padding-top: 70px; }
+    </style>
+</head>
+<body>
+    <nav class="subscribe-navbar">
+        <a href="/" class="nav-logo">CardLister Pro</a>
+        <div class="nav-links">
+            <a href="/">← Back to Home</a>
+            <a href="/register">Start Free Trial</a>
+            <a href="/login" class="btn-nav">Login</a>
+        </div>
+    </nav>
+    <div class="subscribe-container">
+        <div class="header">
+            <h1>⚡ Premium Card Listing Platform</h1>
+            <p>List your valuable sports cards on eBay faster than ever</p>
+        </div>
+        
+        <div class="pricing-grid">
+            <!-- Monthly Plan -->
+            <div class="price-card">
+                <div class="plan-name">Monthly Plan</div>
+                <div class="price-original">${{ monthly_original }}/mo</div>
+                <div class="price">${{ monthly_price }}<span>/mo</span></div>
+                <div class="price-discount">🎉 50% OFF - Limited Time!</div>
+                
+                <ul class="features">
+                    <li>Unlimited eBay listings</li>
+                    <li>Auto-fetch checklists from Beckett</li>
+                    <li>Variation listings (100+ cards)</li>
+                    <li>Bulk pricing & quantity tools</li>
+                    <li>CSV import/export</li>
+                    <li>Price calculator</li>
+                    <li>Template system</li>
+                    <li>Email support</li>
+                    <li>Cancel anytime</li>
+                </ul>
+                
+                <div style="margin: 30px 0;">
+                    <p style="font-size: 0.85rem; color: #00ff00; margin-bottom: 12px;">PayPal → {{ paypal_email }} • Shows "Ebay Listing Bot"</p>
+                    <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business={{ paypal_email|urlencode }}&item_name=Ebay%20Listing%20Bot%20-%20Monthly%20Subscription&amount={{ monthly_price }}&currency_code=USD&return={{ return_url|urlencode }}&cancel_return={{ cancel_url|urlencode }}" target="_blank" class="paypal-btn">Pay ${{ monthly_price }}/mo via PayPal</a>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">Or use your PayPal subscription button below</p>
+                    <form action="https://www.paypal.com/ncp/payment/HFCYJCAS6VUVU" method="post" target="_blank" style="margin-top:12px;display:inline-grid;justify-items:center;align-content:start;gap:0.5rem;">
+                        <input style="text-align:center;border:none;border-radius:0.25rem;min-width:11.625rem;padding:0 2rem;height:2.625rem;font-weight:bold;background:#FFD140;color:#000;font-size:1rem;cursor:pointer;" type="submit" value="Subscribe Monthly (Recurring)" />
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Yearly Plan (Featured) -->
+            <div class="price-card featured">
+                <div class="badge">BEST VALUE</div>
+                <div class="plan-name">Yearly Plan</div>
+                <div class="price-original">${{ yearly_original }}/yr</div>
+                <div class="price">${{ yearly_price }}<span>/yr</span></div>
+                <div class="price-discount">🎉 50% OFF - Save $125!</div>
+                <div style="color: #ffd700; font-size: 0.9rem; margin-bottom: 20px;">
+                    Only $10.33/month when paid annually
+                </div>
+                
+                <ul class="features">
+                    <li>Everything in Monthly</li>
+                    <li><strong>Save $125 per year</strong></li>
+                    <li>Priority email support</li>
+                    <li>Early access to new features</li>
+                    <li>Unlimited eBay listings</li>
+                    <li>Auto-fetch checklists</li>
+                    <li>Variation listings (100+ cards)</li>
+                    <li>Bulk pricing & quantity tools</li>
+                    <li>CSV import/export</li>
+                    <li>Price calculator</li>
+                    <li>Template system</li>
+                    <li>Cancel anytime</li>
+                </ul>
+                
+                <div style="margin: 30px 0;">
+                    <p style="font-size: 0.85rem; color: #00ff00; margin-bottom: 12px;">PayPal → {{ paypal_email }} • Shows "Ebay Listing Bot"</p>
+                    <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business={{ paypal_email|urlencode }}&item_name=Ebay%20Listing%20Bot%20-%20Yearly%20Subscription&amount={{ yearly_price }}&currency_code=USD&return={{ return_url|urlencode }}&cancel_return={{ cancel_url|urlencode }}" target="_blank" class="paypal-btn">Pay ${{ yearly_price }}/yr via PayPal</a>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">Or use your PayPal subscription button below</p>
+                    <form action="https://www.paypal.com/ncp/payment/HFCYJCAS6VUVU" method="post" target="_blank" style="margin-top:12px;display:inline-grid;justify-items:center;align-content:start;gap:0.5rem;">
+                        <input style="text-align:center;border:none;border-radius:0.25rem;min-width:11.625rem;padding:0 2rem;height:2.625rem;font-weight:bold;background:linear-gradient(90deg,#ffd700,#ff6b6b);color:#000;font-size:1rem;cursor:pointer;" type="submit" value="Subscribe Yearly (Recurring)" />
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="email-note">
+            <strong>📧 Ebay Listing Bot</strong> – Payments go to <strong>{{ paypal_email }}</strong>. 
+            Each payment shows "Ebay Listing Bot" so we know you're active. 
+            After paying, email your transaction ID to activate. Monthly = 30 days, Yearly = 365 days.
+        </div>
+        
+        <div class="secure-note">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="#28a745"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+            Secure payment via PayPal - We never store your payment info
+        </div>
+        
+        <div class="links">
+            <a href="/">← Back to Home</a> | <a href="/contact">Contact Us</a> | <a href="/setup">Setup Guide</a>
+        </div>
+    </div>
+</body>
+</html>

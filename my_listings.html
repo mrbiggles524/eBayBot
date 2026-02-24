@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your eBay Sandbox Listings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        .listings {
+            display: grid;
+            gap: 20px;
+        }
+        .listing-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+        .listing-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        .listing-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .listing-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+            flex: 1;
+            min-width: 300px;
+        }
+        .listing-status {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-draft {
+            background: #ffc107;
+            color: #856404;
+        }
+        .status-published {
+            background: #28a745;
+            color: white;
+        }
+        .status-unpublished {
+            background: #dc3545;
+            color: white;
+        }
+        .listing-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .detail-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .detail-label {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .detail-value {
+            font-size: 1.1em;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        .price {
+            color: #28a745;
+            font-size: 1.3em;
+        }
+        .listing-link {
+            margin-top: 15px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            display: inline-block;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .listing-link:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .listing-link:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        .no-link {
+            color: #95a5a6;
+            font-style: italic;
+        }
+        .description {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            color: #5a6c7d;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e9ecef;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Your eBay Sandbox Listings</h1>
+        <p class="subtitle">Generated on January 17, 2026 at 02:41 PM | Environment: SANDBOX</p>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">47</div>
+                <div class="stat-label">Total Listings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Published</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">47</div>
+                <div class="stat-label">Drafts</div>
+            </div>
+        </div>
+        
+        <div class="listings">
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592909010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592851010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594243010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_ONYEKA_OKONGWU_21_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594413010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_PJ_WASHINGTON_19_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594412010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_RON_HOLLAND_II_16_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594411010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592863010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594410010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592832010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_JOSH_GIDDEY_48_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594409010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_JRUE_HOLIDAY_46_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594408010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_KEVIN_HUERTER_43_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594407010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_AMEN_THOMPSON_17_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594403010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594402010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_SPENCER_DINWIDDIE_13_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">4</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594401010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594400010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594399010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_NICK_SMITH_JR_26_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592934010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592933010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_NORMAN_POWELL_22_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592932010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592908010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592838010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594248010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594242010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_SAM_HAUSER_14_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594241010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594240010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_PASCAL_SIAKAM_1_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592414010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592416010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592417010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592415010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_4</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594225010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594224010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592826010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594223010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592827010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594210010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10593539010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594209010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10594208010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592839010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_0</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">5</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10593537010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10593538010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">4</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592840010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592862010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_1</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$2.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592833010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592834010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+            <div class="listing-card">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="listing-details">
+                    <div class="detail-item">
+                        <div class="detail-label">SKU</div>
+                        <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_3</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Price</div>
+                        <div class="detail-value price">$1.0 USD</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Quantity</div>
+                        <div class="detail-value">2</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Offer ID</div>
+                        <div class="detail-value">10592828010</div>
+                    </div>
+                    
+                    
+                    <div class="detail-item">
+                        <div class="detail-label">Category</div>
+                        <div class="detail-value">261328</div>
+                    </div>
+                </div>
+                
+                
+                
+                <div class="no-link">⚠️ Draft listing - no direct link available. Publish to get a viewable link.</div>
+            </div>
+
+        </div>
+        
+        <div class="footer">
+            <p>This page was generated from eBay Sandbox API data.</p>
+            <p>Note: Draft listings cannot be viewed directly. Publish them to get listing IDs and viewable links.</p>
+        </div>
+    </div>
+</body>
+</html>

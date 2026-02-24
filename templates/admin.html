@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - CardLister Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 40px 20px;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .back-link { color: #00d4ff; text-decoration: none; display: inline-block; margin-bottom: 30px; }
+        .header-links { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header-links a { color: #888; text-decoration: none; margin-left: 15px; }
+        .header-links a:hover { color: #00d4ff; }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 25px;
+        }
+        .card h2 { color: #00d4ff; margin-bottom: 20px; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-row input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-primary { background: linear-gradient(90deg, #00d4ff, #7b2cbf); color: #fff; }
+        .btn-danger { background: rgba(220, 53, 69, 0.2); color: #dc3545; border: 1px solid rgba(220, 53, 69, 0.3); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #888; font-weight: 500; }
+        .status-active { color: #28a745; }
+        .status-expired { color: #dc3545; }
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; padding: 15px 25px;
+            border-radius: 8px; color: #fff; font-weight: 600; z-index: 1000;
+        }
+        .toast-success { background: #28a745; }
+        .toast-error { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-links">
+            <a href="/app">← Back to App</a>
+            <div>
+                <a href="/admin/logout">Logout Admin</a>
+            </div>
+        </div>
+        
+        <h1>Admin Panel</h1>
+        
+        {% if expiring_soon %}
+        <div class="card" style="border: 2px solid rgba(255, 193, 7, 0.3); background: rgba(255, 193, 7, 0.05);">
+            <h2 style="color: #ffc107;">⚠️ Expiring Soon (Next 7 Days)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Expires</th>
+                        <th>Days Left</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in expiring_soon %}
+                    <tr>
+                        <td>{{ item.email }}</td>
+                        <td>{{ item.expires }}</td>
+                        <td>{{ item.days_left }} days</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="renewSubscription('{{ item.email }}')">Renew 30 Days</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <div class="card">
+            <h2>Record Payment</h2>
+            <p style="color: #888; margin-bottom: 15px;">Record a PayPal payment to activate/extend a subscription by 30 days</p>
+            <div class="form-row">
+                <input type="email" id="paymentEmail" placeholder="user@email.com" style="flex: 2;">
+                <input type="text" id="transactionId" placeholder="PayPal Transaction ID (optional)" style="flex: 2;">
+                <input type="text" id="paymentAmount" placeholder="Amount" value="9.99" style="max-width: 120px;">
+            </div>
+            <div class="form-row">
+                <input type="text" id="paymentNotes" placeholder="Notes (optional)" style="flex: 1;">
+                <button class="btn btn-primary" onclick="recordPayment()">Record Payment</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Add Subscription (Manual)</h2>
+            <div class="form-row">
+                <input type="email" id="newEmail" placeholder="user@email.com">
+                <input type="number" id="newDays" placeholder="Days" value="30" style="max-width: 100px;">
+                <button class="btn btn-primary" onclick="addSubscription()">Add</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Active Subscriptions</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Expires</th>
+                        <th>Last Payment</th>
+                        <th>Total Payments</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="subsTable">
+                    {% for email, sub in subscriptions.items() %}
+                    <tr>
+                        <td>{{ email }}</td>
+                        <td class="status-{{ sub.status }}">{{ sub.status }}</td>
+                        <td>{{ sub.expires or 'N/A' }}</td>
+                        <td>{{ sub.last_payment or 'N/A' }}</td>
+                        <td>{{ sub.total_payments or 0 }}</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="renewSubscription('{{ email }}')" style="margin-right: 5px; padding: 8px 15px; font-size: 0.9rem;">Renew</button>
+                            <button class="btn btn-danger" onclick="removeSubscription('{{ email }}')" style="padding: 8px 15px; font-size: 0.9rem;">Remove</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if not subscriptions %}
+            <p style="color: #888; text-align: center; padding: 20px;">No subscriptions yet</p>
+            {% endif %}
+        </div>
+        
+        {% if payments %}
+        <div class="card">
+            <h2>Payment History</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Transaction ID</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for email, payment_list in payments.items() %}
+                        {% for payment in payment_list %}
+                        <tr>
+                            <td>{{ email }}</td>
+                            <td>{{ payment.date }}</td>
+                            <td>${{ payment.amount }}</td>
+                            <td>{{ payment.transaction_id or 'N/A' }}</td>
+                            <td>{{ payment.notes or '' }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <div class="card">
+            <h2>Owner Info</h2>
+            <p style="color: #888;">Owner email (always has free access): <strong style="color: #00d4ff;">{{ owner_email }}</strong></p>
+        </div>
+        
+        <div class="card" style="background: rgba(0, 212, 255, 0.05); border: 1px solid rgba(0, 212, 255, 0.2);">
+            <h2 style="color: #00d4ff;">💡 How to Manage Monthly Renewals</h2>
+            <ol style="color: #888; line-height: 2; padding-left: 20px;">
+                <li>When a user pays via PayPal, they'll email you with their transaction ID</li>
+                <li>Use "Record Payment" above to enter their email and transaction ID</li>
+                <li>This automatically extends their subscription by 30 days from today</li>
+                <li>Check "Expiring Soon" section weekly to see who needs to renew</li>
+                <li>Use "Renew" button to manually extend subscriptions (if they paid but forgot to email)</li>
+                <li>Payment history tracks all payments for each user</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        async function addSubscription() {
+            const email = document.getElementById('newEmail').value;
+            const days = document.getElementById('newDays').value;
+            
+            if (!email) { showToast('Enter email', 'error'); return; }
+            
+            const response = await fetch('/admin/add-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, days })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                showToast(result.message, 'success');
+                location.reload();
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        async function removeSubscription(email) {
+            if (!confirm(`Remove subscription for ${email}?`)) return;
+            
+            const response = await fetch('/admin/remove-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                showToast('Removed', 'success');
+                location.reload();
+            }
+        }
+        
+        async function recordPayment() {
+            const email = document.getElementById('paymentEmail').value;
+            const transactionId = document.getElementById('transactionId').value;
+            const amount = document.getElementById('paymentAmount').value;
+            const notes = document.getElementById('paymentNotes').value;
+            
+            if (!email) { showToast('Enter email', 'error'); return; }
+            
+            const response = await fetch('/admin/record-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, transaction_id: transactionId, amount, notes })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                showToast(result.message, 'success');
+                // Clear form
+                document.getElementById('paymentEmail').value = '';
+                document.getElementById('transactionId').value = '';
+                document.getElementById('paymentAmount').value = '9.99';
+                document.getElementById('paymentNotes').value = '';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        async function renewSubscription(email) {
+            if (!confirm(`Renew subscription for ${email} by 30 days?`)) return;
+            
+            const response = await fetch('/admin/renew-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                showToast(result.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# eBay API Credentials
+EBAY_APP_ID=your_app_id_here
+EBAY_DEV_ID=your_dev_id_here
+EBAY_CERT_ID=your_cert_id_here
+EBAY_SANDBOX_TOKEN=your_sandbox_token_here
+EBAY_PRODUCTION_TOKEN=your_production_token_here
+
+# eBay Environment (sandbox or production)
+EBAY_ENVIRONMENT=sandbox
+
+# OAuth Settings (recommended - set to false to use static tokens)
+USE_OAUTH=true
+OAUTH_REDIRECT_URI=http://localhost:8080/callback
+
+# Card Data Source (tcgplayer, scryfall, or custom)
+CARD_DATA_SOURCE=tcgplayer
+
+# TCGPlayer API (if using TCGPlayer)
+TCGPLAYER_API_KEY=your_tcgplayer_api_key_here
+
+# Default listing settings
+DEFAULT_CONDITION=New
+DEFAULT_LISTING_TYPE=FixedPriceItem
+DEFAULT_DURATION=GTC
+DEFAULT_PAYMENT_METHOD=PayPal
+
+# eBay Policy IDs (optional - bot will try to fetch if not set)
+FULFILLMENT_POLICY_ID=
+PAYMENT_POLICY_ID=
+RETURN_POLICY_ID=
+MERCHANT_LOCATION_KEY=
+
+# Retry settings
+MAX_RETRIES=3
+RETRY_DELAY=1.0

@@ -1,0 +1,3165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editable eBay Listings Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .warning-banner {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 30px;
+            color: #856404;
+        }
+        .warning-banner strong {
+            color: #d68910;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        .listings {
+            display: grid;
+            gap: 20px;
+        }
+        .listing-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+        .listing-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.2);
+        }
+        .listing-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .listing-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+            flex: 1;
+            min-width: 300px;
+        }
+        .listing-status {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-draft {
+            background: #ffc107;
+            color: #856404;
+        }
+        .status-published {
+            background: #28a745;
+            color: white;
+        }
+        .edit-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            border: 2px dashed #667eea;
+        }
+        .edit-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        .image-upload {
+            margin-top: 15px;
+        }
+        .image-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+        .image-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .image-preview-item {
+            position: relative;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .image-preview-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        .image-preview-item .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        .actions {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .detail-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin: 5px 0;
+        }
+        .detail-label {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .detail-value {
+            font-size: 1.1em;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        .price {
+            color: #28a745;
+            font-size: 1.3em;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e9ecef;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Editable eBay Listings Manager</h1>
+        <p class="subtitle">Generated on January 17, 2026 at 03:01 PM | Environment: SANDBOX</p>
+        
+        <div class="warning-banner">
+            <strong>⚠️ CURRENT ENVIRONMENT: SANDBOX</strong><br>
+            <strong>📍 Publishing will go to SANDBOX (test environment), NOT your live eBay page (manhattanbreaks)</strong><br>
+            To publish to your live page, you must switch to PRODUCTION environment first.<br>
+            Production migration is disabled until you give the command.
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">47</div>
+                <div class="stat-label">Total Listings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Published</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">47</div>
+                <div class="stat-label">Drafts</div>
+            </div>
+        </div>
+        
+        <div class="listings">
+
+            <div class="listing-card" id="listing-0">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592851010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-0" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_1"
+                               data-offer-id="10592851010">
+                        <button class="btn btn-primary" onclick="addImage(0, 'CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_1', 10592851010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-0">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_1', 10592851010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_1', 10592851010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-0" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_1', 10592851010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-1">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594499010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-1" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_2"
+                               data-offer-id="10594499010">
+                        <button class="btn btn-primary" onclick="addImage(1, 'CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_2', 10594499010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-1">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_2', 10594499010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_2', 10594499010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-1" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_2', 10594499010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-2">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594243010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-2" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_0"
+                               data-offer-id="10594243010">
+                        <button class="btn btn-primary" onclick="addImage(2, 'CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_0', 10594243010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-2">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_0', 10594243010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_0', 10594243010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-2" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_0', 10594243010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-3">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_ONYEKA_OKONGWU_21_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594413010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-3" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_ONYEKA_OKONGWU_21_2"
+                               data-offer-id="10594413010">
+                        <button class="btn btn-primary" onclick="addImage(3, 'CARD_BECKETT_COM_NEWS_202_ONYEKA_OKONGWU_21_2', 10594413010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-3">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_ONYEKA_OKONGWU_21_2', 10594413010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_ONYEKA_OKONGWU_21_2', 10594413010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-3" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_ONYEKA_OKONGWU_21_2', 10594413010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-4">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_PJ_WASHINGTON_19_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594412010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-4" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_PJ_WASHINGTON_19_1"
+                               data-offer-id="10594412010">
+                        <button class="btn btn-primary" onclick="addImage(4, 'CARD_BECKETT_COM_NEWS_202_PJ_WASHINGTON_19_1', 10594412010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-4">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_PJ_WASHINGTON_19_1', 10594412010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_PJ_WASHINGTON_19_1', 10594412010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-4" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_PJ_WASHINGTON_19_1', 10594412010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-5">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_RON_HOLLAND_II_16_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594411010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-5" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_RON_HOLLAND_II_16_0"
+                               data-offer-id="10594411010">
+                        <button class="btn btn-primary" onclick="addImage(5, 'CARD_BECKETT_COM_NEWS_202_RON_HOLLAND_II_16_0', 10594411010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-5">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_RON_HOLLAND_II_16_0', 10594411010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_RON_HOLLAND_II_16_0', 10594411010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-5" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_RON_HOLLAND_II_16_0', 10594411010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-6">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592863010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-6" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_2"
+                               data-offer-id="10592863010">
+                        <button class="btn btn-primary" onclick="addImage(6, 'CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_2', 10592863010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-6">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_2', 10592863010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_2', 10592863010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-6" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_2', 10592863010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-7">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594410010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-7" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_1"
+                               data-offer-id="10594410010">
+                        <button class="btn btn-primary" onclick="addImage(7, 'CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_1', 10594410010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-7">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_1', 10594410010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_1', 10594410010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-7" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_1', 10594410010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-8">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592832010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-8" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_0"
+                               data-offer-id="10592832010">
+                        <button class="btn btn-primary" onclick="addImage(8, 'CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_0', 10592832010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-8">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_0', 10592832010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_0', 10592832010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-8" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_0', 10592832010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-9">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_JOSH_GIDDEY_48_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594409010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-9" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_JOSH_GIDDEY_48_2"
+                               data-offer-id="10594409010">
+                        <button class="btn btn-primary" onclick="addImage(9, 'CARD_BECKETT_COM_NEWS_202_JOSH_GIDDEY_48_2', 10594409010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-9">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_JOSH_GIDDEY_48_2', 10594409010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_JOSH_GIDDEY_48_2', 10594409010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-9" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_JOSH_GIDDEY_48_2', 10594409010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-10">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_JRUE_HOLIDAY_46_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594408010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-10" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_JRUE_HOLIDAY_46_1"
+                               data-offer-id="10594408010">
+                        <button class="btn btn-primary" onclick="addImage(10, 'CARD_BECKETT_COM_NEWS_202_JRUE_HOLIDAY_46_1', 10594408010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-10">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_JRUE_HOLIDAY_46_1', 10594408010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_JRUE_HOLIDAY_46_1', 10594408010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-10" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_JRUE_HOLIDAY_46_1', 10594408010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-11">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_KEVIN_HUERTER_43_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594407010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-11" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_KEVIN_HUERTER_43_0"
+                               data-offer-id="10594407010">
+                        <button class="btn btn-primary" onclick="addImage(11, 'CARD_BECKETT_COM_NEWS_202_KEVIN_HUERTER_43_0', 10594407010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-11">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_KEVIN_HUERTER_43_0', 10594407010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_KEVIN_HUERTER_43_0', 10594407010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-11" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_KEVIN_HUERTER_43_0', 10594407010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-12">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_AMEN_THOMPSON_17_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594403010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-12" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_AMEN_THOMPSON_17_2"
+                               data-offer-id="10594403010">
+                        <button class="btn btn-primary" onclick="addImage(12, 'CARD_BECKETT_COM_NEWS_202_AMEN_THOMPSON_17_2', 10594403010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-12">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_AMEN_THOMPSON_17_2', 10594403010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_AMEN_THOMPSON_17_2', 10594403010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-12" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_AMEN_THOMPSON_17_2', 10594403010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-13">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594402010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-13" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_1"
+                               data-offer-id="10594402010">
+                        <button class="btn btn-primary" onclick="addImage(13, 'CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_1', 10594402010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-13">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_1', 10594402010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_1', 10594402010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-13" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_1', 10594402010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-14">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_SPENCER_DINWIDDIE_13_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">4</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594401010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-14" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_SPENCER_DINWIDDIE_13_0"
+                               data-offer-id="10594401010">
+                        <button class="btn btn-primary" onclick="addImage(14, 'CARD_BECKETT_COM_NEWS_202_SPENCER_DINWIDDIE_13_0', 10594401010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-14">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_SPENCER_DINWIDDIE_13_0', 10594401010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_SPENCER_DINWIDDIE_13_0', 10594401010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-14" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_SPENCER_DINWIDDIE_13_0', 10594401010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-15">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594400010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-15" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_1"
+                               data-offer-id="10594400010">
+                        <button class="btn btn-primary" onclick="addImage(15, 'CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_1', 10594400010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-15">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_1', 10594400010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_1', 10594400010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-15" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_1', 10594400010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-16">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594399010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-16" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_0"
+                               data-offer-id="10594399010">
+                        <button class="btn btn-primary" onclick="addImage(16, 'CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_0', 10594399010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-16">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_0', 10594399010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_0', 10594399010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-16" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_0', 10594399010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-17">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_NICK_SMITH_JR_26_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592934010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-17" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_NICK_SMITH_JR_26_2"
+                               data-offer-id="10592934010">
+                        <button class="btn btn-primary" onclick="addImage(17, 'CARD_BECKETT_COM_NEWS_202_NICK_SMITH_JR_26_2', 10592934010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-17">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_NICK_SMITH_JR_26_2', 10592934010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_NICK_SMITH_JR_26_2', 10592934010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-17" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_NICK_SMITH_JR_26_2', 10592934010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-18">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592933010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-18" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_1"
+                               data-offer-id="10592933010">
+                        <button class="btn btn-primary" onclick="addImage(18, 'CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_1', 10592933010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-18">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_1', 10592933010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_1', 10592933010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-18" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_1', 10592933010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-19">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_NORMAN_POWELL_22_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592932010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-19" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_NORMAN_POWELL_22_0"
+                               data-offer-id="10592932010">
+                        <button class="btn btn-primary" onclick="addImage(19, 'CARD_BECKETT_COM_NEWS_202_NORMAN_POWELL_22_0', 10592932010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-19">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_NORMAN_POWELL_22_0', 10592932010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_NORMAN_POWELL_22_0', 10592932010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-19" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_NORMAN_POWELL_22_0', 10592932010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-20">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592908010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-20" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_1"
+                               data-offer-id="10592908010">
+                        <button class="btn btn-primary" onclick="addImage(20, 'CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_1', 10592908010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-20">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_1', 10592908010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_1', 10592908010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-20" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_1', 10592908010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-21">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592838010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-21" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_0"
+                               data-offer-id="10592838010">
+                        <button class="btn btn-primary" onclick="addImage(21, 'CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_0', 10592838010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-21">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_0', 10592838010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_0', 10592838010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-21" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_0', 10592838010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-22">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594248010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-22" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_2"
+                               data-offer-id="10594248010">
+                        <button class="btn btn-primary" onclick="addImage(22, 'CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_2', 10594248010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-22">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_2', 10594248010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_2', 10594248010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-22" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_2', 10594248010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-23">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594242010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-23" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_2"
+                               data-offer-id="10594242010">
+                        <button class="btn btn-primary" onclick="addImage(23, 'CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_2', 10594242010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-23">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_2', 10594242010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_2', 10594242010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-23" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_2', 10594242010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-24">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_SAM_HAUSER_14_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594241010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-24" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_SAM_HAUSER_14_1"
+                               data-offer-id="10594241010">
+                        <button class="btn btn-primary" onclick="addImage(24, 'CARD_BECKETT_COM_NEWS_202_SAM_HAUSER_14_1', 10594241010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-24">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_SAM_HAUSER_14_1', 10594241010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_SAM_HAUSER_14_1', 10594241010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-24" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_SAM_HAUSER_14_1', 10594241010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-25">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594240010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-25" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_0"
+                               data-offer-id="10594240010">
+                        <button class="btn btn-primary" onclick="addImage(25, 'CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_0', 10594240010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-25">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_0', 10594240010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_0', 10594240010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-25" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_0', 10594240010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-26">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_PASCAL_SIAKAM_1_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592414010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-26" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_PASCAL_SIAKAM_1_0"
+                               data-offer-id="10592414010">
+                        <button class="btn btn-primary" onclick="addImage(26, 'CARD_BECKETT_COM_NEWS_202_PASCAL_SIAKAM_1_0', 10592414010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-26">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_PASCAL_SIAKAM_1_0', 10592414010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_PASCAL_SIAKAM_1_0', 10592414010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-26" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_PASCAL_SIAKAM_1_0', 10592414010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-27">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592416010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-27" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_2"
+                               data-offer-id="10592416010">
+                        <button class="btn btn-primary" onclick="addImage(27, 'CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_2', 10592416010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-27">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_2', 10592416010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_2', 10592416010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-27" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_2', 10592416010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-28">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592417010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-28" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_3"
+                               data-offer-id="10592417010">
+                        <button class="btn btn-primary" onclick="addImage(28, 'CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_3', 10592417010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-28">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_3', 10592417010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_3', 10592417010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-28" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_3', 10592417010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-29">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592415010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-29" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_1"
+                               data-offer-id="10592415010">
+                        <button class="btn btn-primary" onclick="addImage(29, 'CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_1', 10592415010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-29">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_1', 10592415010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_1', 10592415010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-29" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_1', 10592415010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-30">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_4</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594225010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-30" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_4"
+                               data-offer-id="10594225010">
+                        <button class="btn btn-primary" onclick="addImage(30, 'CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_4', 10594225010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-30">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_4', 10594225010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_4', 10594225010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-30" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_4', 10594225010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-31">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594224010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-31" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_3"
+                               data-offer-id="10594224010">
+                        <button class="btn btn-primary" onclick="addImage(31, 'CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_3', 10594224010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-31">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_3', 10594224010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_3', 10594224010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-31" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_3', 10594224010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-32">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592826010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-32" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_1"
+                               data-offer-id="10592826010">
+                        <button class="btn btn-primary" onclick="addImage(32, 'CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_1', 10592826010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-32">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_1', 10592826010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_1', 10592826010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-32" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_1', 10592826010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-33">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594223010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-33" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_2"
+                               data-offer-id="10594223010">
+                        <button class="btn btn-primary" onclick="addImage(33, 'CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_2', 10594223010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-33">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_2', 10594223010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_2', 10594223010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-33" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_2', 10594223010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-34">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592827010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-34" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_2"
+                               data-offer-id="10592827010">
+                        <button class="btn btn-primary" onclick="addImage(34, 'CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_2', 10592827010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-34">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_2', 10592827010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_2', 10592827010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-34" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_2', 10592827010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-35">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594210010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-35" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_2"
+                               data-offer-id="10594210010">
+                        <button class="btn btn-primary" onclick="addImage(35, 'CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_2', 10594210010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-35">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_2', 10594210010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_2', 10594210010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-35" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_2', 10594210010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-36">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10593539010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-36" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_2"
+                               data-offer-id="10593539010">
+                        <button class="btn btn-primary" onclick="addImage(36, 'CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_2', 10593539010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-36">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_2', 10593539010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_2', 10593539010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-36" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_2', 10593539010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-37">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594209010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-37" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_1"
+                               data-offer-id="10594209010">
+                        <button class="btn btn-primary" onclick="addImage(37, 'CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_1', 10594209010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-37">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_1', 10594209010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_1', 10594209010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-37" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_1', 10594209010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-38">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10594208010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-38" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_0"
+                               data-offer-id="10594208010">
+                        <button class="btn btn-primary" onclick="addImage(38, 'CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_0', 10594208010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-38">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_0', 10594208010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_0', 10594208010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-38" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_0', 10594208010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-39">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592839010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-39" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_1"
+                               data-offer-id="10592839010">
+                        <button class="btn btn-primary" onclick="addImage(39, 'CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_1', 10592839010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-39">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_1', 10592839010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_1', 10592839010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-39" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_1', 10592839010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-40">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_0</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">5</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10593537010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-40" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_0"
+                               data-offer-id="10593537010">
+                        <button class="btn btn-primary" onclick="addImage(40, 'CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_0', 10593537010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-40">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_0', 10593537010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_0', 10593537010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-40" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_0', 10593537010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-41">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10593538010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-41" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_1"
+                               data-offer-id="10593538010">
+                        <button class="btn btn-primary" onclick="addImage(41, 'CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_1', 10593538010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-41">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_1', 10593538010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_1', 10593538010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-41" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_1', 10593538010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-42">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">4</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592840010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-42" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_2"
+                               data-offer-id="10592840010">
+                        <button class="btn btn-primary" onclick="addImage(42, 'CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_2', 10592840010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-42">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_2', 10592840010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_2', 10592840010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-42" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_2', 10592840010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-43">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592862010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-43" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_1"
+                               data-offer-id="10592862010">
+                        <button class="btn btn-primary" onclick="addImage(43, 'CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_1', 10592862010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-43">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_1', 10592862010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_1', 10592862010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-43" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_1', 10592862010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-44">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_1</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$2.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592833010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-44" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_1"
+                               data-offer-id="10592833010">
+                        <button class="btn btn-primary" onclick="addImage(44, 'CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_1', 10592833010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-44">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_1', 10592833010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_1', 10592833010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-44" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_1', 10592833010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-45">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592834010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-45" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_2"
+                               data-offer-id="10592834010">
+                        <button class="btn btn-primary" onclick="addImage(45, 'CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_2', 10592834010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-45">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_2', 10592834010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_2', 10592834010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-45" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_2', 10592834010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+            <div class="listing-card" id="listing-46">
+                <div class="listing-header">
+                    <div class="listing-title">Untitled Listing</div>
+                    <div class="listing-status status-unpublished">Unpublished</div>
+                </div>
+                
+                <div class="detail-item">
+                    <div class="detail-label">SKU</div>
+                    <div class="detail-value">CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_3</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Price</div>
+                    <div class="detail-value price">$1.0 USD</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Quantity</div>
+                    <div class="detail-value">2</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Offer ID</div>
+                    <div class="detail-value">10592828010</div>
+                </div>
+                
+                
+                
+                <div class="edit-section">
+                    <h3>📸 Add Images</h3>
+                    <div class="image-upload">
+                        <input type="text" 
+                               class="image-input" 
+                               id="image-input-46" 
+                               placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+                               data-sku="CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_3"
+                               data-offer-id="10592828010">
+                        <button class="btn btn-primary" onclick="addImage(46, 'CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_3', 10592828010)">
+                            ➕ Add Image
+                        </button>
+                    </div>
+                    <div class="image-preview" id="images-46">
+                        <p style="color: #7f8c8d; font-style: italic;">No images added yet</p>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    
+                    <button class="btn btn-success" onclick="publishListing('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_3', 10592828010, '')"  title="Publishes to SANDBOX (test), NOT live eBay">
+                        🚀 Publish to SANDBOX
+                    </button>
+                    <button class="btn btn-primary" onclick="saveImages('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_3', 10592828010)">
+                        💾 Save Images
+                    </button>
+                    <button class="btn btn-danger hidden" id="prod-btn-46" onclick="migrateToProduction('CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_3', 10592828010)" style="display: none;">
+                        ⚠️ MIGRATE TO PRODUCTION
+                    </button>
+                </div>
+            </div>
+
+        </div>
+        
+        <div class="footer">
+            <p>This page allows you to add images and manage your listings.</p>
+            <p><strong>Production migration is disabled</strong> until you give the command.</p>
+            <p>All changes are saved via the eBay API.</p>
+        </div>
+    </div>
+    
+    <script>
+        const listingsData = [{"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_1", "offer_id": "10592851010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_2", "offer_id": "10594499010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_0", "offer_id": "10594243010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_ONYEKA_OKONGWU_21_2", "offer_id": "10594413010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_PJ_WASHINGTON_19_1", "offer_id": "10594412010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_RON_HOLLAND_II_16_0", "offer_id": "10594411010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_2", "offer_id": "10592863010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_1", "offer_id": "10594410010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_0", "offer_id": "10592832010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_JOSH_GIDDEY_48_2", "offer_id": "10594409010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_JRUE_HOLIDAY_46_1", "offer_id": "10594408010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_KEVIN_HUERTER_43_0", "offer_id": "10594407010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_AMEN_THOMPSON_17_2", "offer_id": "10594403010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_1", "offer_id": "10594402010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_SPENCER_DINWIDDIE_13_0", "offer_id": "10594401010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 4, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_1", "offer_id": "10594400010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_0", "offer_id": "10594399010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_NICK_SMITH_JR_26_2", "offer_id": "10592934010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_1", "offer_id": "10592933010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_NORMAN_POWELL_22_0", "offer_id": "10592932010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_1", "offer_id": "10592908010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_0", "offer_id": "10592838010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_RUSSELL_WESTBROOK_15_2", "offer_id": "10594248010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_NIKOLA_VUEVI_24_2", "offer_id": "10594242010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_SAM_HAUSER_14_1", "offer_id": "10594241010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_0", "offer_id": "10594240010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_PASCAL_SIAKAM_1_0", "offer_id": "10592414010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_2", "offer_id": "10592416010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_3", "offer_id": "10592417010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_ZACCHARIE_RISACHER_2_1", "offer_id": "10592415010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_4", "offer_id": "10594225010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_3", "offer_id": "10594224010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TYRESE_HALIBURTON_3_1", "offer_id": "10592826010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_2", "offer_id": "10594223010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TRAE_YOUNG_5_2", "offer_id": "10592827010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_2", "offer_id": "10594210010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_STEVEN_ADAMS_12_2", "offer_id": "10593539010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 1, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TALEN_HORTON_TUCKER_10_1", "offer_id": "10594209010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_0", "offer_id": "10594208010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TY_JEROME_4_1", "offer_id": "10592839010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TERANCE_MANN_9_0", "offer_id": "10593537010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 5, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_1", "offer_id": "10593538010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_2", "offer_id": "10592840010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 4, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TIM_HARDAWAY_JR_7_1", "offer_id": "10592862010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TIDJANE_SALAN_8_1", "offer_id": "10592833010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "2.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TJ_MCCONNELL_11_2", "offer_id": "10592834010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 3, "description": "", "category_id": "261328", "images": []}, {"title": "Untitled Listing", "sku": "CARD_BECKETT_COM_NEWS_202_TOBIAS_HARRIS_6_3", "offer_id": "10592828010", "listing_id": null, "group_key": "", "status": "UNPUBLISHED", "price": "1.0", "currency": "USD", "quantity": 2, "description": "", "category_id": "261328", "images": []}];
+        
+        function addImage(listingIdx, sku, offerId) {
+            const input = document.getElementById(`image-input-${listingIdx}`);
+            const url = input.value.trim();
+            
+            if (!url) {
+                alert('Please enter an image URL');
+                return;
+            }
+            
+            // Validate URL
+            try {
+                new URL(url);
+            } catch (e) {
+                alert('Please enter a valid URL');
+                return;
+            }
+            
+            const imagesDiv = document.getElementById(`images-${listingIdx}`);
+            const imageItem = document.createElement('div');
+            imageItem.className = 'image-preview-item';
+            imageItem.innerHTML = `
+                <img src="${url}" alt="Image" onerror="this.parentElement.remove(); alert('Image failed to load');">
+                <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
+            `;
+            
+            // Remove "No images" message if present
+            const noImagesMsg = imagesDiv.querySelector('p');
+            if (noImagesMsg) noImagesMsg.remove();
+            
+            imagesDiv.appendChild(imageItem);
+            input.value = '';
+        }
+        
+        function removeImage(listingIdx, imageIdx) {
+            const imagesDiv = document.getElementById(`images-${listingIdx}`);
+            const items = imagesDiv.querySelectorAll('.image-preview-item');
+            if (items[imageIdx]) {
+                items[imageIdx].remove();
+            }
+            
+            // Show "No images" if empty
+            if (imagesDiv.querySelectorAll('.image-preview-item').length === 0) {
+                imagesDiv.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">No images added yet</p>';
+            }
+        }
+        
+        function getImageUrls(listingIdx) {
+            const imagesDiv = document.getElementById(`images-${listingIdx}`);
+            const images = [];
+            imagesDiv.querySelectorAll('img').forEach(img => {
+                images.push(img.src);
+            });
+            return images;
+        }
+        
+        function saveImages(sku, offerId) {
+            const listingIdx = listingsData.findIndex(l => l.sku === sku);
+            if (listingIdx === -1) {
+                alert('Listing not found');
+                return;
+            }
+            
+            const imageUrls = getImageUrls(listingIdx);
+            
+            if (imageUrls.length === 0) {
+                alert('No images to save. Add images first using the "Add Image" button.');
+                return;
+            }
+            
+            // Build the Python command
+            const imageUrlsStr = imageUrls.map(url => `"${url}"`).join(' ');
+            const command = `python add_images_to_listing.py ${sku} ${imageUrlsStr}`;
+            
+            // Copy to clipboard
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(command).then(() => {
+                    alert(`✅ Command copied to clipboard!\n\nRun this in your terminal:\n\n${command}\n\nOr click OK to generate a .bat file.`);
+                    
+                    // Generate a .bat file for easy execution
+                    const batContent = `@echo off\necho Adding images to listing ${sku}...\ncd /d "C:\\eBayBot"\n${command}\npause`;
+                    const blob = new Blob([batContent], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `add_images_${sku}.bat`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }).catch(() => {
+                    // Fallback if clipboard fails
+                    const commandText = `Run this command:\n\n${command}`;
+                    if (confirm(commandText + '\n\nClick OK to generate a .bat file.')) {
+                        const batContent = `@echo off\necho Adding images to listing ${sku}...\ncd /d "C:\\eBayBot"\n${command}\npause`;
+                        const blob = new Blob([batContent], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `add_images_${sku}.bat`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }
+                });
+            } else {
+                // Fallback if clipboard API not available
+                const commandText = `Run this command:\n\n${command}`;
+                if (confirm(commandText + '\n\nClick OK to generate a .bat file.')) {
+                    const batContent = `@echo off\necho Adding images to listing ${sku}...\ncd /d "C:\\eBayBot"\n${command}\npause`;
+                    const blob = new Blob([batContent], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `add_images_${sku}.bat`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }
+            }
+        }
+        
+        function publishListing(sku, offerId, groupKey) {
+            if (!confirm('Publish this listing to SANDBOX?\n\nThis will make it live in the eBay Sandbox (test environment).\n\nIt will NOT go to your live eBay page.')) {
+                return;
+            }
+            
+            // Create a command file that can be executed
+            const command = `python publish_draft.py "${sku}"`;
+            
+            // Show instructions
+            const instructions = `
+📋 TO PUBLISH THIS LISTING:
+
+1. Open a terminal/command prompt
+2. Navigate to: C:\\eBayBot
+3. Run this command:
+
+   ${command}
+
+Or copy this command and run it:
+${command}
+
+⚠️ Remember: This publishes to SANDBOX (test), NOT your live eBay page.
+            `;
+            
+            // Copy command to clipboard if possible
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(command).then(() => {
+                    alert(instructions + '\n\n✅ Command copied to clipboard!');
+                }).catch(() => {
+                    alert(instructions);
+                });
+            } else {
+                alert(instructions);
+            }
+            
+            // Also create a clickable link to a helper file
+            const helperText = `Click OK, then I'll create a batch file you can double-click to publish.`;
+            if (confirm(helperText)) {
+                // Create a data URI for a batch file
+                const batchContent = `@echo off
+cd /d "C:\\eBayBot"
+python publish_draft.py "${sku}"
+pause
+`;
+                const blob = new Blob([batchContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `publish_${sku}.bat`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+        
+        function migrateToProduction(sku, offerId) {
+            if (!confirm('⚠️ WARNING: Migrate this listing to PRODUCTION?\n\nThis will move it to your live eBay account.\n\nAre you absolutely sure?')) {
+                return;
+            }
+            
+            if (!confirm('⚠️ FINAL CONFIRMATION: This will publish to PRODUCTION eBay.\n\nType "MIGRATE" to confirm:')) {
+                return;
+            }
+            
+            alert('Production migration requires explicit command. Run: python migrate_to_production.py ' + sku);
+        }
+        
+        // Enable production buttons when command is given
+        function enableProductionMode() {
+            document.querySelectorAll('[id^="prod-btn-"]').forEach(btn => {
+                btn.classList.remove('hidden');
+                btn.style.display = 'inline-block';
+            });
+            alert('⚠️ PRODUCTION MODE ENABLED');
+        }
+        
+        // Listen for production enable command (you can call enableProductionMode() from console)
+        console.log('To enable production mode, run: enableProductionMode()');
+    </script>
+</body>
+</html>

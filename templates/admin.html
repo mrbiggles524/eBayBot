@@ -69,6 +69,7 @@
         <div class="header-links">
             <a href="/app">← Back to App</a>
             <div>
+                <a href="/referral">My Referral Link</a>
                 <a href="/admin/logout">Logout Admin</a>
             </div>
         </div>
@@ -109,7 +110,7 @@
             <div class="form-row">
                 <input type="email" id="paymentEmail" placeholder="user@email.com" style="flex: 2;">
                 <input type="text" id="transactionId" placeholder="PayPal Transaction ID (optional)" style="flex: 2;">
-                <input type="text" id="paymentAmount" placeholder="Amount" value="9.99" style="max-width: 120px;">
+                <input type="text" id="paymentAmount" placeholder="Amount" value="14.99" style="max-width: 120px;">
             </div>
             <div class="form-row">
                 <input type="text" id="paymentNotes" placeholder="Notes (optional)" style="flex: 1;">
@@ -157,6 +158,42 @@
             </table>
             {% if not subscriptions %}
             <p style="color: #888; text-align: center; padding: 20px;">No subscriptions yet</p>
+            {% endif %}
+        </div>
+        
+        <div class="card">
+            <h2>💰 Referral Program ({{ commission_rate }}% Commission)</h2>
+            <p style="color: #888; margin-bottom: 15px;">Referrers earn {{ commission_rate }}% of every payment from users they referred. Mark payouts when you've paid them.</p>
+            {% if referrals %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Referrer</th>
+                        <th>Referred</th>
+                        <th>Earned</th>
+                        <th>Paid Out</th>
+                        <th>Pending</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for email, data in referrals.items() %}
+                    <tr>
+                        <td>{{ email }}</td>
+                        <td>{{ data.referred|length }}</td>
+                        <td style="color: #28a745;">${{ "%.2f"|format(data.earnings) }}</td>
+                        <td>${{ "%.2f"|format(data.paid_out) }}</td>
+                        <td style="color: #ffc107;">${{ "%.2f"|format(data.earnings - data.paid_out) }}</td>
+                        <td>
+                            <input type="number" class="payout-amount" data-email="{{ email }}" placeholder="Amount" step="0.01" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff;">
+                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem; margin-left: 5px;" onclick="markReferralPaid(this)">Mark Paid</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: #888; padding: 15px;">No referrals yet. Users can share their link from <a href="/referral" style="color: #00d4ff;">/referral</a></p>
             {% endif %}
         </div>
         
@@ -266,7 +303,7 @@
                 // Clear form
                 document.getElementById('paymentEmail').value = '';
                 document.getElementById('transactionId').value = '';
-                document.getElementById('paymentAmount').value = '9.99';
+                document.getElementById('paymentAmount').value = '14.99';
                 document.getElementById('paymentNotes').value = '';
                 setTimeout(() => location.reload(), 1500);
             } else {
@@ -286,6 +323,28 @@
             const result = await response.json();
             if (result.success) {
                 showToast(result.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        async function markReferralPaid(btn) {
+            const row = btn.closest('tr');
+            const input = row ? row.querySelector('.payout-amount') : null;
+            const email = input ? input.getAttribute('data-email') : '';
+            const amount = parseFloat(input ? input.value : 0);
+            if (!email || !amount || amount <= 0) { showToast('Enter amount', 'error'); return; }
+            
+            const response = await fetch('/admin/mark-referral-paid', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ referrer_email: email, amount })
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast(result.message, 'success');
+                if (input) input.value = '';
                 setTimeout(() => location.reload(), 1500);
             } else {
                 showToast(result.error, 'error');

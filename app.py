@@ -124,6 +124,10 @@ PAYMENTS_FILE = "payments.json"
 # Per-user eBay tokens (each subscriber uses their own eBay account)
 USER_TOKENS_FILE = "user_tokens.json"
 
+# Referral program: 20% lifetime commission for referrers
+REFERRALS_FILE = "referrals.json"
+REFERRAL_COMMISSION_RATE = 0.20  # 20%
+
 # =============================================================================
 # SUBSCRIPTION MANAGEMENT
 # =============================================================================
@@ -172,6 +176,62 @@ def save_user_tokens(tokens):
     """Save per-user eBay tokens to file."""
     with open(USER_TOKENS_FILE, 'w', encoding='utf-8') as f:
         json.dump(tokens, f, indent=2)
+
+def load_referrals():
+    """Load referral data from file."""
+    if os.path.exists(REFERRALS_FILE):
+        try:
+            with open(REFERRALS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_referrals(refs):
+    """Save referral data to file."""
+    with open(REFERRALS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(refs, f, indent=2)
+
+def get_referral_code(email):
+    """Generate a short referral code from email (6 chars)."""
+    h = hashlib.sha256(email.lower().encode()).hexdigest()[:6]
+    return h.upper()
+
+def get_referrer_from_code(code):
+    """Look up referrer email from code. Returns None if not found."""
+    refs = load_referrals()
+    code_upper = (code or '').strip().upper()
+    for referrer_email, data in refs.items():
+        if data.get('code', '').upper() == code_upper:
+            return referrer_email
+    return None
+
+def add_referral_earnings(referrer_email, referred_email, amount_paid):
+    """Record 20% commission for referrer when referred user pays."""
+    commission = round(float(amount_paid) * REFERRAL_COMMISSION_RATE, 2)
+    if commission <= 0:
+        return
+    refs = load_referrals()
+    if referrer_email not in refs:
+        refs[referrer_email] = {
+            "code": get_referral_code(referrer_email),
+            "referred": [],
+            "earnings": 0,
+            "paid_out": 0,
+            "history": []
+        }
+    if referred_email not in refs[referrer_email]["referred"]:
+        refs[referrer_email]["referred"].append(referred_email)
+    refs[referrer_email]["earnings"] = round(refs[referrer_email].get("earnings", 0) + commission, 2)
+    refs[referrer_email]["history"] = refs[referrer_email].get("history", [])
+    refs[referrer_email]["history"].append({
+        "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "referred": referred_email,
+        "amount_paid": amount_paid,
+        "commission": commission
+    })
+    save_referrals(refs)
+    print(f"[REFERRAL] {referrer_email} earned ${commission} from {referred_email}'s ${amount_paid} payment")
 
 def get_token_for_user(email):
     """Get eBay token for current user. Returns user's token if set, else None (use env token)."""
@@ -291,6 +351,7 @@ def register():
         if request.method == 'POST':
             email = request.form.get('email', '').strip().lower()
             name = request.form.get('name', '').strip()
+            ref = request.form.get('ref', '').strip() or request.form.get('referral', '').strip()
             
             if not email:
                 return render_template('register.html', error='Email is required.')
@@ -311,6 +372,16 @@ def register():
                 # For now we'll give them another trial if they register again
                 # (removes old record and creates fresh trial)
             
+            # Resolve referrer: ref can be email or 6-char code
+            referrer_email = None
+            if ref:
+                if '@' in ref:
+                    referrer_email = ref.lower()
+                else:
+                    referrer_email = get_referrer_from_code(ref)
+                if referrer_email == email:
+                    referrer_email = None  # Can't refer yourself
+            
             # Create new account with 3-day trial
             from datetime import datetime, timedelta
             trial_end = (datetime.now() + timedelta(days=TRIAL_DAYS)).strftime('%Y-%m-%d')
@@ -320,14 +391,31 @@ def register():
                 'trial_ends': trial_end,
                 'name': name or '',
                 'registered': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'expires': ''  # No paid expiry yet
+                'expires': '',  # No paid expiry yet
+                'referred_by': referrer_email or ''
             }
             save_subscriptions(subs)
+            
+            # Ensure referrer is in referrals file (so they get a code)
+            if referrer_email:
+                refs = load_referrals()
+                if referrer_email not in refs:
+                    refs[referrer_email] = {
+                        "code": get_referral_code(referrer_email),
+                        "referred": [],
+                        "earnings": 0,
+                        "paid_out": 0,
+                        "history": []
+                    }
+                if email not in refs[referrer_email]["referred"]:
+                    refs[referrer_email]["referred"].append(email)
+                save_referrals(refs)
             
             session['user_email'] = email
             return redirect('/app')
         
-        return render_template('register.html')
+        ref = request.args.get('ref', '')
+        return render_template('register.html', ref=ref)
     except Exception as e:
         print(f"[ERROR] Error in register: {e}")
         import traceback
@@ -391,6 +479,36 @@ def subscribe():
     except Exception as e:
         print(f"[ERROR] Error in subscribe: {e}")
         return f"<h1>Error</h1><p>An error occurred: {str(e)}</p>", 500
+
+@app.route('/referral')
+def referral():
+    """Referral dashboard - share your link, earn 20% for life."""
+    email = session.get('user_email', '')
+    if not email:
+        return redirect('/login')
+    refs = load_referrals()
+    data = refs.get(email.lower(), {})
+    code = data.get('code') or get_referral_code(email)
+    if email.lower() not in refs:
+        refs[email.lower()] = {
+            "code": code,
+            "referred": [],
+            "earnings": 0,
+            "paid_out": 0,
+            "history": []
+        }
+        save_referrals(refs)
+    base = request.url_root.rstrip('/')
+    referral_link = f"{base}/register?ref={code}"
+    history = list(reversed(data.get('history', [])[-20:]))  # Last 20, newest first
+    return render_template('referral.html',
+        referral_link=referral_link,
+        code=code,
+        referred=data.get('referred', []),
+        earnings=data.get('earnings', 0),
+        paid_out=data.get('paid_out', 0),
+        history=history,
+        commission_rate=int(REFERRAL_COMMISSION_RATE * 100))
 
 @app.route('/contact')
 def contact():
@@ -1340,12 +1458,25 @@ def require_admin(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def _group_payments_by_email(payments):
+    """Convert payments list to dict grouped by email for template."""
+    grouped = {}
+    for p in (payments or []):
+        if isinstance(p, dict):
+            email = p.get('email', '')
+            if email not in grouped:
+                grouped[email] = []
+            grouped[email].append(p)
+    return grouped
+
 @app.route('/admin')
 @require_admin
 def admin():
     """Admin panel."""
     subs = load_subscriptions()
-    payments = load_payments()
+    payments_raw = load_payments()
+    payments = _group_payments_by_email(payments_raw) if isinstance(payments_raw, list) else (payments_raw or {})
+    referrals = load_referrals()
     
     # Calculate expiring soon (within 7 days)
     from datetime import datetime, timedelta
@@ -1368,7 +1499,9 @@ def admin():
     return render_template('admin.html', 
                           subscriptions=subs, 
                           payments=payments,
-                          expiring_soon=expiring_soon)
+                          expiring_soon=expiring_soon,
+                          referrals=referrals,
+                          commission_rate=int(REFERRAL_COMMISSION_RATE * 100))
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -1494,10 +1627,31 @@ def record_payment():
     
     save_subscriptions(subs)
     
+    # Referral commission: 20% for referrer (lifetime)
+    referred_by = subs.get(email, {}).get('referred_by', '')
+    if referred_by:
+        add_referral_earnings(referred_by, email, amount)
+    
     return jsonify({
         "success": True,
         "message": f"Payment recorded and subscription extended until {subs[email]['expires']}"
     })
+
+@app.route('/admin/mark-referral-paid', methods=['POST'])
+@require_admin
+def mark_referral_paid():
+    """Mark a payout to a referrer (increases their paid_out)."""
+    data = request.json
+    referrer_email = data.get('referrer_email', '').strip().lower()
+    amount = float(data.get('amount', 0))
+    if not referrer_email:
+        return jsonify({"error": "Referrer email required"}), 400
+    refs = load_referrals()
+    if referrer_email not in refs:
+        return jsonify({"error": "Referrer not found"}), 404
+    refs[referrer_email]['paid_out'] = round(refs[referrer_email].get('paid_out', 0) + amount, 2)
+    save_referrals(refs)
+    return jsonify({"success": True, "message": f"Marked ${amount} paid to {referrer_email}"})
 
 @app.route('/admin/renew-subscription', methods=['POST'])
 @require_admin

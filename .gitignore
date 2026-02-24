@@ -9,6 +9,7 @@
 subscriptions.json
 payments.json
 user_tokens.json
+referrals.json
 
 # Python
 __pycache__/

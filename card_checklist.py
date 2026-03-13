@@ -498,6 +498,7 @@ class CardChecklistFetcher:
         # Detect source from URL
         is_cardsmiths = 'cardsmithsbreaks.com' in url.lower()
         is_beckett = 'beckett.com' in url.lower()
+        is_cardboard = 'cardboardconnection.com' in url.lower()
         
         # First, fetch the page to extract description
         soup = None
@@ -524,6 +525,11 @@ class CardChecklistFetcher:
 <p>All cards are in Near Mint or better condition.</p>
 <p>Ships in penny sleeve + top loader via PWE with eBay tracking.</p>"""
             print(f"[DESC] Using fallback description due to extraction error")
+        
+        if is_cardboard:
+            print(f"[PARSER] Detected Cardboard Connection URL - using Cardboard Connection parser")
+            cards = self._fetch_base_cards_from_cardboardconnection(url, soup=soup)
+            return (cards or [], description)
         
         if is_cardsmiths:
             print(f"[PARSER] Detected Cardsmiths Breaks URL - using Cardsmiths parser")
@@ -767,6 +773,66 @@ class CardChecklistFetcher:
         except Exception as e:
             print(f"[PARSER] Could not convert URL: {e}")
         return None
+    
+    def _fetch_base_cards_from_cardboardconnection(self, url: str, soup: BeautifulSoup = None) -> List[Dict]:
+        """Fetch base cards from Cardboard Connection - parses checklist tables."""
+        cards = []
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            if soup is None:
+                response = requests.get(url, headers=headers, timeout=60)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, 'html.parser')
+            
+            tables = soup.find_all('table')
+            seen_cards = set()
+            
+            for table in tables:
+                rows = table.find_all('tr')
+                if len(rows) < 5:
+                    continue
+                for row in rows[1:]:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:
+                        card_num = cells[0].get_text().strip()
+                        player_name = cells[1].get_text().strip() if len(cells) > 1 else ''
+                        team = cells[2].get_text().strip() if len(cells) > 2 else ''
+                        if not card_num or not player_name:
+                            continue
+                        if not card_num.isdigit() and '-' not in card_num:
+                            continue
+                        try:
+                            if card_num.isdigit() and int(card_num) > 500:
+                                continue
+                        except ValueError:
+                            pass
+                        card_key = (str(card_num), player_name.lower())
+                        if card_key not in seen_cards and 2 <= len(player_name) <= 50:
+                            seen_cards.add(card_key)
+                            cards.append({
+                                'number': card_num,
+                                'name': player_name,
+                                'team': team,
+                                'set_name': url,
+                                'type': 'base',
+                                'rarity': 'Base'
+                            })
+            
+            if cards:
+                try:
+                    def _cc_sort_key(c):
+                        n = str(c.get('number', ''))
+                        m = re.search(r'\d+', n)
+                        return (int(m.group()) if m else 999, n)
+                    cards.sort(key=_cc_sort_key)
+                except Exception:
+                    pass
+            print(f"Found {len(cards)} base cards from Cardboard Connection")
+        except Exception as e:
+            print(f"Error fetching from Cardboard Connection: {e}")
+        return cards
     
     def _fetch_base_cards_from_cardsmiths(self, url: str, soup: BeautifulSoup = None) -> List[Dict]:
         """Fetch base cards from Cardsmiths Breaks - parses table format."""

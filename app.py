@@ -22,7 +22,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 # =============================================================================
 # VERSION - Single source of truth
 # =============================================================================
-VERSION = "4.0"
+VERSION = "4.012"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
@@ -1749,6 +1749,219 @@ def update_token():
         print(f"[ERROR] Failed to update token: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# =============================================================================
+# EXTENDED FEATURES API
+# =============================================================================
+
+@app.route('/api/fetch-images', methods=['POST'])
+@require_subscription
+def api_fetch_images():
+    """Auto-fetch card images from Beckett/Cardsmiths/eBay."""
+    try:
+        from features.card_images import CardImageFetcher
+        data = request.json
+        cards = data.get('cards', [])
+        set_name = data.get('setName', '')
+        source_url = data.get('sourceUrl', '')
+        fetcher = CardImageFetcher()
+        updated = fetcher.fetch_images_for_cards(cards, set_name, source_url)
+        return jsonify({"success": True, "cards": updated})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/market-price', methods=['POST'])
+@require_subscription
+def api_market_price():
+    """Look up sold prices for a card."""
+    try:
+        from features.market_prices import MarketPriceLookup
+        data = request.json
+        name = data.get('playerName', '')
+        set_name = data.get('setName', '')
+        number = data.get('cardNumber', '')
+        lookup = MarketPriceLookup()
+        result = lookup.get_ebay_sold_prices(name, set_name, number if number else None)
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/apply-market-pricing', methods=['POST'])
+@require_subscription
+def api_apply_market_pricing():
+    """For cards with qty>0: lookup eBay sold via SerpAPI. Max 15. Returns updated cards."""
+    try:
+        import time
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+        from features.market_prices import MarketPriceLookup
+        data = request.json or {}
+        cards = data.get('cards', [])
+        set_name = data.get('setName', '') or ''
+        lookup = MarketPriceLookup()
+        lookup_count = 0
+        max_lookups = 15
+        updated_count = 0
+        no_results = []
+        debug_msg = None
+        for card in cards:
+            if lookup_count >= max_lookups:
+                continue
+            name = card.get('name', '')
+            number = str(card.get('number', ''))
+            parallel_type = card.get('parallelType') or card.get('parallel_type') or ''
+            result = lookup.get_ebay_sold_prices(name, set_name, number if number else None, parallel_type)
+            if result.get('_debug') and debug_msg is None:
+                debug_msg = result['_debug']
+            lookup_count += 1
+            suggested = result.get('suggested') or result.get('median') or result.get('avg') or result.get('last_sold') or result.get('min')
+            if suggested and 0.25 < suggested < 10000:
+                card['price'] = round(suggested, 2)
+                updated_count += 1
+            else:
+                card['price'] = 1.0
+                updated_count += 1
+                no_results.append(name or 'Unknown')
+            time.sleep(0.2)
+        resp = {"success": True, "cards": cards, "updated": updated_count}
+        if no_results:
+            resp["no_results"] = no_results[:10]
+        if debug_msg:
+            resp["debug"] = debug_msg
+        if not os.environ.get('SERPAPI_KEY', '').strip() and no_results:
+            resp["hint"] = "Add SERPAPI_KEY to .env for reliable prices (free at serpapi.com)"
+        return jsonify(resp)
+    except Exception as e:
+        import traceback
+        return jsonify({"success": False, "error": str(e), "debug": traceback.format_exc()[:500]}), 500
+
+@app.route('/api/presets', methods=['GET', 'POST', 'DELETE'])
+@require_subscription
+def api_presets():
+    """CRUD for saved checklist presets."""
+    try:
+        from features.presets import PresetManager
+        email = session.get('user_email', '')
+        pm = PresetManager(user_email=email)
+        if request.method == 'GET':
+            return jsonify({"success": True, "presets": pm.list_presets()})
+        elif request.method == 'POST':
+            data = request.json
+            pm.save_preset(
+                name=data.get('name', ''),
+                url=data.get('url', ''),
+                checklist_type=data.get('type', 'base'),
+                filters=data.get('filters')
+            )
+            return jsonify({"success": True})
+        else:
+            name = request.args.get('name', '')
+            if name:
+                pm.delete_preset(name)
+            return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/apply-tiered-pricing', methods=['POST'])
+@require_subscription
+def api_apply_tiered_pricing():
+    """Apply smart tiered pricing to cards."""
+    try:
+        from features.tiered_pricing import TieredPricingEngine
+        data = request.json
+        cards = data.get('cards', [])
+        engine = TieredPricingEngine(
+            base_price=float(data.get('basePrice', 1.00)),
+            rookie_markup_pct=float(data.get('rookieMarkup', 50)),
+            insert_markup_pct=float(data.get('insertMarkup', 30)),
+            parallel_markup_pct=float(data.get('parallelMarkup', 25)),
+            auto_price=float(data.get('autoPrice', 5.00))
+        )
+        updated = engine.apply_tiered_pricing(cards)
+        return jsonify({"success": True, "cards": updated})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/templates', methods=['GET', 'POST', 'DELETE'])
+@require_subscription
+def api_templates():
+    """CRUD for listing templates."""
+    try:
+        from features.listing_templates import ListingTemplateManager
+        email = session.get('user_email', '')
+        tm = ListingTemplateManager(user_email=email)
+        if request.method == 'GET':
+            return jsonify({"success": True, "templates": tm.list_templates()})
+        elif request.method == 'POST':
+            data = request.json
+            tm.save_template(
+                name=data.get('name', ''),
+                title_template=data.get('titleTemplate', ''),
+                description=data.get('description', ''),
+                default_price=float(data.get('defaultPrice', 1.00)),
+                images=data.get('images'),
+                meta=data.get('meta')
+            )
+            return jsonify({"success": True})
+        else:
+            name = request.args.get('name', '')
+            if name:
+                tm.delete_template(name)
+            return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/check-duplicates', methods=['POST'])
+@require_subscription
+def api_check_duplicates():
+    """Check for potentially duplicate listings."""
+    try:
+        from features.duplicate_detection import DuplicateDetector
+        data = request.json
+        title = data.get('title', '')
+        existing = data.get('existingListings', [])
+        detector = DuplicateDetector()
+        matches = detector.check_duplicates(title, existing, threshold=float(data.get('threshold', 0.6)))
+        return jsonify({"success": True, "matches": [{"listing": m[0], "score": m[1]} for m in matches]})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics', methods=['GET'])
+@require_subscription
+def api_analytics():
+    """Get sales analytics summary."""
+    try:
+        from features.analytics import AnalyticsDashboard
+        email = session.get('user_email', '')
+        payments = load_payments()
+        user_payments = [p for p in (payments if isinstance(payments, list) else []) if isinstance(p, dict) and p.get('email') == email]
+        dashboard = AnalyticsDashboard(payments_data=user_payments)
+        days = int(request.args.get('days', 30))
+        summary = dashboard.get_sales_summary(days=days, user_email=email)
+        best = dashboard.get_best_sellers(limit=10)
+        return jsonify({"success": True, "summary": summary, "bestSellers": best})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/grading-aspects', methods=['POST'])
+@require_subscription
+def api_grading_aspects():
+    """Get eBay item specifics for graded cards."""
+    try:
+        from features.grading import GradingHelper
+        data = request.json
+        helper = GradingHelper()
+        aspects = helper.get_aspects_for_graded(
+            grader=data.get('grader', 'PSA'),
+            grade=data.get('grade', '10'),
+            cert_number=data.get('certNumber')
+        )
+        return jsonify({"success": True, "aspects": aspects, "titleSuffix": helper.suggest_title_suffix(data.get('grader', 'PSA'), data.get('grade', '10'))})
+    except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/verify-draft', methods=['POST'])

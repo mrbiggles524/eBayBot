@@ -77,6 +77,15 @@ The bot supports multiple card data sources:
 
 Set `CARD_DATA_SOURCE` in `.env` to your preferred source.
 
+### Market Pricing (Optional)
+
+The Market Price feature looks up eBay sold listings. eBay often blocks direct scraping. For reliable sold data, add a [SerpAPI](https://serpapi.com/) key (250 free searches/month):
+
+- Add `SERPAPI_KEY=your_key` to `.env`
+- Get your key at [serpapi.com/manage-api-key](https://serpapi.com/manage-api-key)
+
+Without a key, the app will try direct eBay access (may show "No market data" when blocked).
+
 ### 5. Auto-Setup (Recommended)
 
 After logging in, automatically fetch all required configuration from your eBay account:

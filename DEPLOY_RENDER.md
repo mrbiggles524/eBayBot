@@ -29,6 +29,7 @@ As the owner, add these in Render **Environment** (Dashboard â†’ Your Service â†
 | `EBAY_PRODUCTION_TOKEN` | Yes | Your eBay token (or use OAuth) |
 | `EBAY_ENVIRONMENT` | Yes | `production` |
 | `PAYPAL_EMAIL` | Optional | For subscription payments |
+| `SERPAPI_KEY` | Yes (for Market Price) | Your SerpAPI key from serpapi.com (free tier ~100/mo) |
 
 **OAuth for subscribers:** After first deploy, set:
 

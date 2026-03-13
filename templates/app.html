@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#00ffff">
+    <link rel="manifest" href="/static/manifest.json">
     <title>CardLister Pro - eBay Card Listing</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -496,6 +498,7 @@
         
         .toast-success { background: #28a745; }
         .toast-error { background: #dc3545; }
+        .toast-warning { background: #ffc107; color: #333; }
         
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
@@ -614,6 +617,9 @@
                 <button onclick="startWalkthrough()" style="padding: 8px 16px; background: rgba(0, 255, 0, 0.2); color: #00ff00; border: 2px solid rgba(0, 255, 0, 0.4); border-radius: 6px; cursor: pointer; font-size: 0.9rem; text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);" title="Step-by-step guide">
                     📖 Walk Me Through
                 </button>
+                <button onclick="showAnalytics()" style="padding: 8px 16px; background: rgba(255, 165, 0, 0.2); color: #ffa500; border: 2px solid rgba(255, 165, 0, 0.4); border-radius: 6px; cursor: pointer; font-size: 0.9rem;" title="Sales analytics">
+                    📈 Analytics
+                </button>
             </div>
             
             <!-- Keyboard Shortcuts Modal -->
@@ -628,6 +634,14 @@
                         <div><strong>Ctrl/Cmd + A</strong> - Select all cards</div>
                     </div>
                     <button onclick="hideKeyboardShortcuts()" style="margin-top: 20px; padding: 10px 20px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer; width: 100%;">Close</button>
+                </div>
+            </div>
+            <!-- Analytics Modal -->
+            <div id="analyticsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; padding: 20px; overflow-y: auto;">
+                <div style="background: rgba(15, 15, 26, 0.98); border: 2px solid rgba(255, 165, 0, 0.5); border-radius: 16px; padding: 30px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto;">
+                    <h3 style="color: #ffa500; margin-bottom: 20px;">📈 Sales Analytics</h3>
+                    <div id="analyticsContent" style="color: #ccc;">Loading...</div>
+                    <button onclick="document.getElementById('analyticsModal').style.display='none'" style="margin-top: 20px; padding: 10px 24px; background: rgba(255,255,255,0.1); color: #fff; border-radius: 8px; cursor: pointer; width: 100%;">Close</button>
                 </div>
             </div>
         </header>
@@ -655,10 +669,10 @@
         <div class="card">
             <h2><span class="step">2</span> Fetch Checklist</h2>
             
-            <div class="fetch-section">
-                <div class="form-row">
+            <div class="fetch-section" style="overflow-x: auto; max-width: 100%;">
+                <div class="form-row" style="flex-wrap: wrap;">
                     <div class="form-group" style="flex: 2;">
-                        <label>Checklist URL (Beckett or Cardsmiths Breaks)</label>
+                        <label>Checklist URL (Beckett, Cardsmiths Breaks, or Cardboard Connection)</label>
                         <input type="text" id="checklistUrl" placeholder="https://cardsmithsbreaks.com/full-checklist/2025-26-topps-chrome-basketball-hobby/">
                     </div>
                     <div class="form-group">
@@ -687,7 +701,7 @@
                         <label>Default Quantity</label>
                         <input type="number" id="defaultQty" value="0" min="0">
                     </div>
-                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <div class="form-group" style="display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; max-width: 100%;">
                         <button class="btn btn-primary" onclick="fetchChecklist()" id="fetchBtn">
                             Fetch Checklist
                         </button>
@@ -715,6 +729,8 @@
                 </div>
             </div>
             
+            <div id="fetchImagesStatus" style="margin-bottom: 8px; color: #888; font-size: 0.9rem; min-height: 1.2em;"></div>
+            <div id="marketPriceDebug" style="display:none; margin-bottom: 8px; padding: 8px; background: rgba(0,0,0,0.4); border-radius: 6px; font-size: 0.8rem; color: #aaa; max-height: 80px; overflow-y: auto;"></div>
             <div class="card-filters" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <button class="btn btn-secondary" onclick="selectAll()" style="padding: 8px 16px;">Select All</button>
                 <button class="btn btn-secondary" onclick="deselectAll()" style="padding: 8px 16px;">Deselect All</button>
@@ -729,6 +745,8 @@
                     <option value="price-low">Price (Low to High)</option>
                     <option value="qty">Quantity</option>
                 </select>
+                <button class="btn btn-secondary" onclick="fetchCardImages()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4);" title="Fetch images for cards with qty &gt; 0 (max 25)">🖼️ Fetch Images</button>
+                <button class="btn btn-secondary" onclick="applyMarketPricing()" style="padding: 8px 16px; background: rgba(255, 165, 0, 0.2); color: #ffa500; border: 2px solid rgba(255, 165, 0, 0.4);" title="Look up eBay sold prices for cards with qty&gt;0 (max 50). No results = $1">💰 Market Price</button>
                 <button class="btn btn-secondary" onclick="validateCards()" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Check for missing data">✓ Validate</button>
                 <button class="btn btn-secondary" onclick="toggleZeroQtyFilter()" id="zeroQtyFilterBtn" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Hide/show cards with quantity 0">🔍 Hide Qty=0</button>
                 <button class="btn btn-secondary" onclick="clearCards()" style="padding: 8px 16px; background: rgba(255, 0, 0, 0.2); color: #ff0000; border: 2px solid rgba(255, 0, 0, 0.4); text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);">Clear All</button>
@@ -1234,6 +1252,181 @@
             }
         }
         
+        async function fetchCardImages() {
+            if (!cards || cards.length === 0) {
+                showToast('Load cards first', 'error');
+                return;
+            }
+            const toProcess = cards.map((c, i) => ({ ...c, _idx: i })).filter(c => (c.qty || 0) > 0).slice(0, 25);
+            if (toProcess.length === 0) {
+                showToast('Set quantity &gt; 0 on cards first', 'error');
+                return;
+            }
+            const statusDiv = document.getElementById('fetchImagesStatus');
+            if (statusDiv) statusDiv.textContent = 'Fetching images for ' + toProcess.length + ' cards...';
+            try {
+                const payload = {
+                    cards: toProcess.map(c => ({ name: c.name, number: c.number, team: c.team || '', image_url: c.imageUrl || '', _idx: c._idx })),
+                    setName: document.getElementById('setName').value || '',
+                    sourceUrl: document.getElementById('checklistUrl').value || ''
+                };
+                const res = await fetch('/api/fetch-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (data.success && data.cards) {
+                    data.cards.forEach(fc => {
+                        const idx = fc._idx;
+                        if (idx != null && cards[idx] && fc.image_url) cards[idx].imageUrl = fc.image_url;
+                    });
+                    renderCards();
+                    if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Images fetched for ' + toProcess.length + ' cards';
+                    showToast('Images fetched', 'success');
+                } else {
+                    if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = data.error || 'Failed';
+                    showToast(data.error || 'Failed to fetch images', 'error');
+                }
+            } catch (e) {
+                if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Error: ' + e.message;
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+        
+        async function applyMarketPricing() {
+            if (!cards || cards.length === 0) {
+                showToast('Load cards first', 'error');
+                return;
+            }
+            const toProcess = cards.filter(c => (c.qty || 0) > 0);
+            if (toProcess.length === 0) {
+                showToast('Set quantity &gt; 0 on cards first', 'error');
+                return;
+            }
+            const statusEl = document.getElementById('fetchImagesStatus');
+            const debugEl = document.getElementById('marketPriceDebug');
+            if (statusEl) statusEl.textContent = 'Applying market pricing (' + toProcess.length + ' cards)...';
+            if (debugEl) debugEl.style.display = 'none';
+            showToast('Fetching prices... (may take 1-2 min)', 'success');
+            try {
+                const payload = {
+                    cards: toProcess.map(c => ({ name: c.name, number: c.number, team: c.team || '', parallelType: c.parallelType || '', price: parseFloat(c.price) || 1 })),
+                    setName: document.getElementById('setName').value || ''
+                };
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 180000);
+                const res = await fetch('/api/apply-market-pricing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                let data;
+                try {
+                    data = await res.json();
+                } catch (parseErr) {
+                    const text = await res.text().catch(() => '');
+                    if (statusEl) statusEl.textContent = 'Server returned invalid response (' + res.status + ')';
+                    showToast('Invalid response: ' + (text.slice(0, 80) || res.status), 'error');
+                    return;
+                }
+                if (!res.ok) {
+                    const errMsg = (data && data.error) || 'Request failed (' + res.status + ')';
+                    if (statusEl) statusEl.textContent = errMsg;
+                    showToast(errMsg, 'error');
+                    return;
+                }
+                if (data.success && data.cards) {
+                    data.cards.forEach((fc) => {
+                        const newPrice = Math.round(parseFloat(fc.price) * 100) / 100;
+                        if (isNaN(newPrice) || newPrice < 0) return;
+                        const match = cards.find(c => String(c.name || '').trim() === String(fc.name || '').trim() && String(c.number || '') === String(fc.number || ''));
+                        if (match) match.price = newPrice;
+                    });
+                    renderCards();
+                    updateSummary();
+                    let msg = data.updated != null ? 'Updated ' + data.updated + ' card(s)' : 'Market pricing applied';
+                    if (data.no_results && data.no_results.length > 0) {
+                        msg += '. No data for: ' + data.no_results.slice(0, 5).join(', ');
+                        if (data.no_results.length > 5) msg += '...';
+                    }
+                    if (statusEl) statusEl.textContent = data.hint ? msg + ' ' + data.hint : msg;
+                    if (debugEl) {
+                        if (data.debug) {
+                            debugEl.textContent = 'Debug: ' + data.debug;
+                            debugEl.style.display = 'block';
+                        } else {
+                            debugEl.style.display = 'none';
+                        }
+                    }
+                    showToast(msg, data.no_results && data.no_results.length > 0 ? 'warning' : 'success');
+                } else {
+                    const errMsg = (data && data.error) || 'Failed';
+                    if (statusEl) statusEl.textContent = errMsg;
+                    showToast(errMsg, 'error');
+                }
+            } catch (e) {
+                const errMsg = e.name === 'AbortError' ? 'Request timed out (3 min). eBay may be blocking.' : ('Error: ' + (e.message || e));
+                if (statusEl) statusEl.textContent = errMsg;
+                showToast(errMsg, 'error');
+            }
+        }
+        
+        async function showAnalytics() {
+            const modal = document.getElementById('analyticsModal');
+            const content = document.getElementById('analyticsContent');
+            modal.style.display = 'block';
+            content.innerHTML = 'Loading...';
+            try {
+                const res = await fetch('/api/analytics?days=30');
+                const data = await res.json();
+                if (data.success) {
+                    const s = data.summary || {};
+                    const best = data.bestSellers || [];
+                    content.innerHTML = `
+                        <div style="margin-bottom: 15px;"><strong>Last 30 days</strong></div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                            <div style="background: rgba(0,255,255,0.1); padding: 12px; border-radius: 8px;">Total: $${(s.total_sales || 0).toFixed(2)}</div>
+                            <div style="background: rgba(0,255,255,0.1); padding: 12px; border-radius: 8px;">Transactions: ${s.transaction_count || 0}</div>
+                            <div style="background: rgba(0,255,255,0.1); padding: 12px; border-radius: 8px;">Avg: $${(s.avg_sale || 0).toFixed(2)}</div>
+                        </div>
+                        ${best.length ? '<div style="margin-bottom: 10px;"><strong>Best Sellers</strong></div><ul style="color: #888; font-size: 0.9rem;">' + best.slice(0, 5).map(b => '<li>' + (b.title || 'Unknown').substring(0, 40) + ' - $' + (b.revenue || 0).toFixed(2) + '</li>').join('') + '</ul>' : '<p style="color: #666;">No sales data yet.</p>'}
+                    `;
+                } else {
+                    content.innerHTML = '<p style="color: #dc3545;">' + (data.error || 'Failed to load') + '</p>';
+                }
+            } catch (e) {
+                content.innerHTML = '<p style="color: #dc3545;">Error: ' + e.message + '</p>';
+            }
+        }
+        
+        async function applyTieredPricing(silent) {
+            if (!cards || cards.length === 0) {
+                if (!silent) showToast('Load cards first', 'error');
+                return;
+            }
+            const basePrice = parseFloat(document.getElementById('defaultPrice').value) || 1;
+            const rookieMarkup = 50;
+            const insertMarkup = 30;
+            const parallelMarkup = 25;
+            const autoPrice = 5;
+            try {
+                const payload = {
+                    cards: cards.map(c => ({ name: c.name, number: c.number, team: c.team || '', type: c.parallelType || '', price: c.price })),
+                    basePrice, rookieMarkup, insertMarkup, parallelMarkup, autoPrice
+                };
+                const res = await fetch('/api/apply-tiered-pricing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (data.success && data.cards) {
+                    data.cards.forEach((fc, i) => { if (cards[i]) cards[i].price = fc.price; });
+                    renderCards();
+                    if (!silent) showToast('Tiered pricing applied', 'success');
+                } else {
+                    if (!silent) showToast(data.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                if (!silent) showToast('Error: ' + e.message, 'error');
+            }
+        }
+        
         function addCard(number = '', name = '', price = '1.00', qty = '0', team = '') {
             const id = Date.now() + Math.random();
             cards.push({ id, number, name, team, price: parseFloat(price), qty: parseInt(qty) || 0, selected: true });
@@ -1381,7 +1574,7 @@
                     <td><input type="text" value="${card.name}" onchange="updateCard(${card.id}, 'name', this.value)" placeholder="Player Name" style="width: 170px; max-width: 170px;"></td>
                     <td><input type="text" value="${card.team || ''}" onchange="updateCard(${card.id}, 'team', this.value)" placeholder="Team" style="width: 190px; min-width: 190px;"></td>
                     <td><input type="number" class="price-input" value="${card.price}" step="0.25" min="0" onchange="updateCard(${card.id}, 'price', this.value)" style="width: 70px;"></td>
-                    <td><input type="number" class="qty-input" value="${card.qty}" min="0" onchange="updateCard(${card.id}, 'qty', this.value)" style="width: 50px; ${qtyStyle}" title="${isZeroQty ? 'Quantity 0 - will be excluded from listing' : ''}"></td>
+                    <td><input type="number" class="qty-input" value="${qty}" min="0" data-card-id="${card.id}" oninput="updateCard(${card.id}, 'qty', this.value)" style="width: 50px; ${qtyStyle}" title="${isZeroQty ? 'Quantity 0 - will be excluded from listing' : ''}"></td>
                     <td><button class="remove-btn" onclick="removeCard(${card.id})" style="padding: 4px 8px;">X</button></td>
                 </tr>
             `;
@@ -1854,7 +2047,8 @@
                     number: c.number,
                     name: c.name,
                     price: c.price,
-                    quantity: c.qty
+                    quantity: c.qty,
+                    imageUrl: c.imageUrl || ''
                 })),
                 paymentPolicyId: document.getElementById('paymentPolicy').value,
                 shippingPolicyId: document.getElementById('shippingPolicy').value,
@@ -2249,8 +2443,8 @@
             }
         }
         
-        // VERSION - Update this on every change
-        const UI_VERSION = '4.0';
+        // VERSION - Update this on every change (increment last digit)
+        const UI_VERSION = '4.012';
         document.getElementById('versionBadge').textContent = `v${UI_VERSION}`;
         
         // Clear all caches on app start

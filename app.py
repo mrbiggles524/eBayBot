@@ -16,8 +16,12 @@ import urllib.parse
 from datetime import datetime
 from functools import wraps
 from json import JSONDecodeError
+import threading
 
 sys.stdout.reconfigure(encoding='utf-8')
+
+# Background job store (shared across requests with --workers 1)
+listing_jobs = {}
 
 # =============================================================================
 # VERSION - Single source of truth
@@ -1084,10 +1088,78 @@ def fetch_checklist():
             "server_version": VERSION
         }), 500
 
+def _run_listing_job(job_id, job_data):
+    """Background worker: create listing and store result. Avoids HTTP timeout."""
+    global listing_jobs
+    try:
+        from config import Config
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+        config = Config()
+        token = job_data['token']
+        listing_manager = eBayListingManager(token_override=token)
+        if job_data.get('shipping_id'):
+            listing_manager.policies['fulfillment_policy_id'] = job_data['shipping_id']
+        if job_data.get('payment_id'):
+            listing_manager.policies['payment_policy_id'] = job_data['payment_id']
+        if job_data.get('return_id'):
+            listing_manager.policies['return_policy_id'] = job_data['return_id']
+        
+        result = listing_manager.create_variation_listing(
+            cards=job_data['listing_cards'],
+            title=job_data['set_name'][:80],
+            description=job_data['description'] or f"<p><strong>{job_data['set_name']}</strong></p><p>Select your card from the dropdown menu.</p>",
+            category_id="261328",
+            price=job_data['base_price'],
+            quantity=1,
+            condition="Near Mint",
+            images=[job_data['image_url']] if job_data.get('image_url') else None,
+            publish=True,
+            fulfillment_policy_id=job_data.get('shipping_id'),
+            use_base_cards_policy=None,
+            schedule_draft=False,
+            schedule_hours=0
+        )
+        
+        if result.get('success'):
+            group_key = result.get('group_key') or result.get('groupKey')
+            base_url = "https://www.ebay.com" if config.EBAY_ENVIRONMENT == 'production' else "https://sandbox.ebay.com"
+            final_status = "scheduled" if result.get('scheduled') else ("published" if result.get('publish', True) else "draft")
+            response_data = {
+                "success": True,
+                "groupKey": group_key,
+                "setName": job_data['set_name'],
+                "cardsCreated": len(job_data['listing_cards']),
+                "status": final_status,
+                "listingId": result.get('listing_id') or result.get('listingId'),
+                "listingUrl": result.get('ebay_url', '') or result.get('seller_hub_url', '') or f"{base_url}/sh/account/listings",
+                "sellerHubActive": result.get('seller_hub_active') or f"{base_url}/sh/account/listings?status=ACTIVE",
+                "sellerHubScheduled": result.get('seller_hub_scheduled') or f"{base_url}/sh/lst/scheduled",
+                "scheduled": result.get('scheduled', False),
+                "message": result.get('message', 'Listing created successfully'),
+            }
+            listing_jobs[job_id] = {"status": "completed", "result": response_data}
+        else:
+            err = result.get('error', 'Unknown error')
+            listing_jobs[job_id] = {"status": "failed", "error": err, "error_code": result.get('error_code'), "group_key": result.get('group_key')}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        listing_jobs[job_id] = {"status": "failed", "error": str(e)}
+
+@app.route('/api/list-status/<job_id>')
+@require_subscription
+def list_status(job_id):
+    """Poll for background listing job result."""
+    job = listing_jobs.get(job_id, {})
+    if not job:
+        return jsonify({"status": "unknown", "error": "Job not found or expired"}), 404
+    return jsonify(job)
+
 @app.route('/api/list', methods=['POST'])
 @require_subscription
 def create_listing():
-    """Create and publish a listing using eBayListingManager."""
+    """Start listing creation as background job (returns immediately to avoid 30s timeout)."""
     data = request.json or {}
     
     try:
@@ -1098,37 +1170,14 @@ def create_listing():
         payment_id = data.get('paymentPolicyId', '').strip() or None  # Default to None (Managed by eBay)
         shipping_id = data.get('shippingPolicyId')
         return_id = data.get('returnPolicyId')
-        publish = True  # Always publish live - drafts not supported
-        
-        # Check environment - CRITICAL: Force reload .env
-        from config import Config
-        from dotenv import load_dotenv
-        load_dotenv(override=True)  # Force reload .env file
-        config = Config()
-        env_name = config.EBAY_ENVIRONMENT.upper()
-        api_url = config.ebay_api_url
-        print(f"[INFO] ========== ENVIRONMENT CHECK ==========")
-        print(f"[INFO] Environment from .env: {env_name}")
-        print(f"[INFO] API URL: {api_url}")
-        if env_name != 'PRODUCTION':
-            print(f"[INFO] ⚠️ WARNING: Not using PRODUCTION!")
-            print(f"[INFO] ⚠️ Check your .env file - EBAY_ENVIRONMENT should be 'production'")
-        else:
-            print(f"[INFO] ✅ Using PRODUCTION environment")
-        print(f"[INFO] ======================================")
-        
-        # PRODUCTION SAFETY: Warn if trying to publish live in production
-        # Always publish live - drafts not supported
         
         if not cards:
             return jsonify({"error": "No cards provided"}), 400
         
-        # Filter out cards with quantity 0
         valid_cards = [c for c in cards if int(c.get('quantity', 0)) > 0]
         if not valid_cards:
             return jsonify({"error": "No cards with quantity > 0. Cards with quantity 0 are excluded from listings."}), 400
         
-        # Prepare cards for eBayListingManager
         listing_cards = []
         prices = {}
         for card in valid_cards:
@@ -1141,308 +1190,36 @@ def create_listing():
             }
             listing_cards.append(card_data)
             price = float(card.get('price', 1.00))
-            # Use card name as key for pricing
             if card_data['name']:
                 prices[card_data['name']] = price
         
-        # Use base price if all cards have same price, otherwise use dict
-        if len(set(prices.values())) == 1:
-            base_price = list(prices.values())[0]
-        else:
-            base_price = prices
-        
-        # Create listing manager with current user's token
+        base_price = list(prices.values())[0] if len(set(prices.values())) == 1 else prices
         token = _get_effective_token()
-        listing_manager = eBayListingManager(token_override=token)
+        if not token:
+            return jsonify({"error": "No eBay token. Please complete Step 2 (Login)."}), 401
         
-        # Override policies if provided
-        if shipping_id:
-            listing_manager.policies['fulfillment_policy_id'] = shipping_id
-        if payment_id:
-            listing_manager.policies['payment_policy_id'] = payment_id
-        if return_id:
-            listing_manager.policies['return_policy_id'] = return_id
-        
-        print(f"[INFO] Creating listing: {set_name}")
-        print(f"[INFO] Cards: {len(listing_cards)} (filtered from {len(cards)})")
-        print(f"[INFO] Publish: {publish} (always live)")
-        
-        # Create the listing using the proper manager
-        result = listing_manager.create_variation_listing(
-            cards=listing_cards,
-            title=set_name[:80],  # eBay limit
-            description=description or f"<p><strong>{set_name}</strong></p><p>Select your card from the dropdown menu.</p>",
-            category_id="261328",  # Trading Cards
-            price=base_price,
-            quantity=1,  # Per-card quantity is in card data
-            condition="Near Mint",
-            images=[image_url] if image_url else None,
-            publish=publish,
-            fulfillment_policy_id=shipping_id,
-            use_base_cards_policy=None,
-            schedule_draft=False,  # Removed - not supported
-            schedule_hours=0  # Not used
-        )
-        
-        # CRITICAL: Log the result to see what's happening
-        print(f"[CRITICAL] ========== LISTING CREATION RESULT ==========")
-        print(f"[CRITICAL] result.get('success'): {result.get('success')}")
-        print(f"[CRITICAL] result.get('error'): {result.get('error')}")
-        print(f"[CRITICAL] result.get('group_key'): {result.get('group_key')}")
-        print(f"[CRITICAL] result.get('listing_id'): {result.get('listing_id')}")
-        print(f"[CRITICAL] result.get('scheduled'): {result.get('scheduled')}")
-        print(f"[CRITICAL] result.get('status'): {result.get('status')}")
-        print(f"[CRITICAL] ============================================")
-        
-        if result.get('success'):
-            group_key = result.get('group_key') or result.get('groupKey')
-            
-            if not group_key:
-                print(f"[ERROR] No group_key in result! Result keys: {list(result.keys())}")
-                return jsonify({
-                    "success": False,
-                    "error": "Listing creation returned success but no group_key. Check server logs for details.",
-                    "details": str(result)
-                }), 500
-            
-            # Verify the draft was created by checking the group
-            if not publish:
-                print(f"[INFO] Verifying draft creation for group: {group_key}")
-                try:
-                    verify_result = listing_manager.api_client.get_inventory_item_group(group_key)
-                    if verify_result.get('success'):
-                        print(f"[INFO] ✓ Group verified: {group_key}")
-                        group_data = verify_result.get('data', {})
-                        variant_skus = group_data.get('variantSKUs', [])
-                        
-                        # Check if offers exist
-                        if variant_skus:
-                            offer_count = 0
-                            for sku in variant_skus[:3]:  # Check first 3 offers
-                                offer_result = listing_manager.api_client.get_offer_by_sku(sku)
-                                if offer_result.get('success'):
-                                    offer = offer_result.get('offer', {})
-                                    offer_id = offer_result.get('offer', {}).get('offerId')
-                                    print(f"[INFO] ✓ Offer verified: {sku} (ID: {offer_id})")
-                                    offer_count += 1
-                            print(f"[INFO] ✓ Verified {offer_count}/{min(3, len(variant_skus))} offers created")
-                            
-                            # Check if any offers have listingId (published) or are drafts
-                            has_listing_id = False
-                            for sku in variant_skus[:3]:
-                                offer_result = listing_manager.api_client.get_offer_by_sku(sku)
-                                if offer_result.get('success'):
-                                    offer = offer_result.get('offer', {})
-                                    listing_id = offer.get('listingId')
-                                    if listing_id:
-                                        has_listing_id = True
-                                        print(f"[INFO] ✓ Offer has listingId: {listing_id} (published)")
-                                        break
-                            
-                            if not has_listing_id:
-                                print(f"[INFO] ⚠️ Offers created but not published (draft state)")
-                                print(f"[INFO] ⚠️ Drafts may not appear in Seller Hub 'Drafts' section")
-                                print(f"[INFO] ⚠️ Check 'Unsold' or 'Active Listings' tabs instead")
-                except Exception as e:
-                    print(f"[WARNING] Could not verify draft: {e}")
-                    import traceback
-                    traceback.print_exc()
-            
-            # DEBUG: Log what we received from ebay_listing.py
-            print(f"[DEBUG] ========== RESPONSE FROM ebay_listing.py ==========")
-            print(f"[DEBUG] result.get('scheduled'): {result.get('scheduled')}")
-            print(f"[DEBUG] result.get('status'): {result.get('status')}")
-            print(f"[DEBUG] result.get('published'): {result.get('published')}")
-            print(f"[DEBUG] publish: {publish} (always live)")
-            print(f"[DEBUG] result.get('ebay_url'): {result.get('ebay_url')}")
-            print(f"[DEBUG] result.get('seller_hub_scheduled'): {result.get('seller_hub_scheduled')}")
-            print(f"[DEBUG] ===================================================")
-            
-            # Determine status - CHECK SCHEDULED FIRST before published
-            if result.get('scheduled') or (schedule_draft and publish):
-                final_status = "scheduled"
-                print(f"[DEBUG] ✅ Status set to 'scheduled'")
-            elif publish:
-                final_status = "published"
-                print(f"[DEBUG] ⚠️ Status set to 'published' (not scheduled)")
-            else:
-                final_status = "draft"
-                print(f"[DEBUG] Status set to 'draft'")
-            
-            # Determine base URL for Seller Hub links
-            base_url = "https://www.ebay.com" if config.EBAY_ENVIRONMENT == 'production' else "https://sandbox.ebay.com"
-            
-            # Format response for frontend
-            response_data = {
-                "success": True,
-                "groupKey": group_key,
-                "setName": set_name,
-                "cardsCreated": len(listing_cards),
-                "status": final_status,  # Use determined status
-                "listingId": result.get('listing_id') or result.get('listingId'),
-                "listingUrl": result.get('ebay_url', '') or f"{base_url}/sh/account/listings",
-                "sellerHubUrl": result.get('seller_hub_url', f"{base_url}/sh/landing"),
-                "sellerHubDrafts": result.get('seller_hub_drafts', f"{base_url}/sh/account/listings?status=DRAFT"),
-                "sellerHubActive": result.get('seller_hub_active', f"{base_url}/sh/account/listings?status=ACTIVE"),
-                "sellerHubUnsold": result.get('seller_hub_unsold', f"{base_url}/sh/account/listings?status=UNSOLD"),
-                "sellerHubScheduled": result.get('seller_hub_scheduled', f"{base_url}/sh/lst/scheduled"),
-                "message": result.get('message', 'Listing created successfully'),
-                "skus": result.get('skus', [])[:5],  # Include first few SKUs for reference
-                # Add listing status information if available
-                "listingStatus": result.get('listingStatus'),
-                "sellerHubLocation": result.get('sellerHubLocation'),
-                "whereToFind": result.get('whereToFind'),
-                "statusMessage": result.get('statusMessage')
-            }
-            
-            # Ensure scheduled field is set if status is scheduled
-            if final_status == "scheduled":
-                response_data["scheduled"] = True
-                print(f"[DEBUG] ✅ Set response_data['scheduled'] = True")
-            
-            print(f"[DEBUG] Final response_data['status']: {response_data['status']}")
-            print(f"[DEBUG] Final response_data['sellerHubScheduled']: {response_data.get('sellerHubScheduled')}")
-            
-            # Use the status and data from the result
-            # Note: We already set scheduled=True above if final_status == "scheduled"
-            if result.get('scheduled') or final_status == "scheduled":
-                # Don't override status if already set correctly
-                if final_status != "scheduled":
-                    response_data["status"] = "scheduled"
-                response_data.update({
-                    "scheduled": True,  # Ensure this is always True for scheduled
-                    "sellerHubScheduled": result.get('seller_hub_scheduled') or result.get('sellerHubScheduled', f"{base_url}/sh/lst/scheduled"),
-                    "scheduleHours": result.get('scheduleHours', 0),
-                    "listingStartDate": result.get('listingStartDate'),
-                    "verificationStatus": result.get('verificationStatus', 'unknown'),
-                    "verificationDetails": result.get('verificationDetails', {})
-                })
-                print(f"[DEBUG] ✅ Updated response_data with scheduled info")
-                
-                # Add verification message if available
-                if result.get('verificationStatus') == 'success':
-                    response_data["verificationMessage"] = f"✅ Verified: All offers have listingStartDate. Listing should appear in 'Scheduled Listings' section."
-                elif result.get('verificationStatus') == 'partial':
-                    response_data["verificationMessage"] = f"⚠️ Partial: Some offers have listingStartDate. Check Seller Hub to confirm location."
-                elif result.get('verificationStatus') == 'warning':
-                    response_data["verificationMessage"] = f"⚠️ Warning: No offers have listingStartDate. Listing will go live immediately."
-                
-                # Add comprehensive check results if available
-                if result.get('comprehensiveCheck'):
-                    comp_check = result.get('comprehensiveCheck', {})
-                    response_data["comprehensiveCheck"] = comp_check
-                    response_data["whereToFindListing"] = comp_check.get('recommendedLocation', 'Unknown')
-                    response_data["sellerHubDirectUrl"] = comp_check.get('sellerHubUrl', '')
-                    
-                    if comp_check.get('offersWithStartDate', 0) > 0:
-                        response_data["finalStatus"] = "scheduled"
-                        response_data["finalMessage"] = f"✅ Listing found with start dates! It should appear in 'Scheduled Listings' in Seller Hub."
-                    elif comp_check.get('offersPublished', 0) > 0:
-                        response_data["finalStatus"] = "active"
-                        response_data["finalMessage"] = f"⚠️ Listing is published but missing start dates. It may be in 'Active Listings' instead of 'Scheduled'."
-                    else:
-                        response_data["finalStatus"] = "not_found"
-                        response_data["finalMessage"] = f"⚠️ Listing not found in API yet. It may take a few minutes to appear. Check Seller Hub."
-                
-                # Enhanced verification info is already in result from ebay_listing.py
-                print(f"[INFO] Scheduled listing created with verification status: {result.get('verificationStatus', 'unknown')}")
-            elif not publish:
-                response_data["draft"] = True
-                response_data["message"] = f"Draft created! Group: {group_key}"
-                
-                # Add verification details if available
-                if result.get('verificationDetails'):
-                    verification = result.get('verificationDetails', {})
-                    offers_draft = verification.get('offersDraft', 0)
-                    offers_published = verification.get('offersPublished', 0)
-                    
-                    if offers_published > 0:
-                        response_data["note"] = f"⚠️ WARNING: {offers_published} offer(s) were published (have listingId). This should not happen for drafts."
-                        response_data["verificationStatus"] = "warning"
-                    elif offers_draft > 0:
-                        response_data["note"] = f"⚠️ IMPORTANT: {offers_draft} draft offer(s) created, but they may NOT be visible in Seller Hub 'Drafts' section. This is a known eBay API limitation. Use 'Save as Scheduled Draft' instead."
-                        response_data["verificationStatus"] = "draft_created_but_may_not_be_visible"
-                    else:
-                        response_data["note"] = "Draft created. Verification status unknown."
-                        response_data["verificationStatus"] = "unknown"
-                    
-                    response_data["verificationDetails"] = verification
-                else:
-                    response_data["note"] = "IMPORTANT: Draft listings created via Inventory API may not appear in the 'Drafts' section. Check 'Unsold' or 'Active Listings' tabs. It may take 1-2 minutes to appear."
-                    response_data["verificationStatus"] = "unknown"
-                
-                response_data["instructions"] = [
-                    "1. Drafts created via Inventory API are often NOT visible in Seller Hub 'Drafts'",
-                    "2. To get editable listings that appear in Seller Hub, use 'Save as Scheduled Draft' button",
-                    "3. Scheduled drafts appear in Seller Hub 'Scheduled Listings' where you can edit them",
-                    f"4. Group Key: {group_key}",
-                    "5. You can publish this draft later using the group key via API",
-                    "6. Check verification details below to see offer status"
-                ]
-                response_data["troubleshooting"] = "If the draft doesn't appear, this is expected - eBay Inventory API drafts are often not visible. Use 'Save as Scheduled Draft' instead to get listings that appear in Seller Hub."
-            
-            return jsonify(response_data)
-        else:
-            error_msg = result.get('error', 'Unknown error')
-            print(f"[ERROR] Listing creation failed: {error_msg}")
-            print(f"[ERROR] Error details: {result.get('details', '')}")
-            print(f"[ERROR] Group key: {result.get('group_key', 'N/A')}")
-            
-            # Check for specific errors that need special handling
-            if '25007' in str(error_msg) or 'shipping service' in str(error_msg).lower():
-                print(f"[ERROR] Error 25007 detected - Fulfillment policy issue")
-                return jsonify({
-                    "success": False,
-                    "error": error_msg,
-                    "error_code": "25007",
-                    "group_key": result.get('group_key'),
-                    "details": result.get('details', ''),
-                    "action_required": result.get('action_required', 'Please check your fulfillment policy in eBay Seller Hub and add shipping services.'),
-                    "note": result.get('note', 'Your fulfillment policy needs shipping services configured.')
-                }), 400
-            
-            # Check if error is due to HTML response (auth issue)
-            if result.get('is_html'):
-                error_msg = "Authentication Error: eBay returned an HTML page instead of JSON.\n\n"
-                error_msg += "This usually means your access token is expired or invalid.\n"
-                error_msg += "Please:\n"
-                error_msg += "1. Go to Step 2 (Login) in the UI\n"
-                error_msg += "2. Click 'Refresh Token' or 'Get OAuth Token'\n"
-                error_msg += "3. Try creating the listing again\n\n"
-                error_msg += f"Original error: {result.get('error', 'Unknown error')}"
-            
-            return jsonify({
-                "success": False,
-                "error": error_msg,
-                "details": result.get('details', ''),
-                "is_html": result.get('is_html', False)
-            }), 400
-        
-    except json.JSONDecodeError as e:
-        print(f"[ERROR] JSON decode error in create_listing: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Invalid JSON in request or response: {str(e)}"}), 400
+        job_id = str(uuid.uuid4())
+        job_data = {
+            'token': token,
+            'set_name': set_name,
+            'description': description,
+            'listing_cards': listing_cards,
+            'base_price': base_price,
+            'image_url': image_url,
+            'shipping_id': shipping_id,
+            'payment_id': payment_id,
+            'return_id': return_id,
+        }
+        listing_jobs[job_id] = {"status": "processing"}
+        threading.Thread(target=_run_listing_job, args=(job_id, job_data)).start()
+        return jsonify({"job_id": job_id, "status": "processing"})
+    
     except Exception as e:
         print(f"[ERROR] Exception in create_listing: {e}")
         import traceback
-        error_trace = traceback.format_exc()
-        print(f"[ERROR] Full traceback:\n{error_trace}")
-        
-        # Check if it's the datetime OSError and provide more specific help
-        error_msg = str(e)
-        if "Errno 22" in error_msg or "Invalid argument" in error_msg:
-            error_msg = f"Datetime formatting error (Windows compatibility issue). Please restart the Flask server to apply the fix. Original error: {error_msg}"
-        
-        # Return a proper error response instead of crashing
-        error_details = {
-            "success": False,
-            "error": f"Server error: {error_msg}",
-            "error_type": type(e).__name__,
-            "message": "An error occurred while creating the listing. Please check your input and try again.",
-            "traceback": error_trace
-        }
-        print(f"[ERROR] Returning error: {error_details}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
         return jsonify(error_details), 500
 
 # =============================================================================

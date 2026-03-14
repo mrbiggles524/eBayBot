@@ -504,6 +504,93 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+        /* Publish Modal */
+        #publishModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+        }
+        #publishModal.active { display: flex; }
+        .publish-modal-card {
+            background: linear-gradient(145deg, rgba(0,30,50,0.98), rgba(0,15,30,0.98));
+            border: 2px solid rgba(0,255,255,0.6);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 440px;
+            width: 90%;
+            box-shadow: 0 0 60px rgba(0,255,255,0.3), inset 0 0 60px rgba(0,255,255,0.05);
+            animation: modalGlow 2s ease-in-out infinite;
+        }
+        @keyframes modalGlow {
+            0%, 100% { box-shadow: 0 0 60px rgba(0,255,255,0.3), inset 0 0 60px rgba(0,255,255,0.05); }
+            50% { box-shadow: 0 0 80px rgba(0,255,255,0.5), inset 0 0 80px rgba(0,255,255,0.08); }
+        }
+        .publish-modal-title {
+            color: #00ffff;
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            text-shadow: 0 0 15px rgba(0,255,255,0.8);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .publish-modal-title .icon { font-size: 2rem; animation: cardPulse 1.2s ease-in-out infinite; }
+        @keyframes cardPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .publish-modal-sub {
+            color: #888;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+        }
+        .publish-progress-wrap {
+            background: rgba(0,0,0,0.5);
+            border-radius: 12px;
+            height: 24px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0,255,255,0.3);
+        }
+        .publish-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #00aaff, #ff00ff);
+            background-size: 200% 100%;
+            animation: progressShimmer 1.5s linear infinite;
+            transition: width 0.4s ease;
+            border-radius: 10px;
+        }
+        @keyframes progressShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .publish-status-text {
+            color: #00ffff;
+            font-size: 1rem;
+            text-align: center;
+            min-height: 24px;
+            text-shadow: 0 0 10px rgba(0,255,255,0.5);
+        }
+        .publish-card-stack {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-top: 20px;
+        }
+        .publish-card-chip {
+            width: 24px; height: 32px;
+            background: linear-gradient(135deg, rgba(0,255,255,0.3), rgba(255,0,255,0.2));
+            border: 1px solid rgba(0,255,255,0.5);
+            border-radius: 4px;
+            animation: cardFloat 2s ease-in-out infinite;
+        }
+        .publish-card-chip:nth-child(2) { animation-delay: 0.2s; }
+        .publish-card-chip:nth-child(3) { animation-delay: 0.4s; }
+        .publish-card-chip:nth-child(4) { animation-delay: 0.6s; }
+        .publish-card-chip:nth-child(5) { animation-delay: 0.8s; }
+        @keyframes cardFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
         /* Walkthrough */
         #walkthroughOverlay {
             display: none;
@@ -929,6 +1016,25 @@
         <div class="loading" id="loading" style="display: none;">
             <div class="spinner"></div>
             <p>Creating your listing...</p>
+        </div>
+        
+        <!-- Publish Modal -->
+        <div id="publishModal">
+            <div class="publish-modal-card">
+                <div class="publish-modal-title"><span class="icon">🃏</span> Publishing to eBay</div>
+                <div class="publish-modal-sub">Creating your variation listing...</div>
+                <div class="publish-progress-wrap">
+                    <div class="publish-progress-bar" id="publishProgressBar" style="width: 0%"></div>
+                </div>
+                <div class="publish-status-text" id="publishStatusText">Starting...</div>
+                <div class="publish-card-stack">
+                    <div class="publish-card-chip"></div>
+                    <div class="publish-card-chip"></div>
+                    <div class="publish-card-chip"></div>
+                    <div class="publish-card-chip"></div>
+                    <div class="publish-card-chip"></div>
+                </div>
+            </div>
         </div>
         
         <!-- Result -->
@@ -2007,6 +2113,34 @@
             showToast(`Added ${lines.length} cards`, 'success');
         }
         
+        function renderListingResult(result, cardCount, totalQuantity, avgPrice) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result show success';
+            const hubUrl = result.sellerHubActive || 'https://www.ebay.com/sh/account/listings?status=ACTIVE';
+            const listingUrl = result.listingUrl || hubUrl;
+            resultDiv.innerHTML = `
+                <h3>✅ Listing Published!</h3>
+                <p style="font-size: 1.1rem; margin: 15px 0; color: #28a745; font-weight: 600;">Your listing is now LIVE on eBay</p>
+                <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
+                    <p style="color: #28a745; font-weight: 600;">✏️ You can edit in Seller Hub</p>
+                    <p style="color: #ccc;">Your listing is in Active Listings. You can edit, add images, or modify details.</p>
+                </div>
+                <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
+                    <p style="color: #00d4ff; font-weight: 600; text-align: center; margin-bottom: 10px;">📊 Summary</p>
+                    <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;">
+                        <div style="text-align: center;"><div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount || result.cardsCreated}</div><div style="color: #888; font-size: 0.85rem;">Cards</div></div>
+                        <div style="text-align: center;"><div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div><div style="color: #888; font-size: 0.85rem;">Quantity</div></div>
+                        <div style="text-align: center;"><div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${(avgPrice||0).toFixed(2)}</div><div style="color: #888; font-size: 0.85rem;">Avg</div></div>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <a href="${hubUrl}" target="_blank" style="padding: 12px 24px; background: rgba(40, 167, 69, 0.2); color: #28a745; border: 2px solid rgba(40, 167, 69, 0.5); border-radius: 6px; text-decoration: none; font-weight: 600;">✏️ Edit in Active Listings</a>
+                    ${listingUrl ? `<a href="${listingUrl}" target="_blank" style="padding: 12px 24px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 2px solid rgba(0, 212, 255, 0.5); border-radius: 6px; text-decoration: none; font-weight: 600;">🔗 View on eBay</a>` : ''}
+                </div>
+                ${result.groupKey ? `<p style="margin-top: 15px; color: #888; font-size: 0.9rem;">Group: <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">${result.groupKey}</code></p>` : ''}
+            `;
+        }
+        
         async function createListing() {
             // Always publish live - eBay Inventory API doesn't support visible drafts
             const selectedCards = cards.filter(c => c.selected);
@@ -2032,12 +2166,15 @@
                 }
             }
             
-            // Show loading immediately
-            document.getElementById('loading').classList.add('show');
+            // Show publish modal
+            document.getElementById('publishModal').classList.add('active');
             document.getElementById('result').classList.remove('show');
-            const resultDiv = document.getElementById('result');
-            resultDiv.className = 'result show';
-            resultDiv.innerHTML = '<h3>⏳ Creating listing...</h3><p>Please wait while we create your listing on eBay.</p>';
+            document.getElementById('publishProgressBar').style.width = '5%';
+            document.getElementById('publishStatusText').textContent = 'Preparing...';
+            
+            const statusMessages = ['Creating inventory items...', 'Linking offers to group...', 'Adding description...', 'Publishing to eBay...', 'Almost there...'];
+            let statusIndex = 0;
+            const startTime = Date.now();
             
             const data = {
                 setName: document.getElementById('setName').value,
@@ -2114,7 +2251,7 @@
                             errMsg = errMsg + ' (Open F12 console for full response)';
                         }
                     }
-                    document.getElementById('loading').classList.remove('show');
+                    document.getElementById('publishModal').classList.remove('active');
                     const resultDiv = document.getElementById('result');
                     resultDiv.className = 'result show error';
                     const safeMsg = (errMsg || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2124,7 +2261,7 @@
                 }
                 
                 if (!isJson) {
-                    document.getElementById('loading').classList.remove('show');
+                    document.getElementById('publishModal').classList.remove('active');
                     const resultDiv = document.getElementById('result');
                     resultDiv.className = 'result show error';
                     resultDiv.innerHTML = `<h3>❌ Session Expired</h3><p style="color: #dc3545;">Your session may have expired.</p><p style="color: #888; margin-top: 10px;"><a href="/login" style="color: #00ffff;">Log in again</a> and try publishing.</p>`;
@@ -2133,274 +2270,67 @@
                 }
                 
                 const result = await response.json();
-                console.log('[DEBUG] ========== RECEIVED RESPONSE ==========');
-                console.log('[DEBUG] result.status:', result.status);
-                console.log('[DEBUG] result.scheduled:', result.scheduled);
-                console.log('[DEBUG] result.sellerHubScheduled:', result.sellerHubScheduled);
-                console.log('[DEBUG] result.message:', result.message);
-                console.log('[DEBUG] result.success:', result.success);
-                console.log('[DEBUG] result.error:', result.error);
-                console.log('[DEBUG] Full result:', JSON.stringify(result, null, 2));
-                console.log('[DEBUG] =======================================');
+                console.log('[DEBUG] List response:', result);
                 
-                // Summary stats are already calculated above from data.cards
-                // (totalQuantity, totalValue, cardCount, avgPrice are in scope)
+                // Background job flow: poll for result
+                if (result.job_id && result.status === 'processing') {
+                    const pollInterval = setInterval(async () => {
+                        const elapsed = (Date.now() - startTime) / 1000;
+                        const simProgress = Math.min(90, 5 + elapsed * 2);  // 5% + 2%/sec
+                        document.getElementById('publishProgressBar').style.width = simProgress + '%';
+                        document.getElementById('publishStatusText').textContent = statusMessages[Math.floor(elapsed / 4) % statusMessages.length];
+                        
+                        try {
+                            const statusRes = await fetch('/api/list-status/' + result.job_id);
+                            const job = await statusRes.json();
+                            if (job.status === 'completed') {
+                                clearInterval(pollInterval);
+                                document.getElementById('publishProgressBar').style.width = '100%';
+                                document.getElementById('publishStatusText').textContent = 'Done!';
+                                document.getElementById('publishModal').classList.remove('active');
+                                renderListingResult(job.result, cardCount, totalQuantity, avgPrice);
+                            } else if (job.status === 'failed') {
+                                clearInterval(pollInterval);
+                                document.getElementById('publishModal').classList.remove('active');
+                                const resultDiv = document.getElementById('result');
+                                resultDiv.className = 'result show error';
+                                resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${(job.error || '').replace(/</g, '&lt;')}</p>`;
+                                showToast(job.error, 'error');
+                            }
+                        } catch (e) { console.error('[poll]', e); }
+                        
+                        if (elapsed > 90) {
+                            clearInterval(pollInterval);
+                            document.getElementById('publishModal').classList.remove('active');
+                            showToast('Publish is taking longer than expected. Check Seller Hub.', 'warning');
+                        }
+                    }, 2000);
+                    return;
+                }
                 
-                // Check if there's an error in the result
+                // Direct error (no job_id)
                 if (result.error) {
-                    console.error('[ERROR] Result contains error:', result.error);
-                    console.error('[ERROR] Error code:', result.error_code);
-                    console.error('[ERROR] Action required:', result.action_required);
-                    
-                    // Show error in UI immediately
-                    document.getElementById('loading').classList.remove('show');
+                    document.getElementById('publishModal').classList.remove('active');
                     const resultDiv = document.getElementById('result');
                     resultDiv.className = 'result show error';
-                    
-                    let errorHtml = `<h3>❌ Error Creating Listing</h3>`;
-                    errorHtml += `<p style="color: #dc3545; font-weight: 600;">${result.error}</p>`;
-                    
-                    if (result.error_code === '25007') {
-                        errorHtml += `<div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">`;
-                        errorHtml += `<p style="color: #ffc107; font-weight: 600; margin-bottom: 10px;">⚠️ Fulfillment Policy Issue</p>`;
-                        errorHtml += `<p style="color: #ccc; line-height: 1.6;">Your fulfillment policy is missing shipping service options.</p>`;
-                        errorHtml += `<p style="color: #ccc; margin-top: 10px;"><strong>To fix:</strong></p>`;
-                        errorHtml += `<ol style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">`;
-                        errorHtml += `<li>Go to <a href="https://www.ebay.com/sh/account/policies" target="_blank" style="color: #00d4ff;">eBay Seller Hub > Business Policies</a></li>`;
-                        errorHtml += `<li>Find your fulfillment policy (the one you selected in Step 3)</li>`;
-                        errorHtml += `<li>Edit the policy and add at least one shipping service (e.g., USPS First Class)</li>`;
-                        errorHtml += `<li>Save the policy</li>`;
-                        errorHtml += `<li>Try creating the listing again</li>`;
-                        errorHtml += `</ol>`;
-                        errorHtml += `</div>`;
-                    }
-                    
-                    if (result.group_key) {
-                        errorHtml += `<p style="color: #888; font-size: 0.9rem; margin-top: 15px;"><strong>Group Key:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">${result.group_key}</code></p>`;
-                    }
-                    
-                    resultDiv.innerHTML = errorHtml;
+                    resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${(result.error || '').replace(/</g, '&lt;')}</p>`;
                     showToast(result.error, 'error');
-                    throw new Error(result.error);
+                    return;
                 }
                 
-                document.getElementById('loading').classList.remove('show');
-                
-                const resultDiv = document.getElementById('result');
-                
-                if (false) {  // Removed scheduled draft support
-                    resultDiv.className = 'result show success';
-                    resultDiv.innerHTML = `
-                        <h3>✅ Scheduled Listing Created!</h3>
-                        <p style="font-size: 1.1rem; margin: 15px 0;"><strong>${result.cardsCreated} cards</strong> scheduled</p>
-                        <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
-                            <p style="color: #28a745; font-weight: 600; margin-bottom: 10px;">✅ Success! Your listing will appear in Seller Hub</p>
-                            <p style="color: #ccc; line-height: 1.6; margin-bottom: 10px;">
-                                Your listing is scheduled and will appear in <strong>Seller Hub</strong> where you can:
-                            </p>
-                            <ul style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">
-                                <li>✅ Edit the listing before it goes live</li>
-                                <li>✅ Add or change images</li>
-                                <li>✅ Modify description, price, or other details</li>
-                                <li>✅ Publish immediately or let it go live at scheduled time</li>
-                            </ul>
-                            <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">
-                                <strong>Note:</strong> It may take 1-2 minutes to appear in Seller Hub. Look in "Scheduled" or "Active Listings" section.
-                            </p>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-top: 15px;">
-                            <p style="color: #888; font-size: 0.85rem; margin: 5px 0;"><strong>Group Key:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${result.groupKey}</code></p>
-                            ${result.note ? `<p style="color: #28a745; font-size: 0.85rem; margin-top: 8px;">${result.note}</p>` : ''}
-                        </div>
-                        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
-                            <p style="color: #00d4ff; font-weight: 600; margin-bottom: 10px; text-align: center;">📊 Listing Summary</p>
-                            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Cards Listed</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Total Quantity</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Avg Price</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                            <a href="${result.sellerHubScheduled || result.sellerHubActive || 'https://www.ebay.com/sh/account/listings'}" target="_blank" style="padding: 10px 20px; background: rgba(40, 167, 69, 0.2); color: #28a745; border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 6px; text-decoration: none;">📅 View Scheduled Listings</a>
-                            <a href="${result.sellerHubActive || 'https://www.ebay.com/sh/account/listings?status=ACTIVE'}" target="_blank" style="padding: 10px 20px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; text-decoration: none;">📋 View Active Listings</a>
-                        </div>
-                    `;
-                } else if (result.status === 'scheduled' || result.scheduled) {
-                    // SCHEDULED DRAFT - Show scheduled listing message
-                    console.log('[DEBUG] Showing scheduled listing result');
-                    resultDiv.className = 'result show success';
-                    resultDiv.innerHTML = `
-                        <h3>✅ Scheduled Listing Created!</h3>
-                        <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
-                            <p style="color: #28a745; font-weight: 600; margin-bottom: 10px;">Your listing is scheduled and will appear in Seller Hub</p>
-                            <p style="color: #ccc; line-height: 1.6; margin-bottom: 10px;">
-                                Your listing is saved as a <strong>scheduled listing</strong> in <strong>Seller Hub > Scheduled Listings</strong> where you can:
-                            </p>
-                            <ul style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">
-                                <li>✅ Edit the listing before it goes live</li>
-                                <li>✅ Add or change photos</li>
-                                <li>✅ Modify description, price, or other details</li>
-                                <li>✅ Publish immediately or let it go live at scheduled time</li>
-                            </ul>
-                            <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">
-                                <strong>Note:</strong> It may take 1-2 minutes to appear in Seller Hub. Look in "Scheduled Listings" section.
-                            </p>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-top: 15px;">
-                            <p style="color: #888; font-size: 0.85rem; margin: 5px 0;"><strong>Group Key:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${result.groupKey}</code></p>
-                            <p style="color: #888; font-size: 0.85rem; margin: 5px 0;"><strong>Cards:</strong> ${result.cardsCreated} cards scheduled</p>
-                            ${result.note ? `<p style="color: #28a745; font-size: 0.85rem; margin-top: 8px;">${result.note}</p>` : ''}
-                            ${result.verificationStatus ? `<p style="color: ${result.verificationStatus === 'success' ? '#28a745' : '#ffc107'}; font-size: 0.85rem; margin-top: 8px;">Verification: ${result.verificationStatus}</p>` : ''}
-                        </div>
-                        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
-                            <p style="color: #00d4ff; font-weight: 600; margin-bottom: 10px; text-align: center;">📊 Listing Summary</p>
-                            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Cards Listed</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Total Quantity</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Avg Price</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                            <a href="${result.sellerHubScheduled || 'https://www.ebay.com/sh/lst/scheduled'}" target="_blank" style="padding: 10px 20px; background: rgba(40, 167, 69, 0.2); color: #28a745; border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 6px; text-decoration: none;">📅 View Scheduled Listings</a>
-                            <a href="${result.sellerHubActive || 'https://www.ebay.com/sh/account/listings?status=ACTIVE'}" target="_blank" style="padding: 10px 20px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; text-decoration: none;">📋 View Active Listings</a>
-                        </div>
-                    `;
-                } else if (result.status === 'published' || result.success) {
-                    console.log('[DEBUG] Showing published listing result');
-                    resultDiv.className = 'result show success';
-                    resultDiv.innerHTML = `
-                        <h3>✅ Listing Published!</h3>
-                        <p style="font-size: 1.1rem; margin: 15px 0; color: #28a745; font-weight: 600;">Your listing is now LIVE on eBay</p>
-                        <div style="background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
-                            <p style="color: #28a745; font-weight: 600; margin-bottom: 10px;">✏️ You Can Edit This Listing</p>
-                            <p style="color: #ccc; line-height: 1.6; margin-bottom: 10px;">
-                                Your listing is now in <strong>Active Listings</strong> in Seller Hub. You can:
-                            </p>
-                            <ul style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">
-                                <li>✅ Edit title, description, or prices</li>
-                                <li>✅ Add or change images</li>
-                                <li>✅ Modify quantities or other details</li>
-                                <li>✅ End the listing early if needed</li>
-                            </ul>
-                            <p style="color: #ffc107; font-weight: 600; margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255, 193, 7, 0.3);">
-                                ⚠️ Please check everything over in Seller Hub to make sure it's correct!
-                            </p>
-                        </div>
-                        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
-                            <p style="color: #00d4ff; font-weight: 600; margin-bottom: 10px; text-align: center;">📊 Listing Summary</p>
-                            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Cards Listed</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Total Quantity</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Avg Price</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                            <a href="${result.sellerHubActive || result.listingUrl || 'https://www.ebay.com/sh/account/listings?status=ACTIVE'}" target="_blank" style="padding: 12px 24px; background: rgba(40, 167, 69, 0.2); color: #28a745; border: 2px solid rgba(40, 167, 69, 0.5); border-radius: 6px; text-decoration: none; font-weight: 600;">✏️ Edit in Active Listings</a>
-                            ${result.listingUrl ? `<a href="${result.listingUrl}" target="_blank" style="padding: 12px 24px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 2px solid rgba(0, 212, 255, 0.5); border-radius: 6px; text-decoration: none; font-weight: 600;">🔗 View on eBay</a>` : ''}
-                        </div>
-                        <p style="margin-top: 15px; color: #888; text-align: center; font-size: 0.9rem;">
-                            Group Key: <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${result.groupKey || 'N/A'}</code>
-                        </p>
-                    `;
-                } else if (result.status === 'draft' || result.draft) {
-                    resultDiv.className = 'result show success';
-                    const instructions = result.instructions || [];
-                    resultDiv.innerHTML = `
-                        <h3>✅ Draft Created!</h3>
-                        <p style="font-size: 1.1rem; margin: 15px 0;"><strong>${result.cardsCreated} cards</strong> ready to publish</p>
-                        <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 8px; padding: 15px; margin: 15px 0;">
-                            <p style="color: #ffc107; font-weight: 600; margin-bottom: 10px;">⚠️ Important: Finding Your Draft</p>
-                            <p style="color: #ccc; line-height: 1.6; margin-bottom: 10px;">
-                                Drafts created via Inventory API may <strong>NOT appear in the "Drafts" section</strong>. 
-                                Instead, check these locations:
-                            </p>
-                            <ul style="text-align: left; color: #ccc; line-height: 1.8; margin-left: 20px; margin-top: 10px;">
-                                <li><strong>1. "Unsold" tab</strong> - Most common location for draft offers</li>
-                                <li><strong>2. "Active Listings" tab</strong> - Sometimes appears here</li>
-                                <li><strong>3. Search by Group Key</strong> - Use the key below to search</li>
-                            </ul>
-                            <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">
-                                <strong>Note:</strong> It may take 1-2 minutes to appear. If not found, the offers exist but may need to be published to become visible listings.
-                            </p>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-top: 15px;">
-                            <p style="color: #888; font-size: 0.85rem; margin: 5px 0;"><strong>Group Key:</strong> <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: monospace;">${result.groupKey}</code></p>
-                            <button onclick="verifyDraft('${result.groupKey}')" style="margin-top: 10px; padding: 8px 16px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; cursor: pointer; font-size: 0.9rem;">🔍 Verify Draft Status</button>
-                            <div id="verifyStatus" style="margin-top: 10px; color: #888; font-size: 0.85rem;"></div>
-                        </div>
-                        <div style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
-                            <p style="color: #00d4ff; font-weight: 600; margin-bottom: 10px; text-align: center;">📊 Listing Summary</p>
-                            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${cardCount}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Cards Listed</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">${totalQuantity}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Total Quantity</div>
-                                </div>
-                                <div style="text-align: center;">
-                                    <div style="font-size: 1.5rem; color: #00ffff; font-weight: 700;">$${avgPrice.toFixed(2)}</div>
-                                    <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Avg Price</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                            <a href="${result.sellerHubUnsold || 'https://www.ebay.com/sh/account/listings?status=UNSOLD'}" target="_blank" style="padding: 10px 20px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; text-decoration: none;">🔍 View Unsold Listings</a>
-                            <a href="${result.sellerHubActive || 'https://www.ebay.com/sh/account/listings?status=ACTIVE'}" target="_blank" style="padding: 10px 20px; background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 6px; text-decoration: none;">📋 View Active Listings</a>
-                        </div>
-                    `;
-                } else if (result.status === 'ready') {
-                    resultDiv.className = 'result show success';
-                    resultDiv.innerHTML = `
-                        <h3>Draft Created!</h3>
-                        <p>${result.cardsCreated} cards ready to publish</p>
-                        <p style="color: #888;">Group Key: ${result.groupKey}</p>
-                        <p style="color: #ffc107; margin-top: 10px; font-size: 0.9rem;">Check Seller Hub > Unsold or Active Listings. Drafts may take 1-2 minutes to appear.</p>
-                    `;
-                } else {
-                    resultDiv.className = 'result show error';
-                    resultDiv.innerHTML = `
-                        <h3>Error</h3>
-                        <p>${result.error || result.publishError || 'Unknown error'}</p>
-                    `;
-                }
+                // Fallback if no job_id (shouldn't happen)
+                document.getElementById('publishModal').classList.remove('active');
+                document.getElementById('result').className = 'result show error';
+                document.getElementById('result').innerHTML = '<h3>Unexpected response</h3><p>Please try again.</p>';
             } catch (error) {
-                document.getElementById('loading').classList.remove('show');
+                document.getElementById('publishModal').classList.remove('active');
                 const resultDiv = document.getElementById('result');
                 resultDiv.className = 'result show error';
                 let errText = error.message || 'Unknown error';
                 if (errText.includes('fetch') || errText.includes('network') || errText.includes('Failed')) {
-                    errText = 'Network error – the server may be starting up. Try again in 30–60 seconds.';
+                    errText = 'Network error. Try again in a moment.';
                 }
-                resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${errText}</p><p style="color: #888; margin-top: 10px;">If using the live site, Render may be waking from sleep. Wait a minute and retry.</p>`;
+                resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${(errText||'').replace(/</g,'&lt;')}</p>`;
                 showToast('Error: ' + error.message, 'error');
             }
         }

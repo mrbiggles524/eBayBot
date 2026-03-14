@@ -1801,7 +1801,8 @@ All cards are in Near Mint or better condition unless otherwise noted."""
                     "aspects": group_aspects,
                     "description": group_desc_to_use  # CRITICAL: Always include description
                 },
-                "variantSKUs": group_data.get('variantSKUs', [])
+                "variantSKUs": group_data.get('variantSKUs', []),
+                "imageUrls": group_data.get('imageUrls') or group_data.get('inventoryItemGroup', {}).get('imageUrls', [])
             }
             
             # CRITICAL: Verify description is in update payload
@@ -1942,7 +1943,8 @@ All cards are in Near Mint or better condition unless otherwise noted."""
                         "aspects": final_group_data.get('inventoryItemGroup', {}).get('aspects', {}),
                         "description": force_desc
                     },
-                    "variantSKUs": final_group_data.get('variantSKUs', [])
+                    "variantSKUs": final_group_data.get('variantSKUs', []),
+                    "imageUrls": final_group_data.get('imageUrls') or final_group_data.get('inventoryItemGroup', {}).get('imageUrls', [])
                 }
                 
                 print(f"[CRITICAL] [FIX] Forcing final update with description (length: {len(force_desc)})")
@@ -2894,6 +2896,7 @@ Thank you for your interest!"""
                     error_message += "\n\n" + "=" * 80
                     error_message += "\n🔍 COMPREHENSIVE DEBUGGING FOR ERROR 25016 (DESCRIPTION REQUIRED)"
                     error_message += "\n" + "=" * 80 + "\n"
+                    error_message += "\n  [Debug version: 4.014 - deploy latest if you see old format]\n"
                     
                     # 1. Initial description check
                     error_message += "\n[1. INITIAL DESCRIPTION PARAMETER]\n"
@@ -2923,9 +2926,11 @@ Thank you for your interest!"""
                                 error_message += f"    Offer ID: {offer_id}\n"
                                 
                                 # Check description in ALL possible locations
+                                # NOTE: For variation listings, publish reads from INVENTORY ITEM GROUP, not offers.
+                                # Offers may have listingDescription; listing object is often empty for unpublished.
                                 desc_locations = {
+                                    'listingDescription (root)': offer.get('listingDescription', None),  # eBay returns this
                                     'listing.description': offer.get('listing', {}).get('description', None),
-                                    'listing.title': offer.get('listing', {}).get('title', None),
                                     'description (root)': offer.get('description', None),
                                     'listing object exists': 'listing' in offer,
                                     'listing keys': list(offer.get('listing', {}).keys()) if 'listing' in offer else []
@@ -2940,20 +2945,21 @@ Thank you for your interest!"""
                                     else:
                                         error_message += f"      {loc}: {val}\n"
                                 
-                                # Get description from any location
+                                # Get description from any location (listingDescription is primary for offers)
                                 offer_desc = (
+                                    offer.get('listingDescription', '') or
                                     offer.get('listing', {}).get('description', '') or
                                     offer.get('description', '') or
                                     ''
                                 )
                                 
-                                error_message += f"    Found Description: {'YES' if offer_desc else 'NO'}\n"
+                                error_message += f"    Found Description in Offer: {'YES' if offer_desc else 'NO'}\n"
                                 if offer_desc:
                                     error_message += f"      Value: {offer_desc[:100]}...\n"
                                     error_message += f"      Length: {len(offer_desc)}\n"
                                     error_message += f"      Is valid: {bool(offer_desc.strip() and len(offer_desc.strip()) >= 50)}\n"
                                 else:
-                                    error_message += f"      [CRITICAL] NO DESCRIPTION FOUND IN OFFER!\n"
+                                    error_message += f"      [NOTE] No description in offer - for variations, publish uses GROUP description\n"
                                 
                                 # Check listing structure
                                 if 'listing' in offer:
@@ -2979,27 +2985,52 @@ Thank you for your interest!"""
                     else:
                         error_message += f"  [ERROR] Could not get group data: {group_result.get('error', 'Unknown error')}\n"
                     
+                    # 3b. CRITICAL: Check INVENTORY ITEM GROUP description (this is what publish uses for variations!)
+                    error_message += "\n[3b. INVENTORY ITEM GROUP DESCRIPTION (CRITICAL FOR PUBLISH)]\n"
+                    if group_result.get('success'):
+                        gd = group_result.get('data', {})
+                        group_desc = gd.get('description') or gd.get('inventoryItemGroup', {}).get('description', '')
+                        if group_desc and len(str(group_desc).strip()) >= 50:
+                            error_message += f"  Group has description: YES (length: {len(str(group_desc))})\n"
+                            error_message += f"  Value: {str(group_desc)[:100]}...\n"
+                        else:
+                            error_message += f"  Group has description: NO or invalid (length: {len(str(group_desc or ''))})\n"
+                            error_message += f"  [CRITICAL] For variation listings, eBay reads description from the GROUP.\n"
+                            error_message += f"  If group has no description, publish will fail with 25016.\n"
+                        error_message += f"  Group response keys: {list(gd.keys())}\n"
+                        if 'inventoryItemGroup' in gd:
+                            error_message += f"  inventoryItemGroup keys: {list(gd['inventoryItemGroup'].keys())}\n"
+                    else:
+                        error_message += "  [ERROR] Could not retrieve group to check description\n"
+                    
                     # 4. Check what was sent in create/update requests
                     error_message += "\n[4. API REQUEST HISTORY]\n"
                     error_message += "  Check the console output above for:\n"
-                    error_message += "    - '[DEBUG] ========== OFFER DATA FOR {sku} =========='\n"
-                    error_message += "    - '[DEBUG] ========== FULL POST REQUEST BODY =========='\n"
-                    error_message += "    - '[DEBUG] ========== FULL PUT REQUEST BODY =========='\n"
-                    error_message += "    - '[DEBUG] ========== FORCE UPDATE OFFER WITH DESCRIPTION =========='\n"
-                    error_message += "  These will show exactly what was sent to eBay API.\n"
+                    error_message += "    - '[DEBUG] [EBAY] Flattened payload' - group description at root\n"
+                    error_message += "    - '[DEBUG] ========== GROUP CREATION REQUEST =========='\n"
+                    error_message += "    - '[DEBUG] ========== FULL POST REQUEST BODY ==========' (offers)\n"
+                    error_message += "    - '[DEBUG] ========== FULL PUT REQUEST BODY ==========' (offers)\n"
+                    error_message += "  These show exactly what was sent to eBay API.\n"
                     
                     # 5. Publish request check
                     error_message += "\n[5. PUBLISH REQUEST]\n"
                     error_message += f"  Group Key: {group_key}\n"
                     error_message += f"  Marketplace: EBAY_US\n"
-                    error_message += "  Note: publishOfferByInventoryItemGroup uses the group key\n"
-                    error_message += "        and reads description from the offers in the group.\n"
+                    error_message += "  NOTE: publishOfferByInventoryItemGroup reads description from the\n"
+                    error_message += "        INVENTORY ITEM GROUP (not from individual offers).\n"
                     
                     # 6. Recommendations
                     error_message += "\n[6. DIAGNOSIS & RECOMMENDATIONS]\n"
                     
-                    # Check if any offers have description
-                    has_any_description = False
+                    # Check GROUP description (primary for variation publish)
+                    group_has_desc = False
+                    if group_result.get('success'):
+                        gd = group_result.get('data', {})
+                        gdesc = gd.get('description') or gd.get('inventoryItemGroup', {}).get('description', '')
+                        group_has_desc = bool(gdesc and str(gdesc).strip() and len(str(gdesc).strip()) >= 50)
+                    
+                    # Check if any offers have listingDescription (secondary - not used for variation publish)
+                    has_offer_desc = False
                     if group_result.get('success'):
                         group_data = group_result.get('data', {})
                         variant_skus = group_data.get('variantSKUs', [])
@@ -3007,37 +3038,31 @@ Thank you for your interest!"""
                             offer_result = self.api_client.get_offer_by_sku(sku)
                             if offer_result.get('success') and offer_result.get('offer'):
                                 offer = offer_result['offer']
-                                offer_desc = (
-                                    offer.get('listing', {}).get('description', '') or
-                                    offer.get('description', '') or
-                                    ''
-                                )
-                                if offer_desc and offer_desc.strip():
-                                    has_any_description = True
+                                od = (offer.get('listingDescription') or offer.get('listing', {}).get('description') or
+                                      offer.get('description') or '')
+                                if od and str(od).strip():
+                                    has_offer_desc = True
                                     break
                     
-                    if not has_any_description:
-                        error_message += "  [CRITICAL] NO OFFERS HAVE DESCRIPTION!\n"
+                    if not group_has_desc:
+                        error_message += "  [CRITICAL] INVENTORY ITEM GROUP HAS NO VALID DESCRIPTION!\n"
+                        error_message += "  For variation listings, eBay reads description from the GROUP only.\n"
                         error_message += "  \n"
                         error_message += "  POSSIBLE CAUSES:\n"
-                        error_message += "  1. Description was not included in create_offer request\n"
-                        error_message += "  2. Description was lost during update_offer\n"
-                        error_message += "  3. eBay API is not persisting description (sandbox quirk)\n"
-                        error_message += "  4. Description is in wrong location in request payload\n"
+                        error_message += "  1. createOrReplaceInventoryItemGroup was sent with description in wrong location\n"
+                        error_message += "     (eBay expects description at ROOT level, not inside inventoryItemGroup)\n"
+                        error_message += "  2. Group update failed before publish\n"
+                        error_message += "  3. eBay sandbox not persisting description\n"
                         error_message += "  \n"
-                        error_message += "  SOLUTIONS TO TRY:\n"
-                        error_message += "  1. Check console output for '[DEBUG] ========== FULL POST REQUEST BODY =========='\n"
-                        error_message += "     Verify 'listing.description' is present and has value\n"
-                        error_message += "  2. Check console output for '[DEBUG] ========== FULL PUT REQUEST BODY =========='\n"
-                        error_message += "     Verify description is still present after update\n"
-                        error_message += "  3. Try manually updating one offer via eBay API Explorer\n"
-                        error_message += "  4. Check if description needs to be at root level instead of listing.description\n"
+                        error_message += "  SOLUTIONS:\n"
+                        error_message += "  1. Check console for '[DEBUG] [EBAY] Flattened payload - description at root'\n"
+                        error_message += "  2. Verify group PUT sends: {\"description\": \"...\", \"aspects\": {...} at ROOT\n"
+                        error_message += "  3. Deploy latest version (4.014) with payload flattening fix\n"
+                    elif not has_offer_desc:
+                        error_message += "  [INFO] Group has description but offers don't - OK for variations.\n"
+                        error_message += "  Variation publish uses GROUP description only.\n"
                     else:
-                        error_message += "  [INFO] Some offers have description, but publishing still fails.\n"
-                        error_message += "  This suggests:\n"
-                        error_message += "  1. Not all offers in group have description\n"
-                        error_message += "  2. Description format is invalid\n"
-                        error_message += "  3. eBay requires description in specific format for variation listings\n"
+                        error_message += "  [INFO] Both group and offers have description - investigate format/API.\n"
                     
                     error_message += "\n" + "=" * 80 + "\n"
                 

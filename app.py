@@ -26,7 +26,7 @@ listing_jobs = {}
 # =============================================================================
 # VERSION - Single source of truth
 # =============================================================================
-VERSION = "4.012"
+VERSION = "4.014"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
@@ -604,13 +604,15 @@ def app_page():
         
         # Owner always has access
         if email.lower() == OWNER_EMAIL.lower():
-            return render_template('app.html', email=email)
-        
-        # Check subscription for other users
-        if not is_subscribed(email):
+            resp = render_template('app.html', email=email)
+        elif not is_subscribed(email):
             return redirect('/subscribe')
+        else:
+            resp = render_template('app.html', email=email)
         
-        return render_template('app.html', email=email)
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        resp.headers['Pragma'] = 'no-cache'
+        return resp
     except Exception as e:
         print(f"[ERROR] Error in app_page: {e}")
         import traceback

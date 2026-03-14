@@ -937,8 +937,59 @@ This is a variation listing where you can select from multiple card options. Eac
         else:
             print(f"[DEBUG] [OK] Title is valid at ROOT level: '{title_check}' (length: {len(title_check)})")
         
+        # CRITICAL FIX for Error 25016: eBay createOrReplaceInventoryItemGroup expects a FLAT payload.
+        # Per InventoryItemGroup type: description, aspects, title, etc. must be at ROOT level.
+        # We were incorrectly nesting them in inventoryItemGroup - eBay ignores that wrapper.
+        api_payload = {
+            "title": clean_data.get("title", ""),
+            "variantSKUs": clean_data.get("variantSKUs", []),
+            "variesBy": clean_data.get("variesBy", {}),
+            "imageUrls": clean_data.get("imageUrls", []),
+        }
+        if "inventoryItemGroup" in clean_data:
+            inv = clean_data["inventoryItemGroup"]
+            if "description" in inv and inv["description"]:
+                api_payload["description"] = inv["description"]
+                print(f"[DEBUG] [EBAY] Extracted description from inventoryItemGroup (len={len(inv['description'])})")
+            else:
+                print(f"[DEBUG] [EBAY] WARNING: No description in inventoryItemGroup! keys={list(inv.keys())}")
+            if "aspects" in inv and inv["aspects"]:
+                api_payload["aspects"] = inv["aspects"]
+        if "description" in clean_data:
+            api_payload["description"] = clean_data["description"]
+        if "aspects" in clean_data:
+            api_payload["aspects"] = clean_data["aspects"]
+        if "subtitle" in clean_data and clean_data["subtitle"]:
+            api_payload["subtitle"] = clean_data["subtitle"]
+        # Ensure description is present (required for publish)
+        if not api_payload.get("description") or len(str(api_payload.get("description", "")).strip()) < 50:
+            title_val = api_payload.get("title", "Variation Listing")
+            api_payload["description"] = f"""{title_val}
+
+Select your card from the variations below. Each card is listed as a separate variation option.
+
+All cards are in Near Mint or better condition unless otherwise noted."""
+            print(f"[DEBUG] [FIX] Description was missing/invalid at root - added fallback (length: {len(api_payload['description'])})")
+        # Enhanced debug for Error 25016 - log exactly what we send to eBay
+        desc_present = bool(api_payload.get('description'))
+        desc_len = len(api_payload.get('description', '') or '')
+        print(f"[DEBUG] ========== GROUP PUT REQUEST (FLATTENED FOR EBAY) ==========")
+        print(f"[DEBUG] [EBAY] description at root: {desc_present} | length: {desc_len}")
+        print(f"[DEBUG] [EBAY] aspects at root: {'aspects' in api_payload}")
+        print(f"[DEBUG] [EBAY] variantSKUs count: {len(api_payload.get('variantSKUs', []))}")
+        print(f"[DEBUG] [EBAY] imageUrls count: {len(api_payload.get('imageUrls', []))}")
+        if desc_present:
+            print(f"[DEBUG] [EBAY] Description preview: {(api_payload['description'] or '')[:120]}...")
+        else:
+            print(f"[DEBUG] [EBAY] [CRITICAL] NO DESCRIPTION IN PAYLOAD - will cause Error 25016!")
+        payload_for_log = dict(api_payload)
+        if isinstance(payload_for_log.get('description'), str) and len(payload_for_log['description']) > 250:
+            payload_for_log['description'] = payload_for_log['description'][:250] + '...[truncated]'
+        print(f"[DEBUG] Full api_payload (what eBay receives):")
+        print(json.dumps(payload_for_log, indent=2))
+        print(f"[DEBUG] ==============================================================")
         # Use PUT method and include group_key in the path, not as query param
-        response = self._make_request('PUT', endpoint, data=clean_data)
+        response = self._make_request('PUT', endpoint, data=api_payload)
         
         # CRITICAL: Check response for group creation/update
         print(f"[DEBUG] ========== GROUP CREATION/UPDATE RESPONSE ==========")

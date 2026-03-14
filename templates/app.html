@@ -2089,16 +2089,35 @@
                 console.log('[DEBUG] Response status:', response.status);
                 console.log('[DEBUG] Response ok:', response.ok);
                 
+                const contentType = response.headers.get('content-type') || '';
+                const isJson = contentType.includes('application/json');
+                
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('[ERROR] Response not OK:', response.status, errorText);
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        console.error('[ERROR] Error JSON:', errorJson);
-                    } catch (e) {
-                        console.error('[ERROR] Error text (not JSON):', errorText);
+                    let errMsg = `Server error: ${response.status}`;
+                    if (isJson) {
+                        try {
+                            const errJson = JSON.parse(errorText);
+                            errMsg = errJson.error || errMsg;
+                            if (response.status === 403) errMsg = 'Subscription required. Please subscribe to use this feature.';
+                        } catch (e) {}
                     }
-                    throw new Error(`Server error: ${response.status}`);
+                    document.getElementById('loading').classList.remove('show');
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.className = 'result show error';
+                    resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${errMsg}</p><p style="color: #888; margin-top: 10px;">Check that you're logged in and have an active subscription.</p>`;
+                    showToast(errMsg, 'error');
+                    return;
+                }
+                
+                if (!isJson) {
+                    document.getElementById('loading').classList.remove('show');
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.className = 'result show error';
+                    resultDiv.innerHTML = `<h3>❌ Session Expired</h3><p style="color: #dc3545;">Your session may have expired.</p><p style="color: #888; margin-top: 10px;"><a href="/login" style="color: #00ffff;">Log in again</a> and try publishing.</p>`;
+                    showToast('Session expired – please log in again', 'error');
+                    return;
                 }
                 
                 const result = await response.json();
@@ -2363,6 +2382,13 @@
                 }
             } catch (error) {
                 document.getElementById('loading').classList.remove('show');
+                const resultDiv = document.getElementById('result');
+                resultDiv.className = 'result show error';
+                let errText = error.message || 'Unknown error';
+                if (errText.includes('fetch') || errText.includes('network') || errText.includes('Failed')) {
+                    errText = 'Network error – the server may be starting up. Try again in 30–60 seconds.';
+                }
+                resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${errText}</p><p style="color: #888; margin-top: 10px;">If using the live site, Render may be waking from sleep. Wait a minute and retry.</p>`;
                 showToast('Error: ' + error.message, 'error');
             }
         }

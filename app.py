@@ -18,7 +18,12 @@ from functools import wraps
 from json import JSONDecodeError
 import threading
 
-sys.stdout.reconfigure(encoding='utf-8')
+# Safe UTF-8 stdout - can crash in gunicorn/Render if stdout is not TextIOWrapper
+try:
+    if hasattr(sys.stdout, 'reconfigure') and callable(getattr(sys.stdout, 'reconfigure')):
+        sys.stdout.reconfigure(encoding='utf-8')
+except Exception as e:
+    print(f"[WARN] Could not reconfigure stdout encoding: {e}", flush=True)
 
 # Background job store (shared across requests with --workers 1)
 listing_jobs = {}
@@ -334,6 +339,11 @@ def require_subscription(f):
 # =============================================================================
 # ROUTES
 # =============================================================================
+
+@app.route('/health')
+def health():
+    """Quick health check - used by Render and for debugging."""
+    return jsonify({"status": "ok", "version": VERSION}), 200
 
 @app.route('/')
 def landing():

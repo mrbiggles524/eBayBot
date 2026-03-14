@@ -5,11 +5,7 @@ services:
     name: ebay-card-listing-tool
     runtime: python
     # Build
-    buildCommand: |
-      COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
-      echo "4.${COMMIT_COUNT}" > VERSION
-      echo "Building version $(cat VERSION)"
-      pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
     # Environment (set these in Render Dashboard → Environment)
     # Required: EBAY_APP_ID, EBAY_DEV_ID, EBAY_CERT_ID, EBAY_PRODUCTION_TOKEN, etc.

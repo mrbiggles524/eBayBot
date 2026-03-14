@@ -1658,9 +1658,12 @@ Thank you for your interest!"""
         group_verified = False
         
         for attempt in range(max_retries):
-            wait_time = 1 + attempt  # 1, 2, 3, 4, 5 seconds (was 2,4,6,8,10 - Render 30s limit)
-            print(f"  Attempt {attempt + 1}/{max_retries}: Waiting {wait_time} seconds...")
-            time.sleep(wait_time)
+            wait_time = 0 if attempt == 0 else 1 + (attempt - 1)  # 0, 1, 2, 3, 4 - no wait on first try
+            if wait_time > 0:
+                print(f"  Attempt {attempt + 1}/{max_retries}: Waiting {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"  Attempt {attempt + 1}/{max_retries}: Verifying immediately...")
             
             # Try to get the group to verify it exists
             verify_result = self.api_client.get_inventory_item_group(group_key)
@@ -1870,8 +1873,8 @@ All cards are in Near Mint or better condition unless otherwise noted."""
             if update_result.get('success'):
                 print(f"[CRITICAL] [OK] Group updated with description!")
                 print(f"[CRITICAL] Description location: inventoryItemGroup.description")
-                print(f"[CRITICAL] Waiting 2 seconds for eBay to process (Render timeout limit)...")
-                time.sleep(2)  # Keep under Render 30s limit - was 10s
+                print(f"[CRITICAL] Waiting 1 second for eBay to process (Render 30s limit)...")
+                time.sleep(1)
                 
                 # Verify the update by checking the group structure
                 print(f"[CRITICAL] Verifying description was saved...")

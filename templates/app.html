@@ -2097,13 +2097,22 @@
                     console.error('[ERROR] Response not OK:', response.status, errorText);
                     let errMsg = `Server error: ${response.status}`;
                     try {
-                        const errJson = JSON.parse(errorText);
-                        errMsg = errJson.error || errJson.message || errMsg;
-                        if (response.status === 403) errMsg = 'Subscription required. Please subscribe to use this feature.';
+                        if (errorText.trim().toLowerCase().startsWith('<html')) {
+                            errMsg = 'Request timed out or server overloaded (Render free tier has a 30s limit). Try with fewer cards, or upgrade your Render plan for longer requests.';
+                        } else {
+                            const errJson = JSON.parse(errorText);
+                            errMsg = errJson.error || errJson.message || errMsg;
+                            if (response.status === 403) errMsg = 'Subscription required. Please subscribe to use this feature.';
+                        }
                     } catch (e) {
                         console.error('[ERROR] Could not parse error response:', e);
-                        if (errorText && errorText.length < 500) errMsg = errorText.substring(0, 300);
-                        else errMsg = errMsg + ' (Open F12 console for full response)';
+                        if (errorText.trim().toLowerCase().startsWith('<html')) {
+                            errMsg = 'Request timed out (30s limit). Try with fewer cards.';
+                        } else if (errorText && errorText.length < 500) {
+                            errMsg = errorText.substring(0, 300);
+                        } else {
+                            errMsg = errMsg + ' (Open F12 console for full response)';
+                        }
                     }
                     document.getElementById('loading').classList.remove('show');
                     const resultDiv = document.getElementById('result');

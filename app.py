@@ -40,10 +40,12 @@ def not_found(error):
 def internal_error(error):
     """Handle 500 errors gracefully."""
     import traceback
-    print(f"[ERROR] Internal server error: {error}")
+    err_msg = str(error) if error else "Unknown error"
+    print(f"[ERROR] Internal server error: {err_msg}")
     traceback.print_exc()
+    # Include actual error for API routes so frontend can display it
     return jsonify({
-        "error": "Internal server error",
+        "error": f"Internal server error: {err_msg}",
         "message": "An unexpected error occurred. Please try again."
     }), 500
 

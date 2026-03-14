@@ -2098,13 +2098,18 @@
                     let errMsg = `Server error: ${response.status}`;
                     try {
                         const errJson = JSON.parse(errorText);
-                        if (errJson.error) errMsg = errJson.error;
+                        errMsg = errJson.error || errJson.message || errMsg;
                         if (response.status === 403) errMsg = 'Subscription required. Please subscribe to use this feature.';
-                    } catch (e) {}
+                    } catch (e) {
+                        console.error('[ERROR] Could not parse error response:', e);
+                        if (errorText && errorText.length < 500) errMsg = errorText.substring(0, 300);
+                        else errMsg = errMsg + ' (Open F12 console for full response)';
+                    }
                     document.getElementById('loading').classList.remove('show');
                     const resultDiv = document.getElementById('result');
                     resultDiv.className = 'result show error';
-                    resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${errMsg}</p><p style="color: #888; margin-top: 10px;">Check that you're logged in and have an active subscription.</p>`;
+                    const safeMsg = (errMsg || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${safeMsg}</p><p style="color: #888; margin-top: 10px;">Check that you're logged in and have an active subscription.</p>`;
                     showToast(errMsg, 'error');
                     return;
                 }

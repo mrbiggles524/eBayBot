@@ -333,12 +333,14 @@ Please select the specific card you want from the variation dropdown menu."""
             print(f"[DEBUG] Inventory item structure for {sku}:")
             print(json_module.dumps(inventory_item, indent=2)[:500])
             
-            # Add imageUrls only if provided - no default image
-            if card.get('image_url'):
-                inventory_item["product"]["imageUrls"] = [card.get('image_url')]
+            # Add imageUrls - check both image_url and imageUrl (fetch returns image_url, listing sends imageUrl)
+            img_url = card.get('image_url') or card.get('imageUrl') or ''
+            if img_url:
+                inventory_item["product"]["imageUrls"] = [img_url]
+                print(f"[DEBUG] [IMAGE] {sku}: using image (len={len(str(img_url))})")
             else:
-                # No image provided - use empty array
                 inventory_item["product"]["imageUrls"] = []
+                print(f"[DEBUG] [IMAGE] {sku}: NO IMAGE - card keys: {list(card.keys())}")
             
             # Note: Pricing is set at the offer level, not inventory item level
             
@@ -652,13 +654,18 @@ This listing allows you to choose from multiple card options, each with individu
         }
         
         # CRITICAL: Populate imageUrls from card images (REQUIRED - eBay 25717 rejects empty)
-        # Collect unique image URLs from all cards
+        # Collect unique image URLs from all cards (check both image_url and imageUrl)
         image_urls_set = set()
+        cards_without_images = []
         for item in created_items:
             card = item.get("card", {})
             image_url = card.get('image_url') or card.get('imageUrl')
             if image_url:
                 image_urls_set.add(image_url)
+            else:
+                cards_without_images.append(card.get('name') or card.get('number') or item.get('sku'))
+        if cards_without_images:
+            print(f"[DEBUG] [IMAGE] Cards without images for group: {cards_without_images[:10]}")
         
         # Fallback: if no card images, try inventory items (we just created them)
         if not image_urls_set and created_items:
@@ -2914,7 +2921,7 @@ Thank you for your interest!"""
                     error_message += "\n\n" + "=" * 80
                     error_message += "\n🔍 COMPREHENSIVE DEBUGGING FOR ERROR 25016 (DESCRIPTION REQUIRED)"
                     error_message += "\n" + "=" * 80 + "\n"
-                    error_message += "\n  [Debug version: 4.014 - deploy latest if you see old format]\n"
+                    error_message += "\n  [Debug version: 4.015+ - check badge, deploys auto-increment]\n"
                     
                     # 1. Initial description check
                     error_message += "\n[1. INITIAL DESCRIPTION PARAMETER]\n"
@@ -3075,7 +3082,7 @@ Thank you for your interest!"""
                         error_message += "  SOLUTIONS:\n"
                         error_message += "  1. Check console for '[DEBUG] [EBAY] Flattened payload - description at root'\n"
                         error_message += "  2. Verify group PUT sends: {\"description\": \"...\", \"aspects\": {...} at ROOT\n"
-                        error_message += "  3. Deploy latest version (4.014) with payload flattening fix\n"
+                        error_message += "  3. Deploy latest (version auto-increments on Render push)\n"
                     elif not has_offer_desc:
                         error_message += "  [INFO] Group has description but offers don't - OK for variations.\n"
                         error_message += "  Variation publish uses GROUP description only.\n"

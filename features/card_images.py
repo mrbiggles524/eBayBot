@@ -35,6 +35,7 @@ class CardImageFetcher:
         to_process = cards[:25]
         for i, card in enumerate(to_process):
             if card.get('image_url'):
+                card['imageUrl'] = card['image_url']  # Sync both keys
                 continue
             name = card.get('name', '')
             number = str(card.get('number', ''))
@@ -45,6 +46,8 @@ class CardImageFetcher:
                 card['image_url'] = img
             else:
                 card['image_url'] = self.placeholder
+            # Set both keys so frontend/backend can use either
+            card['imageUrl'] = card['image_url']
             
             time.sleep(self.rate_limit_delay)
         

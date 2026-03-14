@@ -24,9 +24,16 @@ sys.stdout.reconfigure(encoding='utf-8')
 listing_jobs = {}
 
 # =============================================================================
-# VERSION - Single source of truth
+# VERSION - Auto from VERSION file (written at build: 4.<git rev-list count>)
 # =============================================================================
-VERSION = "4.014"
+def _load_version():
+    try:
+        p = os.path.join(os.path.dirname(__file__) or '.', 'VERSION')
+        with open(p, 'r') as f:
+            return f.read().strip() or "4.015"
+    except Exception:
+        return "4.015"
+VERSION = os.environ.get("VERSION", _load_version())
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
@@ -604,11 +611,11 @@ def app_page():
         
         # Owner always has access
         if email.lower() == OWNER_EMAIL.lower():
-            resp = make_response(render_template('app.html', email=email))
+            resp = make_response(render_template('app.html', email=email, version=VERSION))
         elif not is_subscribed(email):
             return redirect('/subscribe')
         else:
-            resp = make_response(render_template('app.html', email=email))
+            resp = make_response(render_template('app.html', email=email, version=VERSION))
         
         resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         resp.headers['Pragma'] = 'no-cache'
@@ -1183,12 +1190,14 @@ def create_listing():
         listing_cards = []
         prices = {}
         for card in valid_cards:
+            img = card.get('imageUrl') or card.get('image_url', '') or image_url
             card_data = {
                 'name': card.get('name', ''),
                 'number': str(card.get('number', '')),
                 'quantity': int(card.get('quantity', 1)),
                 'team': card.get('team', ''),
-                'image_url': card.get('imageUrl', image_url)
+                'image_url': img,
+                'imageUrl': img  # Both keys for downstream compatibility
             }
             listing_cards.append(card_data)
             price = float(card.get('price', 1.00))
@@ -1553,7 +1562,9 @@ def api_fetch_images():
         source_url = data.get('sourceUrl', '')
         fetcher = CardImageFetcher()
         updated = fetcher.fetch_images_for_cards(cards, set_name, source_url)
-        return jsonify({"success": True, "cards": updated})
+        with_img = sum(1 for c in updated if c.get('image_url') or c.get('imageUrl'))
+        print(f"[FETCH-IMAGES] Fetched {with_img}/{len(updated)} cards with images (v{VERSION})")
+        return jsonify({"success": True, "cards": updated, "version": VERSION, "withImages": with_img})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

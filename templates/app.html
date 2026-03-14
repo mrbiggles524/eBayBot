@@ -675,7 +675,7 @@
 </head>
 <body>
     <!-- Version Badge -->
-    <div class="version-badge" id="versionBadge">v3.7</div>
+    <div class="version-badge" id="versionBadge">v{{ version|default('4.015') }}</div>
     
     <div class="container">
         <header>
@@ -1381,12 +1381,18 @@
                 const res = await fetch('/api/fetch-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await res.json();
                 if (data.success && data.cards) {
+                    let updated = 0;
                     data.cards.forEach(fc => {
                         const idx = fc._idx;
-                        if (idx != null && cards[idx] && fc.image_url) cards[idx].imageUrl = fc.image_url;
+                        const img = fc.image_url || fc.imageUrl;
+                        if (idx != null && cards[idx] && img) {
+                            cards[idx].imageUrl = img;
+                            updated++;
+                        }
                     });
                     renderCards();
-                    if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Images fetched for ' + toProcess.length + ' cards';
+                    const v = data.version || '';
+                    if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Images for ' + updated + '/' + toProcess.length + ' cards (v' + v + ')';
                     showToast('Images fetched', 'success');
                 } else {
                     if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = data.error || 'Failed';
@@ -2413,8 +2419,8 @@
             }
         }
         
-        // VERSION - Update this on every change (increment last digit)
-        const UI_VERSION = '4.014';
+        // VERSION - From server (auto from git on Render deploy)
+        const UI_VERSION = '{{ version|default("4.015") }}';
         document.getElementById('versionBadge').textContent = `v${UI_VERSION}`;
         
         // Clear all caches on app start

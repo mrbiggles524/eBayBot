@@ -30,9 +30,9 @@ def _load_version():
     try:
         p = os.path.join(os.path.dirname(__file__) or '.', 'VERSION')
         with open(p, 'r') as f:
-            return f.read().strip() or "4.017"
+            return f.read().strip() or "4.018"
     except Exception:
-        return "4.017"
+        return "4.018"
 VERSION = os.environ.get("VERSION", _load_version())
 
 app = Flask(__name__)

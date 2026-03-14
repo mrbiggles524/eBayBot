@@ -227,6 +227,25 @@ Please select the specific card you want from the variation dropdown menu."""
             }
             ebay_condition = condition_map.get(condition, "NEW")
         
+        # Step 1: Consolidate duplicate cards (same number+name) - eBay 25013 rejects duplicate variation specifics
+        def card_key(c):
+            return (str(c.get('number', '')).strip(), str(c.get('name', '')).strip())
+        seen_keys = {}
+        consolidated_cards = []
+        for card in cards:
+            k = card_key(card)
+            if k in seen_keys:
+                idx = seen_keys[k]
+                consolidated_cards[idx]['quantity'] = int(consolidated_cards[idx].get('quantity', 0)) + int(card.get('quantity', 1))
+                print(f"[DEBUG] Consolidated duplicate card: {k[0]} {k[1]} (combined qty)")
+            else:
+                seen_keys[k] = len(consolidated_cards)
+                consolidated_cards.append(dict(card))
+        cards = consolidated_cards
+        print(f"[DEBUG] After consolidation: {len(cards)} unique cards (duplicates merged)")
+        if len(cards) == 0:
+            return {"success": False, "error": "No valid cards after consolidating duplicates.", "created_items": 0, "errors": []}
+        
         # Step 1: Create inventory items for each variation
         print(f"Creating {len(cards)} inventory items...")
         for idx, card in enumerate(cards):
@@ -422,8 +441,9 @@ Please select the specific card you want from the variation dropdown menu."""
         # Based on user's working listings, they use a single aspect like "PICK YOUR BASE/PARALLEL/INSERT"
         # with values like "9 Tyger Campbell - UCLA 1st", "12 Rasir Bolton - Gonzaga 1st", etc.
         
-        # Build full card descriptions for variation values
+        # Build full card descriptions for variation values (must be unique - eBay 25013)
         variation_values = []
+        seen_vals = set()
         for card in cards:
             card_name = card.get('name', '')
             card_number = str(card.get('number', ''))
@@ -434,10 +454,8 @@ Please select the specific card you want from the variation dropdown menu."""
             else:
                 variation_value = card_name.strip()
             
-            # Add "1st" suffix if it's a rookie (you can detect this from card data if available)
-            # For now, just use the card name/number as-is
-            
-            if variation_value:
+            if variation_value and variation_value not in seen_vals:
+                seen_vals.add(variation_value)
                 variation_values.append(variation_value)
         
         if not variation_values:

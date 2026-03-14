@@ -675,7 +675,7 @@
 </head>
 <body>
     <!-- Version Badge -->
-    <div class="version-badge" id="versionBadge">v{{ version|default('4.017') }}</div>
+    <div class="version-badge" id="versionBadge">v{{ version|default('4.018') }}</div>
     
     <div class="container">
         <header>
@@ -2512,7 +2512,7 @@
         }
         
         // VERSION - From server (auto from git on Render deploy)
-        const UI_VERSION = '{{ version|default("4.017") }}';
+        const UI_VERSION = '{{ version|default("4.018") }}';
         document.getElementById('versionBadge').textContent = `v${UI_VERSION}`;
         
         // Clear all caches on app start

@@ -675,7 +675,7 @@
 </head>
 <body>
     <!-- Version Badge -->
-    <div class="version-badge" id="versionBadge">v{{ version|default('4.015') }}</div>
+    <div class="version-badge" id="versionBadge">v{{ version|default('4.017') }}</div>
     
     <div class="container">
         <header>
@@ -860,6 +860,20 @@
                 </div>
             </div>
             
+            <!-- Image Confirmation Modal (after Fetch Images) -->
+            <div id="imageConfirmModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 1100; overflow-y: auto; padding: 20px;">
+                <div style="max-width: 700px; margin: 0 auto; background: rgba(15, 15, 26, 0.98); border: 2px solid rgba(0, 255, 255, 0.5); border-radius: 16px; padding: 24px; box-shadow: 0 0 40px rgba(0, 255, 255, 0.3);">
+                    <h3 style="color: #00ffff; margin-bottom: 12px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">🖼️ Images Fetched</h3>
+                    <p style="color: #aaa; margin-bottom: 20px; font-size: 0.95rem;">Do these images look correct for the cards you want to list?</p>
+                    <div id="imageConfirmGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin-bottom: 24px; max-height: 320px; overflow-y: auto;"></div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
+                        <button onclick="imageConfirmYes()" style="padding: 12px 24px; background: linear-gradient(90deg, #00aa44, #00cc55); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 0 15px rgba(0, 200, 100, 0.5);">✓ Yes, these are correct</button>
+                        <button onclick="imageConfirmContinueAnyway()" style="padding: 12px 24px; background: rgba(255, 165, 0, 0.4); color: #ffa500; border: 2px solid rgba(255, 165, 0, 0.6); border-radius: 8px; cursor: pointer; font-weight: 600;">No, but continue anyway (change later)</button>
+                        <button onclick="imageConfirmGoBack()" style="padding: 12px 24px; background: rgba(255, 80, 80, 0.3); color: #ff6666; border: 2px solid rgba(255, 80, 80, 0.6); border-radius: 8px; cursor: pointer; font-weight: 600;">✕ No, not right – go back</button>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Import CSV Modal -->
             <div id="importCSVModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
                 <div style="background: rgba(15, 15, 26, 0.95); border: 1px solid rgba(255,255,255,0.2); border-radius: 16px; padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
@@ -1008,6 +1022,9 @@
         
         <!-- Actions -->
         <div class="actions">
+            <div id="imagesBeforePublish" style="margin-bottom: 12px; padding: 10px 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 0.95rem; color: #aaa;">
+                <span id="imagesStatusText">🖼️ Images: Click "Fetch Images" above, then List when ready</span>
+            </div>
             <button class="btn btn-success" id="publishBtn" onclick="publishListing()" style="width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold;">🚀 Publish to eBay (Live Listing)</button>
             <p style="color: #ffc107; margin-top: 10px; text-align: center; font-size: 0.9rem;">
                 ⚠️ Note: This will publish your listing LIVE on eBay immediately. eBay's Inventory API does not support drafts visible in Seller Hub.
@@ -1381,19 +1398,10 @@
                 const res = await fetch('/api/fetch-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await res.json();
                 if (data.success && data.cards) {
-                    let updated = 0;
-                    data.cards.forEach(fc => {
-                        const idx = fc._idx;
-                        const img = fc.image_url || fc.imageUrl;
-                        if (idx != null && cards[idx] && img) {
-                            cards[idx].imageUrl = img;
-                            updated++;
-                        }
-                    });
-                    renderCards();
-                    const v = data.version || '';
-                    if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Images for ' + updated + '/' + toProcess.length + ' cards (v' + v + ')';
-                    showToast('Images fetched', 'success');
+                    const withImg = data.cards.filter(fc => fc.image_url || fc.imageUrl).length;
+                    window._pendingImageFetch = { cards: data.cards, toProcessCount: toProcess.length, version: data.version || '' };
+                    showImageConfirmModal(data.cards);
+                    if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
                 } else {
                     if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = data.error || 'Failed';
                     showToast(data.error || 'Failed to fetch images', 'error');
@@ -1401,6 +1409,82 @@
             } catch (e) {
                 if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Error: ' + e.message;
                 showToast('Error: ' + e.message, 'error');
+            }
+        }
+        
+        function showImageConfirmModal(fetchedCards) {
+            const grid = document.getElementById('imageConfirmGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            fetchedCards.forEach(fc => {
+                const img = fc.image_url || fc.imageUrl;
+                const label = (fc.number ? fc.number + ' ' : '') + (fc.name || 'Card');
+                const div = document.createElement('div');
+                div.style.cssText = 'text-align: center; padding: 8px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);';
+                const safeImg = (img && (img.startsWith('http://') || img.startsWith('https://'))) ? img.replace(/"/g, '&quot;').replace(/</g, '&lt;') : '';
+                div.innerHTML = (safeImg
+                    ? `<img src="${safeImg}" alt="" style="width: 80px; height: 112px; object-fit: contain; background: #222; border-radius: 6px; display: block; margin: 0 auto 6px;" onerror="this.style.background='#333';this.alt='?';">`
+                    : `<div style="width: 80px; height: 112px; background: #333; border-radius: 6px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; color: #666;">?</div>`)
+                    + `<span style="font-size: 0.75rem; color: #ccc; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${String(label || 'Card').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').substring(0, 18)}</span>`;
+                grid.appendChild(div);
+            });
+            document.getElementById('imageConfirmModal').style.display = 'block';
+        }
+        function imageConfirmYes() {
+            applyPendingImages();
+            document.getElementById('imageConfirmModal').style.display = 'none';
+            showToast('Images applied ✓', 'success');
+        }
+        function imageConfirmContinueAnyway() {
+            applyPendingImages();
+            document.getElementById('imageConfirmModal').style.display = 'none';
+            showToast('Images applied – you can change them later', 'warning');
+        }
+        function imageConfirmGoBack() {
+            window._pendingImageFetch = null;
+            document.getElementById('imageConfirmModal').style.display = 'none';
+            if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Images not applied – try again or add manually';
+            showToast('Images discarded – use Fetch Images again or add URLs manually', 'info');
+        }
+        function applyPendingImages() {
+            const pending = window._pendingImageFetch;
+            if (!pending || !pending.cards || !cards) return;
+            let updated = 0;
+            pending.cards.forEach(fc => {
+                const idx = fc._idx;
+                const img = fc.image_url || fc.imageUrl;
+                if (idx != null && cards[idx] && img) {
+                    cards[idx].imageUrl = img;
+                    updated++;
+                }
+            });
+            window._pendingImageFetch = null;
+            renderCards();
+            if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Images for ' + updated + '/' + pending.toProcessCount + ' cards applied (v' + pending.version + ')';
+            updateImagesBeforePublishStatus();
+        }
+        function updateImagesBeforePublishStatus() {
+            const el = document.getElementById('imagesStatusText');
+            if (!el || !cards) return;
+            const valid = cards.filter(c => (c.qty || 0) > 0);
+            const withImg = valid.filter(c => !!(c.imageUrl || c.image_url)).length;
+            const total = valid.length;
+            if (total === 0) {
+                el.textContent = '🖼️ Add cards with quantity > 0 first';
+                el.parentElement.style.borderColor = 'rgba(255,255,255,0.1)';
+                el.parentElement.style.background = 'rgba(0,0,0,0.3)';
+            } else if (withImg === total) {
+                el.textContent = '✅ Images ready: ' + withImg + '/' + total + ' cards have images';
+                el.parentElement.style.borderColor = 'rgba(0, 200, 100, 0.5)';
+                el.parentElement.style.background = 'rgba(0, 200, 100, 0.08)';
+            } else if (withImg > 0) {
+                el.textContent = '⚠️ ' + withImg + '/' + total + ' cards have images – fetch or add for rest';
+                el.parentElement.style.borderColor = 'rgba(255, 193, 7, 0.5)';
+                el.parentElement.style.background = 'rgba(255, 193, 7, 0.08)';
+            } else {
+                el.textContent = '🖼️ No images yet – click "Fetch Images" above before publishing';
+                el.parentElement.style.borderColor = 'rgba(255, 165, 0, 0.5)';
+                el.parentElement.style.background = 'rgba(255, 165, 0, 0.08)';
             }
         }
         
@@ -1694,6 +1778,7 @@
             `;
             }).join('');
             updateSummary();
+            updateImagesBeforePublishStatus();
         }
         
         function updateSummary() {
@@ -2346,7 +2431,14 @@
         // Removed saveDraft() and saveScheduledDraft() - eBay Inventory API doesn't support visible drafts
         
         function publishListing() {
-            if (confirm('⚠️ This will publish your listing LIVE on eBay immediately and use listing credits.\n\nContinue?')) {
+            const validCards = cards.filter(c => (c.qty || 0) > 0);
+            const withImg = validCards.filter(c => !!(c.imageUrl || c.image_url)).length;
+            let msg = '⚠️ This will publish your listing LIVE on eBay immediately and use listing credits.\n\n';
+            if (withImg < validCards.length && validCards.length > 0) {
+                msg += `🖼️ ${validCards.length - withImg} of ${validCards.length} cards have NO images. A placeholder will be used for missing ones.\n\n`;
+            }
+            msg += 'Continue?';
+            if (confirm(msg)) {
                 createListing();
             }
         }
@@ -2420,7 +2512,7 @@
         }
         
         // VERSION - From server (auto from git on Render deploy)
-        const UI_VERSION = '{{ version|default("4.015") }}';
+        const UI_VERSION = '{{ version|default("4.017") }}';
         document.getElementById('versionBadge').textContent = `v${UI_VERSION}`;
         
         // Clear all caches on app start
@@ -2450,6 +2542,7 @@
             if (loadingDiv) {
                 loadingDiv.classList.remove('show');
             }
+            updateImagesBeforePublishStatus();
             console.log('[INIT] Page loaded');
         });
         

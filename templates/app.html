@@ -2096,13 +2096,11 @@
                     const errorText = await response.text();
                     console.error('[ERROR] Response not OK:', response.status, errorText);
                     let errMsg = `Server error: ${response.status}`;
-                    if (isJson) {
-                        try {
-                            const errJson = JSON.parse(errorText);
-                            errMsg = errJson.error || errMsg;
-                            if (response.status === 403) errMsg = 'Subscription required. Please subscribe to use this feature.';
-                        } catch (e) {}
-                    }
+                    try {
+                        const errJson = JSON.parse(errorText);
+                        if (errJson.error) errMsg = errJson.error;
+                        if (response.status === 403) errMsg = 'Subscription required. Please subscribe to use this feature.';
+                    } catch (e) {}
                     document.getElementById('loading').classList.remove('show');
                     const resultDiv = document.getElementById('result');
                     resultDiv.className = 'result show error';

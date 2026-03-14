@@ -1643,7 +1643,7 @@ Thank you for your interest!"""
                 "error": f"Failed to create any offers:\n" + "\n".join(offer_errors),
                 "created_items": len(created_items),
                 "group_key": group_key,
-                "errors": errors + offer_errors
+                "errors": offer_errors
             }
         elif offer_errors:
             print(f"[WARNING] Some offers failed, but proceeding with successful ones...")

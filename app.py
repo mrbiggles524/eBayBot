@@ -1086,7 +1086,7 @@ def fetch_checklist():
 @require_subscription
 def create_listing():
     """Create and publish a listing using eBayListingManager."""
-    data = request.json
+    data = request.json or {}
     
     try:
         set_name = data.get('setName', 'Card Set')

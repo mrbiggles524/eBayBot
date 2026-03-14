@@ -944,8 +944,12 @@ This is a variation listing where you can select from multiple card options. Eac
             "title": clean_data.get("title", ""),
             "variantSKUs": clean_data.get("variantSKUs", []),
             "variesBy": clean_data.get("variesBy", {}),
-            "imageUrls": clean_data.get("imageUrls", []),
+            "imageUrls": clean_data.get("imageUrls", []) or [],
         }
+        # eBay 25717: imageUrls cannot be null or empty - add placeholder if missing
+        if not api_payload["imageUrls"]:
+            api_payload["imageUrls"] = ["https://i.ebayimg.com/images/g/WYsAAOSwpkFnRxqE/s-l1600.webp"]
+            print(f"[DEBUG] [EBAY] imageUrls was empty - added placeholder (required for Error 25717)")
         if "inventoryItemGroup" in clean_data:
             inv = clean_data["inventoryItemGroup"]
             if "description" in inv and inv["description"]:

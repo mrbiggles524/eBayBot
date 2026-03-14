@@ -1,7 +1,7 @@
 """eBay Card Listing Tool - Main Application
 Multi-user support with PayPal subscription
 """
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory, make_response
 from ebay_api_client import eBayAPIClient
 from ebay_listing import eBayListingManager
 from card_checklist import CardChecklistFetcher
@@ -604,11 +604,11 @@ def app_page():
         
         # Owner always has access
         if email.lower() == OWNER_EMAIL.lower():
-            resp = render_template('app.html', email=email)
+            resp = make_response(render_template('app.html', email=email))
         elif not is_subscribed(email):
             return redirect('/subscribe')
         else:
-            resp = render_template('app.html', email=email)
+            resp = make_response(render_template('app.html', email=email))
         
         resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         resp.headers['Pragma'] = 'no-cache'

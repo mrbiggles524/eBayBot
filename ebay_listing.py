@@ -1547,8 +1547,8 @@ Thank you for your interest!"""
                     print(f"  [WARNING] Update failed but continuing: {update_result.get('error')}")
             
             # Skip verification to speed up - description should be set by update
-            # Removed sleep and verification to speed up publishing
-            if verify_offer.get('success') and verify_offer.get('offer'):
+            # Removed sleep and verification to speed up publishing (verify_offer was removed)
+            if False:  # Disabled: verification block used undefined verify_offer
                 offer_obj = verify_offer['offer']
                 offer_policy_id = offer_obj.get('listing', {}).get('listingPolicies', {}).get('fulfillmentPolicyId')
                 

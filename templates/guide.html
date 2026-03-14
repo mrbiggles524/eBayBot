@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CardLister Pro – Automatic eBay Comp Pricing for Sports Cards</title>
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ebaybot-2w33.onrender.com/guide">
+    <meta property="og:title" content="CardLister Pro – Auto Comps for Sports Cards">
+    <meta property="og:description" content="Enter quantities. Get comps automatically. List on eBay. No manual searching.">
+    <meta property="og:image" content="https://ebaybot-2w33.onrender.com/static/og-guide.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .bg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(ellipse at 20% 20%, rgba(0,255,255,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(255,0,255,0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(255,165,0,0.06) 0%, transparent 70%);
+            pointer-events: none; z-index: 0;
+        }
+        .wrap { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; padding: 24px; }
+        
+        .head {
+            text-align: center;
+            padding: 48px 0 32px;
+            border-bottom: 2px solid rgba(0,255,255,0.3);
+        }
+        .head h1 {
+            font-size: clamp(1.8rem, 5vw, 2.6rem);
+            background: linear-gradient(90deg, #00ffff, #ffa500, #00ffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+        .head p { color: #aaa; font-size: 1.1rem; }
+        
+        .steps { margin: 40px 0; }
+        .step {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(0,255,255,0.25);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            opacity: 0.6;
+            transition: opacity 0.4s, border-color 0.3s, box-shadow 0.3s;
+        }
+        .step.active {
+            opacity: 1;
+            border-color: rgba(0,255,255,0.6);
+            box-shadow: 0 0 30px rgba(0,255,255,0.2);
+        }
+        .step.done { border-color: rgba(0,255,0,0.5); opacity: 0.85; }
+        .step-num {
+            display: inline-block;
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, #00ffff, #0088aa);
+            color: #000;
+            font-weight: 800;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 36px;
+            margin-right: 12px;
+            font-size: 1rem;
+        }
+        .step h3 { font-size: 1.2rem; color: #00ffff; margin-bottom: 8px; }
+        .step p { color: #bbb; font-size: 1rem; line-height: 1.5; }
+        
+        .demo {
+            background: rgba(0,0,0,0.6);
+            border: 2px solid rgba(255,165,0,0.4);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 24px 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .demo-row { display: flex; gap: 12px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+        .demo-row span { min-width: 120px; color: #00ffff; }
+        .demo-row input {
+            width: 60px;
+            padding: 8px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(0,255,255,0.4);
+            border-radius: 6px;
+            color: #fff;
+            text-align: center;
+        }
+        .demo-btn {
+            margin-top: 16px;
+            padding: 12px 24px;
+            background: linear-gradient(90deg, #ffa500, #ff6600);
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .demo-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,165,0,0.6); }
+        .demo-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .price-filled { color: #00ff00; font-weight: bold; }
+        
+        .cta-box {
+            text-align: center;
+            padding: 40px 24px;
+            margin-top: 32px;
+            border: 2px dashed rgba(0,255,255,0.5);
+            border-radius: 16px;
+        }
+        .cta-box h2 { font-size: 1.5rem; margin-bottom: 12px; color: #fff; }
+        .cta-box p { color: #aaa; margin-bottom: 24px; }
+        .cta {
+            display: inline-block;
+            padding: 18px 48px;
+            background: linear-gradient(90deg, #00ffff, #00aa88);
+            color: #000;
+            font-weight: 800;
+            text-decoration: none;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            transition: transform 0.2s, box-shadow 0.3s;
+        }
+        .cta:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 40px rgba(0,255,255,0.7);
+        }
+        
+        .share-hint {
+            text-align: center;
+            margin-top: 32px;
+            padding: 16px;
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .share-hint a { color: #00ffff; }
+    </style>
+</head>
+<body>
+    <div class="bg"></div>
+    <div class="wrap">
+        <div class="head">
+            <h1>💰 CardLister Pro</h1>
+            <p>Automatic comps. Enter quantities. List on eBay.</p>
+        </div>
+        
+        <div class="steps">
+            <div class="step active" id="step1">
+                <span class="step-num">1</span>
+                <h3>Load your checklist</h3>
+                <p>Paste a Beckett, Checklist, or TCGPlayer URL. Your cards load instantly.</p>
+            </div>
+            <div class="step" id="step2">
+                <span class="step-num">2</span>
+                <h3>Enter how many you have</h3>
+                <p>Just type quantities for each card. One number per card. That's it.</p>
+                <div class="demo">
+                    <p style="color:#888;margin-bottom:12px;">Try it:</p>
+                    <div class="demo-row">
+                        <span>Cooper Flagg #1</span>
+                        <input type="number" id="qty1" value="2" min="0" placeholder="qty">
+                        <span id="price1" class="price-filled">—</span>
+                    </div>
+                    <div class="demo-row">
+                        <span>Kon Knueppel #2</span>
+                        <input type="number" id="qty2" value="1" min="0" placeholder="qty">
+                        <span id="price2" class="price-filled">—</span>
+                    </div>
+                    <button class="demo-btn" id="demoBtn">💰 Get Market Prices</button>
+                </div>
+            </div>
+            <div class="step" id="step3">
+                <span class="step-num">3</span>
+                <h3>Comps fill automatically</h3>
+                <p>Real eBay sold data. Median pricing. No manual searching. One click.</p>
+            </div>
+            <div class="step" id="step4">
+                <span class="step-num">4</span>
+                <h3>List to eBay</h3>
+                <p>Create variation listings. Images, descriptions, policies – all handled.</p>
+            </div>
+        </div>
+        
+        <div class="cta-box">
+            <h2>Ready to list smarter?</h2>
+            <p>Stop searching comps by hand. Let CardLister do it.</p>
+            <a href="/" class="cta">Start Free Trial →</a>
+        </div>
+        
+        <div class="share-hint">
+            Share this guide: <a href="https://ebaybot-2w33.onrender.com/guide">ebaybot-2w33.onrender.com/guide</a>
+        </div>
+    </div>
+    
+    <script>
+        const steps = ['step1','step2','step3','step4'];
+        let currentStep = 0;
+        
+        function setStep(i) {
+            steps.forEach((id, j) => {
+                const el = document.getElementById(id);
+                el.classList.remove('active','done');
+                if (j < i) el.classList.add('done');
+                if (j === i) el.classList.add('active');
+            });
+            currentStep = i;
+        }
+        
+        document.getElementById('demoBtn').onclick = function() {
+            const btn = this;
+            const p1 = document.getElementById('price1');
+            const p2 = document.getElementById('price2');
+            const q1 = parseInt(document.getElementById('qty1').value) || 0;
+            const q2 = parseInt(document.getElementById('qty2').value) || 0;
+            btn.disabled = true;
+            btn.textContent = 'Looking up...';
+            p1.textContent = '—';
+            p2.textContent = '—';
+            setTimeout(() => {
+                if (q1 > 0) p1.textContent = '$12.00';
+                if (q2 > 0) p2.textContent = '$14.99';
+                btn.textContent = '✓ Done';
+                setStep(2);
+                setTimeout(() => setStep(3), 800);
+            }, 1200);
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                if (e.isIntersecting) {
+                    const i = steps.indexOf(e.target.id);
+                    if (i >= 0 && i > currentStep) setStep(i);
+                }
+            });
+        }, { threshold: 0.5 });
+        steps.forEach(id => observer.observe(document.getElementById(id)));
+    </script>
+</body>
+</html>

@@ -583,6 +583,11 @@ def setup():
         print(f"[ERROR] Error in setup: {e}")
         return f"<h1>Error</h1><p>An error occurred: {str(e)}</p>", 500
 
+@app.route('/guide')
+def guide_page():
+    """Interactive guide / ad for social media sharing."""
+    return render_template('guide.html')
+
 @app.route('/app')
 def app_page():
     """Main application page (requires subscription)."""
@@ -1833,7 +1838,8 @@ def api_apply_market_pricing():
         if debug_msg:
             resp["debug"] = debug_msg
         if not os.environ.get('SERPAPI_KEY', '').strip() and no_results:
-            resp["hint"] = "Add SERPAPI_KEY to .env for reliable prices (free at serpapi.com)"
+            hint = "Add SERPAPI_KEY in Render Dashboard → Environment (or .env locally). Free at serpapi.com"
+            resp["hint"] = hint
         return jsonify(resp)
     except Exception as e:
         import traceback

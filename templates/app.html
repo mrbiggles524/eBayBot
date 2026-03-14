@@ -675,7 +675,12 @@
 </head>
 <body>
     <!-- Version Badge -->
-    <div class="version-badge" id="versionBadge">v{{ version|default('4.018') }}</div>
+    <div class="version-badge" id="versionBadge">v{{ version|default('4.019') }}</div>
+    
+    <!-- Cold start notice (hidden after policies load or 8 sec) -->
+    <div id="coldStartNotice" style="position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background: rgba(255, 193, 7, 0.2); border: 1px solid rgba(255, 193, 7, 0.5); border-radius: 8px; padding: 10px 20px; font-size: 0.9rem; color: #ffc107; z-index: 9999; text-align: center; max-width: 90%;">
+        First visit? Render free tier may take 30-60 sec to wake up. Please wait…
+    </div>
     
     <div class="container">
         <header>
@@ -762,7 +767,14 @@
                 <div class="form-row" style="flex-wrap: wrap;">
                     <div class="form-group" style="flex: 2;">
                         <label>Checklist URL (Beckett, Cardsmiths Breaks, or Cardboard Connection)</label>
-                        <input type="text" id="checklistUrl" placeholder="https://cardsmithsbreaks.com/full-checklist/2025-26-topps-chrome-basketball-hobby/">
+                        <input type="text" id="checklistUrl" list="checklistUrlSuggestions" placeholder="https://cardsmithsbreaks.com/full-checklist/2025-26-topps-chrome-basketball-hobby/" autocomplete="off">
+                        <datalist id="checklistUrlSuggestions">
+                            <option value="https://cardsmithsbreaks.com/full-checklist/2025-26-topps-chrome-basketball-hobby/">
+                            <option value="https://cardsmithsbreaks.com/full-checklist/2024-25-topps-chrome-basketball-hobby/">
+                            <option value="https://www.beckett.com/news/2025-26-topps-chrome-basketball-cards/">
+                            <option value="https://www.beckett.com/news/2024-25-topps-chrome-basketball-cards/">
+                            <option value="https://www.cardboardconnection.com/2025-26-topps-chrome-basketball-cards">
+                        </datalist>
                     </div>
                     <div class="form-group">
                         <label>Type</label>
@@ -1090,21 +1102,29 @@
             }
             statusDiv.textContent = 'Loading policies...';
             statusDiv.style.color = '#00d4ff';
+            const slowMsg = setTimeout(() => {
+                if (statusDiv.textContent.includes('Loading')) {
+                    statusDiv.textContent = 'Still loading... Render may need 30-60 sec to wake up (free tier).';
+                    statusDiv.style.color = '#ffc107';
+                }
+            }, 6000);
             
             try {
                 // Add timeout to prevent hanging
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for cold start
                 
                 const response = await fetch('/api/policies', {
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
+                clearTimeout(slowMsg);
                 const data = await response.json();
                 
                 console.log('Policies API response:', data);
                 
                 if (data.error) {
+                    clearTimeout(slowMsg);
                     console.error('Policy API error:', data.error);
                     let errorMsg = data.error;
                     if (data.error.includes('401') || data.error.includes('Invalid access token') || data.error.includes('expired')) {
@@ -1122,6 +1142,7 @@
                 }
                 
                 if (!response.ok) {
+                    clearTimeout(slowMsg);
                     console.error('Policy API failed:', response.status, data);
                     let errorMsg = 'Failed: HTTP ' + response.status;
                     if (response.status === 401) {
@@ -1136,6 +1157,7 @@
                 }
                 
                 policies = data;
+                clearTimeout(slowMsg);
                 
                 // Populate dropdowns
                 const paymentSelect = document.getElementById('paymentPolicy');
@@ -1183,16 +1205,19 @@
                 if (totalPolicies > 0) {
                     statusDiv.textContent = `Loaded ${totalPolicies} policies`;
                     statusDiv.style.color = '#28a745';
+                    const notice = document.getElementById('coldStartNotice');
+                    if (notice) notice.style.display = 'none';
                 } else {
                     statusDiv.textContent = 'No policies found. Check your eBay API setup.';
                     statusDiv.style.color = '#ffc107';
                 }
             } catch (error) {
+                clearTimeout(slowMsg);
                 console.error('Error loading policies:', error);
                 if (error.name === 'AbortError') {
-                    statusDiv.textContent = 'Request timed out. Check your connection or token.';
+                    statusDiv.textContent = 'Timed out. Render free tier may take 30-60 sec on first visit. Click "Refresh Policies" to retry.';
                     statusDiv.style.color = '#ffc107';
-                    showToast('Policy loading timed out. Check your token or try refreshing.', 'error');
+                    showToast('Request timed out. Wait 30 sec and click Refresh Policies.', 'warning');
                 } else {
                     statusDiv.textContent = 'Error: ' + error.message;
                     statusDiv.style.color = '#dc3545';
@@ -2512,7 +2537,7 @@
         }
         
         // VERSION - From server (auto from git on Render deploy)
-        const UI_VERSION = '{{ version|default("4.018") }}';
+        const UI_VERSION = '{{ version|default("4.019") }}';
         document.getElementById('versionBadge').textContent = `v${UI_VERSION}`;
         
         // Clear all caches on app start

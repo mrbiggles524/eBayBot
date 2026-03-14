@@ -756,8 +756,8 @@ This listing allows you to choose from multiple card options, each with individu
             else:
                 print(f"[DEBUG] [CRITICAL] ⚠️ WARNING: Group creation succeeded but group not found!")
                 print(f"[DEBUG] [CRITICAL] Error: {verify_immediate.get('error')}")
-                print(f"[DEBUG] [CRITICAL] Waiting 5 seconds and retrying verification...")
-                time.sleep(5)
+                print(f"[DEBUG] [CRITICAL] Waiting 2 seconds and retrying verification...")
+                time.sleep(2)
                 verify_retry = self.api_client.get_inventory_item_group(group_key)
                 if verify_retry.get('success'):
                     print(f"[DEBUG] [CRITICAL] ✅ Group found on retry!")
@@ -767,8 +767,8 @@ This listing allows you to choose from multiple card options, each with individu
                     group_result = {"success": False, "error": f"Group creation succeeded but group not found: {verify_retry.get('error')}"}
             
             # CRITICAL: Wait after group creation to ensure description is persisted
-            print(f"[DEBUG] [CRITICAL] Waiting 10 seconds after group creation for description to persist...")
-            time.sleep(10)
+            print(f"[DEBUG] [CRITICAL] Waiting 2 seconds after group creation...")
+            time.sleep(2)
             print(f"[DEBUG] [CRITICAL] Wait complete - description should now be stored in eBay")
             
             # CRITICAL: Link offers to the group (eBay may not auto-link if offers were created first)
@@ -925,8 +925,8 @@ This listing allows you to choose from multiple card options, each with individu
                     delete_result = self.api_client.delete_inventory_item_group(old_group_id)
                     if delete_result.get("success"):
                         print(f"[DEBUG] [25703] [OK] Successfully deleted old group: {old_group_id}")
-                        print(f"[DEBUG] [25703] [FIX] Waiting 10 seconds for deletion to fully propagate...")
-                        time.sleep(10)  # Longer wait for deletion to propagate
+                        print(f"[DEBUG] [25703] [FIX] Waiting 3 seconds for deletion to propagate...")
+                        time.sleep(3)
                         
                         # Step 3: Retry creating the group
                         print(f"[DEBUG] [25703] [FIX] Step 3: Retrying group creation...")
@@ -961,7 +961,7 @@ This listing allows you to choose from multiple card options, each with individu
                                     unlink_result = self.api_client.update_offer(offer_id, offer_update)
                                     if unlink_result.get('success'):
                                         print(f"[DEBUG] [25703] [OK] Unlinked problematic SKU")
-                                        time.sleep(5)
+                                        time.sleep(2)
                                         # Retry group creation
                                         print(f"[DEBUG] [25703] [FIX] Retrying group creation after unlinking...")
                                         retry_result = self.api_client.create_inventory_item_group(group_key, clean_group_data)
@@ -1648,9 +1648,9 @@ Thank you for your interest!"""
         elif offer_errors:
             print(f"[WARNING] Some offers failed, but proceeding with successful ones...")
         
-        # Wait a moment for offers to propagate
+        # Wait a moment for offers to propagate (minimal - Render 30s limit)
         print(f"Waiting for offers to propagate...")
-        time.sleep(3)
+        time.sleep(1)
         
         # Step 4: Verify group exists and wait for it to propagate
         print(f"Verifying group exists and waiting for propagation...")
@@ -1658,7 +1658,7 @@ Thank you for your interest!"""
         group_verified = False
         
         for attempt in range(max_retries):
-            wait_time = 2 + (attempt * 2)  # 2, 4, 6, 8, 10 seconds
+            wait_time = 1 + attempt  # 1, 2, 3, 4, 5 seconds (was 2,4,6,8,10 - Render 30s limit)
             print(f"  Attempt {attempt + 1}/{max_retries}: Waiting {wait_time} seconds...")
             time.sleep(wait_time)
             
@@ -1870,8 +1870,8 @@ All cards are in Near Mint or better condition unless otherwise noted."""
             if update_result.get('success'):
                 print(f"[CRITICAL] [OK] Group updated with description!")
                 print(f"[CRITICAL] Description location: inventoryItemGroup.description")
-                print(f"[CRITICAL] Waiting 10 seconds for eBay to fully process and persist the description...")
-                time.sleep(10)  # Reduced wait time for faster response
+                print(f"[CRITICAL] Waiting 2 seconds for eBay to process (Render timeout limit)...")
+                time.sleep(2)  # Keep under Render 30s limit - was 10s
                 
                 # Verify the update by checking the group structure
                 print(f"[CRITICAL] Verifying description was saved...")
@@ -1982,8 +1982,8 @@ All cards are in Near Mint or better condition unless otherwise noted."""
             error_verify = final_group_verify.get('error', 'Unknown error')
             print(f"[CRITICAL WARNING] Group not found on attempt {verify_attempts}/{max_verify_attempts}")
             print(f"[CRITICAL WARNING] Error: {error_verify}")
-            print(f"[CRITICAL WARNING] Waiting 5 seconds before retry...")
-            time.sleep(5)
+            print(f"[CRITICAL WARNING] Waiting 2 seconds before retry...")
+            time.sleep(2)
             final_group_verify = self.api_client.get_inventory_item_group(group_key)
         
         if not final_group_verify.get('success'):
@@ -2067,8 +2067,8 @@ This is a variation listing where you can select from multiple card options. Eac
             force_update_result = self.api_client.create_inventory_item_group(group_key, force_update_data)
             if force_update_result.get('success'):
                 print(f"[CRITICAL] [OK] Force update successful!")
-                print(f"[CRITICAL] Waiting 10 seconds for description to persist...")
-                time.sleep(10)
+                print(f"[CRITICAL] Waiting 2 seconds for description to persist...")
+                time.sleep(2)
             else:
                 print(f"[CRITICAL] [ERROR] Force update failed: {force_update_result.get('error')}")
         
@@ -2265,8 +2265,8 @@ All cards are in Near Mint or better condition unless otherwise noted."""
                         }
                     else:
                         print(f"[CRITICAL ERROR 25705] Group exists but publish failed - this may be a timing issue")
-                        print(f"[CRITICAL ERROR 25705] Waiting 5 seconds and retrying publish...")
-                        time.sleep(5)
+                        print(f"[CRITICAL ERROR 25705] Waiting 2 seconds and retrying publish...")
+                        time.sleep(2)
                         retry_publish = self.api_client.publish_offer_by_inventory_item_group(group_key, "EBAY_US")
                         if retry_publish.get('success'):
                             print(f"[CRITICAL ERROR 25705] ✅ Publish succeeded on retry!")
@@ -2463,7 +2463,7 @@ This is a variation listing where you can select from multiple card options. Eac
                             else:
                                 print(f"[WORKAROUND] Update failed: {final_update_result.get('error')}")
                                 if retry_attempt < 3:
-                                    time.sleep(5)  # Brief wait before retry
+                                    time.sleep(2)  # Brief wait before retry
                         
                         # If still failed after all retries, break out to draft fallback
                         if not publish_result.get("success"):
@@ -2723,8 +2723,8 @@ Thank you for your interest!"""
                 if schedule_draft and publish:
                     print(f"\n[VERIFY] ========== VERIFYING SCHEDULED DRAFT ==========")
                     # Wait a moment for eBay to process the publish
-                    print(f"[VERIFY] Waiting 5 seconds for eBay to process the publish...")
-                    time.sleep(5)
+                    print(f"[VERIFY] Waiting 2 seconds for eBay to process the publish...")
+                    time.sleep(2)
                     
                     verification_result = self._verify_scheduled_draft(group_key, listing_id, listing_start_date, schedule_hours)
                     if verification_result:

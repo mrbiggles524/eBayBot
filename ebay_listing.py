@@ -1996,11 +1996,15 @@ Select your card from the variations below. Each card is listed as a separate va
 
 All cards are in Near Mint or better condition unless otherwise noted."""
                 
+                # CRITICAL 25002: Use our aspects (with Sport), NOT GET - eBay returns empty for unpublished
+                force_aspects = dict(aspects)
+                if "Sport" not in force_aspects or not force_aspects.get("Sport"):
+                    force_aspects["Sport"] = [sport_value] if sport_value else ["Basketball"]
                 force_update = {
                     "title": title_val,
                     "variesBy": final_group_data.get('variesBy', {}),
                     "inventoryItemGroup": {
-                        "aspects": final_group_data.get('inventoryItemGroup', {}).get('aspects', {}),
+                        "aspects": force_aspects,
                         "description": force_desc
                     },
                     "variantSKUs": final_group_data.get('variantSKUs', []),
@@ -2266,12 +2270,18 @@ All cards are in Near Mint or better condition unless otherwise noted."""
             
             # CRITICAL: Update group description one final time right before publishing
             # eBay sometimes doesn't persist description, so we force update it now
+            # CRITICAL FIX 25002: NEVER use aspects from GET - eBay often returns empty for unpublished groups,
+            # which would overwrite and REMOVE Sport. Always use our known-good aspects (includes Sport).
             print(f"[CRITICAL] Force updating group description right before publish...")
+            final_aspects = dict(aspects)  # Our aspects from group creation (includes Sport)
+            if "Sport" not in final_aspects or not final_aspects.get("Sport"):
+                final_aspects["Sport"] = [sport_value] if sport_value else ["Basketball"]
+                print(f"[CRITICAL] [25002 FIX] Ensured Sport in final_aspects: {final_aspects.get('Sport')}")
             final_group_update = {
                 "title": group_title,
                 "variesBy": pre_publish_check.get('data', {}).get('variesBy', {}),
                 "inventoryItemGroup": {
-                    "aspects": pre_publish_check.get('data', {}).get('inventoryItemGroup', {}).get('aspects', {}),
+                    "aspects": final_aspects,  # Use our aspects - NOT GET (avoids wiping Sport)
                     "description": group_description  # Use the description we prepared earlier
                 },
                 "variantSKUs": pre_publish_check.get('data', {}).get('variantSKUs', []),

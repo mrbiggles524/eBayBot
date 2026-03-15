@@ -1,0 +1,27 @@
+---
+description: Start the app server when done writing code - kill existing first, user stops manually
+alwaysApply: true
+---
+
+# Start Server When Done
+
+After making code changes to the eBay Bot project, **always start the server** so the user can test without manual steps.
+
+## Steps (in order)
+
+1. **Kill any server already on port 5001** – run this first:
+   ```powershell
+   $p = (Get-NetTCPConnection -LocalPort 5001 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Select-Object -First 1
+   if ($p) { Stop-Process -Id $p -Force }
+   Start-Sleep -Seconds 2
+   ```
+
+2. **Start the server** (run in background):
+   ```powershell
+   cd c:\eBayBot
+   $env:LOCAL_DEV="1"
+   $env:IMAGE_FETCH_DEBUG="1"
+   python app.py
+   ```
+
+Always kill before start. The user will manually stop the server (Ctrl+C) when needed.

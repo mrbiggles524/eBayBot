@@ -2016,31 +2016,61 @@ if __name__ == '__main__':
         sock.close()
         if result == 0:
             if local_dev:
-                print("[STARTUP] Port 5001 in use - stop the other server or use a different port.")
-                print("[STARTUP] Edit port in app.py to change (e.g. 5002).")
-                sys.exit(1)
-            print("=" * 60)
-            print("[ALERT] Port 5001 is already in use! Attempting to clear...")
-            print("=" * 60)
-            try:
-                subprocess.run(['taskkill', '/F', '/IM', 'python.exe'] if sys.platform == 'win32' else ['pkill', '-9', 'python'],
-                             capture_output=True, timeout=5)
-                time.sleep(3)
+                # Kill existing server on 5001 so we can start fresh
+                try:
+                    import subprocess as sp
+                    if sys.platform == 'win32':
+                        out = sp.run(['netstat', '-ano'], capture_output=True, text=True, timeout=5)
+                        for line in out.stdout.splitlines():
+                            if ':5001' in line and 'LISTENING' in line:
+                                parts = line.split()
+                                pid = parts[-1]
+                                if pid.isdigit():
+                                    print(f"[STARTUP] Killing existing server PID {pid} on port 5001...")
+                                    sp.run(['taskkill', '/F', '/PID', pid], capture_output=True, timeout=5)
+                                    time.sleep(4)  # Wait for socket release (TIME_WAIT)
+                                    break
+                    else:
+                        out = sp.run(['lsof', '-ti', ':5001'], capture_output=True, text=True, timeout=5)
+                        if out.stdout.strip():
+                            pid = out.stdout.strip().split()[0]
+                            print(f"[STARTUP] Killing existing server PID {pid}...")
+                            sp.run(['kill', '-9', pid], capture_output=True, timeout=5)
+                            time.sleep(4)
+                except Exception as e:
+                    print(f"[STARTUP] Could not kill existing process: {e}")
+                # Re-check port
                 sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock2.settimeout(1)
                 result2 = sock2.connect_ex(('127.0.0.1', 5001))
                 sock2.close()
                 if result2 == 0:
-                    print("[STARTUP] Port still in use - exiting")
+                    print("[STARTUP] Port 5001 still in use after kill - exiting.")
                     sys.exit(1)
-            except:
-                sys.exit(1)
+                print("[STARTUP] Port 5001 cleared, continuing...")
+            else:
+                # Non-local: aggressive kill
+                print("=" * 60)
+                print("[ALERT] Port 5001 is already in use! Attempting to clear...")
+                print("=" * 60)
+                try:
+                    subprocess.run(['taskkill', '/F', '/IM', 'python.exe'] if sys.platform == 'win32' else ['pkill', '-9', 'python'],
+                                 capture_output=True, timeout=5)
+                    time.sleep(3)
+                    sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock2.settimeout(1)
+                    result2 = sock2.connect_ex(('127.0.0.1', 5001))
+                    sock2.close()
+                    if result2 == 0:
+                        print("[STARTUP] Port still in use - exiting")
+                        sys.exit(1)
+                except Exception:
+                    sys.exit(1)
     except Exception:
         pass
     
-    use_reloader = local_dev  # Auto-restart on code change when LOCAL_DEV=1
-    if use_reloader:
-        print("[STARTUP] Auto-restart on file change: ON (restart when you edit code)")
+    # Reloader disabled - causes port conflicts on restart; user stops/restarts manually
+    use_reloader = False
     try:
         app.run(debug=True, port=5001, threaded=True, use_reloader=use_reloader)
     except Exception as e:

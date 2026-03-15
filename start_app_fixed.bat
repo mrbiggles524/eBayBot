@@ -2,6 +2,14 @@
 echo Starting eBay Bot Flask App on port 5001...
 echo.
 cd /d %~dp0
+
+REM Kill any server already on port 5001
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5001.*LISTENING"') do (
+    echo Stopping existing server PID %%a...
+    taskkill /F /PID %%a 2>nul
+    timeout /t 2 /nobreak >nul
+)
+
 set LOCAL_DEV=1
 set IMAGE_FETCH_DEBUG=1
 echo Auto-restart on code change: ON

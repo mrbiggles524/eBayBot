@@ -266,6 +266,13 @@ Please select the specific card you want from the variation dropdown menu."""
             return {"success": False, "error": "No valid cards after consolidating duplicates.", "created_items": 0, "errors": []}
         
         # Step 1: Create inventory items for each variation
+        # Extract item specifics from title for consistent use across inventory items
+        import re
+        _title = title or ""
+        _season_match = re.search(r'20\d{2}[-\s]?20?\d{2}|20\d{2}', _title)
+        _season = _season_match.group(0).replace(' ', '-') if _season_match else "2024-25"
+        _manufacturer = "Topps" if "Topps" in _title else ("Bowman" if "Bowman" in _title else ("Panini" if "Panini" in _title else "Topps"))
+        _features = "Chrome" if "Chrome" in _title else ("Refractor" if "Refractor" in _title else "Base")
         # Track variation_value usage - eBay 25013: each SKU must have UNIQUE "Pick Your Card" value
         used_variation_values = {}
         print(f"Creating {len(cards)} inventory items...")
@@ -344,9 +351,9 @@ Please select the specific card you want from the variation dropdown menu."""
                         "Card Name": [card_name],  # Required for category discoverability
                         "Card Number": [card_number] if card_number else [],
                         "Sport": [sport_value],
-                        "Card Manufacturer": ["Topps"],
-                        "Season": ["2024-25"],
-                        "Features": ["Base"],
+                        "Card Manufacturer": [_manufacturer],
+                        "Season": [_season],
+                        "Features": [_features],
                         "Type": ["Sports Trading Card"],
                         "Language": ["English"],
                         "Original/Licensed Reprint": ["Original"],
@@ -496,9 +503,17 @@ Please select the specific card you want from the variation dropdown menu."""
         
         # Build aspects for inventoryItemGroup - ONLY common (non-varying) aspects (eBay 25013)
         # Card Name and Card Number vary per item (they're in "Pick Your Card") - do NOT include them
+        _tit = title or ""
+        _grp_season = re.search(r'20\d{2}[-\s]?20?\d{2}|20\d{2}', _tit)
+        _grp_season_val = _grp_season.group(0).replace(' ', '-') if _grp_season else "2024-25"
+        _grp_mfg = "Topps" if "Topps" in _tit else ("Bowman" if "Bowman" in _tit else ("Panini" if "Panini" in _tit else "Topps"))
+        _grp_features = "Chrome" if "Chrome" in _tit else ("Refractor" if "Refractor" in _tit else "Base")
         aspects = {
             "Sport": [sport_value],
             "Type": ["Sports Trading Card"],
+            "Season": [_grp_season_val],
+            "Manufacturer": [_grp_mfg],
+            "Features": [_grp_features],
             "Language": ["English"],
             "Original/Licensed Reprint": ["Original"]
         }
@@ -1390,40 +1405,87 @@ Thank you for your interest!"""
             card = item.get("card", {})
             card_name = card.get('name', '')
             card_number = str(card.get('number', ''))
+            card_team = card.get('team', '') or ''
             
-            # Build item specifics matching live listing structure
-            # These help eBay understand the listing better and may help with Error 25016
+            # Build item specifics - fill in high-search optional fields for better discoverability
             item_specifics = {}
             
-            # Sport is REQUIRED (eBay 25002) - MUST be present or publish fails
+            # REQUIRED (eBay 25002)
             item_specifics["Sport"] = [sport_value] if sport_value else ["Basketball"]
             
-            # Try to extract season/year
             import re
+            # Season (2025-26, 2024-25) - ~38M searches
+            season_match = re.search(r'20\d{2}[-\s]?20?\d{2}|20\d{2}', group_title)
+            season_val = season_match.group(0).replace(' ', '-') if season_match else None
+            if season_val:
+                item_specifics["Season"] = [season_val]
+            
+            # Year Manufactured - ~38M searches
             year_match = re.search(r'20\d{2}', group_title)
             if year_match:
                 year = year_match.group()
-                item_specifics["Season"] = [year]
                 item_specifics["Year Manufactured"] = [year]
             
-            # Try to extract manufacturer
+            # Manufacturer - ~35M searches
             if "Topps" in group_title:
                 item_specifics["Manufacturer"] = ["Topps"]
             elif "Bowman" in group_title:
                 item_specifics["Manufacturer"] = ["Bowman"]
+            elif "Panini" in group_title:
+                item_specifics["Manufacturer"] = ["Panini"]
             
-            # Card type
+            # Player/Athlete - ~67M searches (per variation)
+            if card_name:
+                item_specifics["Player/Athlete"] = [card_name]
+                item_specifics["Card Name"] = [card_name]
+            if card_number:
+                item_specifics["Card Number"] = [card_number]
+            
+            # Parallel/Variety - ~31M searches ([Base], Refractor, Chrome)
+            if "Chrome" in group_title:
+                item_specifics["Parallel/Variety"] = ["Chrome"]
+            elif "Refractor" in group_title:
+                item_specifics["Parallel/Variety"] = ["Refractor"]
+            else:
+                item_specifics["Parallel/Variety"] = ["Base"]
+            
+            # Features - ~15M searches
+            features = []
+            if "Chrome" in group_title:
+                features.append("Chrome")
+            if "Base" in group_title or "base" in group_title.lower():
+                features.append("Base")
+            item_specifics["Features"] = [", ".join(features)] if features else ["Base"]
+            
+            # Set - ~12M searches (e.g. 2024 Topps Chrome, 2025-26 Topps Chrome)
+            set_parts = []
+            if season_val:
+                set_parts.append(season_val)
+            if "Topps Chrome" in group_title:
+                set_parts.append("Topps Chrome")
+            elif "Topps" in group_title:
+                set_parts.append("Topps")
+            if set_parts:
+                item_specifics["Set"] = [" ".join(set_parts)]
+            
+            # Team - ~9M searches
+            if card_team:
+                item_specifics["Team"] = [card_team]
+            
+            # League - ~4M searches
+            sport_league = {"Basketball": "NBA", "Football": "NFL", "Baseball": "MLB", "Hockey": "NHL"}
+            league = sport_league.get((sport_value or "Basketball"), "NBA")
+            item_specifics["League"] = [league]
+            
+            # Autographed - required before Signed By
+            item_specifics["Autographed"] = ["No"]
+            
+            # Standard fields
             item_specifics["Type"] = ["Sports Trading Card"]
             item_specifics["Card Size"] = ["Standard"]
             item_specifics["Country of Origin"] = ["United States"]
             item_specifics["Language"] = ["English"]
             item_specifics["Original/Licensed Reprint"] = ["Original"]
-            
-            # Card Name and Card Number (these are in aspects, but also add to item specifics)
-            if card_name:
-                item_specifics["Card Name"] = [card_name]
-            if card_number:
-                item_specifics["Card Number"] = [card_number]
         
         offer_data = {
             "sku": sku,

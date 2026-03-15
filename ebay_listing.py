@@ -227,22 +227,28 @@ Please select the specific card you want from the variation dropdown menu."""
             }
             ebay_condition = condition_map.get(condition, "NEW")
         
-        # Step 1: Consolidate duplicate cards (same number+name) - eBay 25013 rejects duplicate variation specifics
-        def card_key(c):
-            return (str(c.get('number', '')).strip(), str(c.get('name', '')).strip())
+        # Step 1: Consolidate by normalized variation_value - eBay 25013 rejects duplicate variation specifics
+        # Each SKU must have a UNIQUE "Pick Your Card" value; merge cards that would produce the same value
+        import unicodedata
+        def variation_value_key(c):
+            n = str(c.get('number', '')).strip()
+            nm = str(c.get('name', '')).strip()
+            vv = (f"{n} {nm}".strip() if n else nm) or ""
+            return unicodedata.normalize('NFKC', vv) if vv else "_empty"
         seen_keys = {}
         consolidated_cards = []
         for card in cards:
-            k = card_key(card)
+            k = variation_value_key(card)
             if k in seen_keys:
                 idx = seen_keys[k]
                 consolidated_cards[idx]['quantity'] = int(consolidated_cards[idx].get('quantity', 0)) + int(card.get('quantity', 1))
-                print(f"[DEBUG] Consolidated duplicate card: {k[0]} {k[1]} (combined qty)")
+                disp = k[:50] + ('...' if len(k) > 50 else '')
+                print(f"[DEBUG] Consolidated duplicate variation value '{disp}' (combined qty)")
             else:
                 seen_keys[k] = len(consolidated_cards)
                 consolidated_cards.append(dict(card))
         cards = consolidated_cards
-        print(f"[DEBUG] After consolidation: {len(cards)} unique cards (duplicates merged)")
+        print(f"[DEBUG] After consolidation: {len(cards)} unique cards (duplicates merged by variation value)")
         if len(cards) == 0:
             return {"success": False, "error": "No valid cards after consolidating duplicates.", "created_items": 0, "errors": []}
         
@@ -442,20 +448,22 @@ Please select the specific card you want from the variation dropdown menu."""
         # with values like "9 Tyger Campbell - UCLA 1st", "12 Rasir Bolton - Gonzaga 1st", etc.
         
         # Build full card descriptions for variation values (must be unique - eBay 25013)
+        import unicodedata
         variation_values = []
         seen_vals = set()
         for card in cards:
-            card_name = card.get('name', '')
-            card_number = str(card.get('number', ''))
+            card_name = str(card.get('name', '')).strip()
+            card_number = str(card.get('number', '')).strip()
             
             # Build variation value: "Number Name" or "Name" if no number
-            if card_number and card_number.strip():
+            if card_number:
                 variation_value = f"{card_number} {card_name}".strip()
             else:
-                variation_value = card_name.strip()
-            
-            if variation_value and variation_value not in seen_vals:
-                seen_vals.add(variation_value)
+                variation_value = card_name or ""
+            # Normalize for dedup (eBay is case-sensitive; use exact string for API)
+            norm_key = unicodedata.normalize('NFKC', variation_value) if variation_value else ""
+            if variation_value and norm_key not in seen_vals:
+                seen_vals.add(norm_key)
                 variation_values.append(variation_value)
         
         if not variation_values:
@@ -470,15 +478,14 @@ Please select the specific card you want from the variation dropdown menu."""
         # Common names: "Card", "Select Card", "PICK YOUR CARD", etc.
         variation_aspect_name = "PICK YOUR CARD"
         
-        # Build aspects dictionary for inventory items (product details)
-        card_names = [name for name in set(card.get('name', '') for card in cards if card.get('name')) if name and str(name).strip()]
-        card_numbers = [num for num in set(card.get('number', '') for card in cards if card.get('number')) if num and str(num).strip()]
-        
-        aspects = {}
-        if card_names:
-            aspects["Card Name"] = card_names
-        if card_numbers:
-            aspects["Card Number"] = card_numbers
+        # Build aspects for inventoryItemGroup - ONLY common (non-varying) aspects (eBay 25013)
+        # Card Name and Card Number vary per item (they're in "Pick Your Card") - do NOT include them
+        aspects = {
+            "Sport": ["Basketball"],
+            "Type": ["Sports Trading Card"],
+            "Language": ["English"],
+            "Original/Licensed Reprint": ["Original"]
+        }
         
         # Ensure title is valid (1-80 characters) for the OFFER (not the group)
         # Strip whitespace and ensure it's a string, remove any non-printable characters
@@ -1821,21 +1828,15 @@ All cards are in Near Mint or better condition unless otherwise noted."""
             # Get aspects from group_data, but ensure we have them
             group_aspects = group_data.get('inventoryItemGroup', {}).get('aspects', {})
             if not group_aspects:
-                print(f"[CRITICAL] [WARNING] No aspects in group_data - rebuilding from cards")
-                # Rebuild aspects from the original cards data if available
-                # This ensures aspects are always present
-                if hasattr(self, '_current_cards_data'):
-                    card_names = [c.get('name', '') for c in self._current_cards_data if c.get('name')]
-                    card_numbers = [str(c.get('number', '')) for c in self._current_cards_data if c.get('number')]
-                    group_aspects = {}
-                    if card_names:
-                        group_aspects["Card Name"] = list(set(card_names))
-                    if card_numbers:
-                        group_aspects["Card Number"] = list(set(card_numbers))
-                    print(f"[CRITICAL] [FIX] Rebuilt aspects: {list(group_aspects.keys())}")
-                else:
-                    group_aspects = {}
-                    print(f"[CRITICAL] [WARNING] Could not rebuild aspects - using empty dict")
+                print(f"[CRITICAL] [WARNING] No aspects in group_data - using common aspects (eBay 25013: no varying aspects)")
+                # Use only common (non-varying) aspects - Card Name/Number vary per item
+                group_aspects = {
+                    "Sport": ["Basketball"],
+                    "Type": ["Sports Trading Card"],
+                    "Language": ["English"],
+                    "Original/Licensed Reprint": ["Original"]
+                }
+                print(f"[CRITICAL] [FIX] Rebuilt aspects: {list(group_aspects.keys())}")
             
             update_group_data = {
                 "title": group_title,

@@ -343,7 +343,11 @@ def require_subscription(f):
 @app.route('/health')
 def health():
     """Quick health check - used by Render and for debugging."""
-    return jsonify({"status": "ok", "version": VERSION}), 200
+    r = jsonify({"status": "ok", "version": _live_version()})
+    r.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    r.headers['Pragma'] = 'no-cache'
+    r.headers['Expires'] = '0'
+    return r
 
 @app.route('/api/image-proxy')
 def api_image_proxy():
@@ -635,6 +639,13 @@ def guide_page():
     """Interactive guide / ad for social media sharing."""
     return render_template('guide.html')
 
+def _live_version():
+    """Re-read VERSION from disk so updates apply without server restart."""
+    try:
+        return os.environ.get("VERSION") or open(os.path.join(os.path.dirname(__file__) or '.', 'VERSION')).read().strip() or VERSION
+    except Exception:
+        return VERSION
+
 @app.route('/app')
 def app_page():
     """Main application page (requires subscription)."""
@@ -643,13 +654,14 @@ def app_page():
         if not email:
             return redirect('/login')
         
+        v = _live_version()
         # Owner always has access
         if email.lower() == OWNER_EMAIL.lower():
-            resp = make_response(render_template('app.html', email=email, version=VERSION))
+            resp = make_response(render_template('app.html', email=email, version=v))
         elif not is_subscribed(email):
             return redirect('/subscribe')
         else:
-            resp = make_response(render_template('app.html', email=email, version=VERSION))
+            resp = make_response(render_template('app.html', email=email, version=v))
         
         resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         resp.headers['Pragma'] = 'no-cache'

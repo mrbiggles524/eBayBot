@@ -2612,17 +2612,19 @@
         // Auto-refresh when server has newer version (avoids getting stuck on old version)
         async function checkVersionAndRefresh() {
             try {
-                const r = await fetch('/health?t=' + Date.now());
+                const r = await fetch('/health?t=' + Date.now(), { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
                 const d = await r.json();
-                const serverVer = d.version || '';
+                const serverVer = (d.version || '').toString().trim();
                 if (serverVer && serverVer !== UI_VERSION) {
-                    console.log('[VERSION] Server has ' + serverVer + ', we have ' + UI_VERSION + ' - refreshing');
-                    location.reload();
+                    console.log('[VERSION] Server ' + serverVer + ' != page ' + UI_VERSION + ' - forcing refresh');
+                    window.location.href = window.location.pathname + '?nocache=' + Date.now();  // Cache-busting reload
+                    return;
                 }
             } catch (e) { /* ignore */ }
         }
-        setInterval(checkVersionAndRefresh, 30000);  // Check every 30 sec
-        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersionAndRefresh(); });  // Check when tab focused
+        setTimeout(checkVersionAndRefresh, 5000);   // First check after 5 sec
+        setInterval(checkVersionAndRefresh, 15000);  // Then every 15 sec
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersionAndRefresh(); });
         
         // Clear all caches on app start
         if ('caches' in window) {

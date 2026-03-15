@@ -1127,6 +1127,7 @@ def _run_listing_job(job_id, job_data):
         result = listing_manager.create_variation_listing(
             cards=job_data['listing_cards'],
             title=job_data['set_name'][:80],
+            sport=job_data.get('sport') or None,
             description=job_data['description'] or f"<p><strong>{job_data['set_name']}</strong></p><p>Select your card from the dropdown menu.</p>",
             category_id="261328",
             price=job_data['base_price'],
@@ -1183,6 +1184,7 @@ def create_listing():
     
     try:
         set_name = data.get('setName', 'Card Set')
+        sport = data.get('sport', '').strip()
         description = data.get('description', '')
         cards = data.get('cards', [])
         image_url = data.get('imageUrl', '')  # No default image - only use if provided
@@ -1223,6 +1225,7 @@ def create_listing():
         job_data = {
             'token': token,
             'set_name': set_name,
+            'sport': sport,
             'description': description,
             'listing_cards': listing_cards,
             'base_price': base_price,

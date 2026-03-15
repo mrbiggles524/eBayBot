@@ -31,7 +31,8 @@ class eBayListingManager:
         fulfillment_policy_id: str = None,
         use_base_cards_policy: bool = None,
         schedule_draft: bool = False,
-        schedule_hours: int = 24
+        schedule_hours: int = 24,
+        sport: str = None
     ) -> Dict:
         """
         Create an eBay listing with card variations.
@@ -167,7 +168,7 @@ Please select the specific card you want from the variation dropdown menu."""
         print(f"[DEBUG] Description preview: {description[:100]}...")
         
         return self._create_listing_via_inventory_api(
-            cards, title, description, category_id, price, quantity, condition, publish, selected_fulfillment_policy_id
+            cards, title, description, category_id, price, quantity, condition, publish, selected_fulfillment_policy_id, sport=sport
         )
     
     
@@ -183,7 +184,8 @@ Please select the specific card you want from the variation dropdown menu."""
         publish: bool,
         fulfillment_policy_id: str = None,
         schedule_draft: bool = False,
-        schedule_hours: int = 24
+        schedule_hours: int = 24,
+        sport: str = None
     ) -> Dict:
         # Store cards data for later use in description update
         self._current_cards_data = cards
@@ -194,6 +196,17 @@ Please select the specific card you want from the variation dropdown menu."""
         
         # Generate base price if dict provided
         base_price = price if isinstance(price, (int, float)) else list(price.values())[0] if price else 1.00
+        
+        # Extract sport from title/set name (eBay 25002 requires Sport item specific)
+        def _extract_sport(t: str) -> str:
+            if not t: return "Basketball"
+            t = str(t).lower()
+            for s in ["Basketball", "Football", "Baseball", "Hockey", "Soccer", "Racing", "Wrestling", "MMA", "Boxing"]:
+                if s.lower() in t:
+                    return s
+            return "Basketball"  # Default for trading cards
+        sport_value = (sport and str(sport).strip()) or _extract_sport(title)
+        print(f"[DEBUG] Sport: '{sport_value}' (from param: {bool(sport)}, extracted from title)")
         
         # Map condition to eBay format
         # For Trading Cards (category 261328), we need specific condition IDs:
@@ -330,7 +343,7 @@ Please select the specific card you want from the variation dropdown menu."""
                     "aspects": {
                         "Card Name": [card_name],  # Required for category discoverability
                         "Card Number": [card_number] if card_number else [],
-                        "Sport": ["Basketball"],
+                        "Sport": [sport_value],
                         "Card Manufacturer": ["Topps"],
                         "Season": ["2024-25"],
                         "Features": ["Base"],
@@ -484,7 +497,7 @@ Please select the specific card you want from the variation dropdown menu."""
         # Build aspects for inventoryItemGroup - ONLY common (non-varying) aspects (eBay 25013)
         # Card Name and Card Number vary per item (they're in "Pick Your Card") - do NOT include them
         aspects = {
-            "Sport": ["Basketball"],
+            "Sport": [sport_value],
             "Type": ["Sports Trading Card"],
             "Language": ["English"],
             "Original/Licensed Reprint": ["Original"]
@@ -1382,9 +1395,8 @@ Thank you for your interest!"""
             # These help eBay understand the listing better and may help with Error 25016
             item_specifics = {}
             
-            # Try to extract sport from title or set name
-            if "Basketball" in group_title or "basketball" in group_title.lower():
-                item_specifics["Sport"] = ["Basketball"]
+            # Sport is REQUIRED (eBay 25002) - use extracted sport
+            item_specifics["Sport"] = [sport_value]
             
             # Try to extract season/year
             import re
@@ -1834,7 +1846,7 @@ All cards are in Near Mint or better condition unless otherwise noted."""
                 print(f"[CRITICAL] [WARNING] No aspects in group_data - using common aspects (eBay 25013: no varying aspects)")
                 # Use only common (non-varying) aspects - Card Name/Number vary per item
                 group_aspects = {
-                    "Sport": ["Basketball"],
+                    "Sport": [sport_value],
                     "Type": ["Sports Trading Card"],
                     "Language": ["English"],
                     "Original/Licensed Reprint": ["Original"]

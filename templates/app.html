@@ -928,6 +928,7 @@
                 <thead>
                     <tr>
                         <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)"></th>
+                        <th style="width: 52px; min-width: 52px;" title="Image preview">📷</th>
                         <th style="width: 100px; min-width: 100px;">#</th>
                         <th style="width: 180px; max-width: 180px;">Player Name</th>
                         <th style="width: 200px; min-width: 200px;">Team</th>
@@ -1448,8 +1449,8 @@
                 div.style.cssText = 'text-align: center; padding: 8px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);';
                 const safeImg = (img && (img.startsWith('http://') || img.startsWith('https://'))) ? img.replace(/"/g, '&quot;').replace(/</g, '&lt;') : '';
                 div.innerHTML = (safeImg
-                    ? `<img src="${safeImg}" alt="" style="width: 80px; height: 112px; object-fit: contain; background: #222; border-radius: 6px; display: block; margin: 0 auto 6px;" onerror="this.style.background='#333';this.alt='?';">`
-                    : `<div style="width: 80px; height: 112px; background: #333; border-radius: 6px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; color: #666;">?</div>`)
+                    ? `<img src="${safeImg}" alt="" style="width: 90px; height: 126px; object-fit: contain; background: #1a1a2e; border-radius: 8px; display: block; margin: 0 auto 6px; border: 1px solid rgba(0,255,255,0.2);" referrerpolicy="no-referrer" onerror="this.style.background='#333';this.alt='?';this.onerror=null;">`
+                    : `<div style="width: 90px; height: 126px; background: #333; border-radius: 8px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; color: #666;">?</div>`)
                     + `<span style="font-size: 0.75rem; color: #ccc; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${String(label || 'Card').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').substring(0, 18)}</span>`;
                 grid.appendChild(div);
             });
@@ -1790,9 +1791,15 @@
                 const isZeroQty = qty === 0;
                 const rowStyle = isZeroQty ? 'opacity: 0.5; background: rgba(255,255,255,0.02);' : '';
                 const qtyStyle = isZeroQty ? 'border-color: rgba(255, 193, 7, 0.5); background: rgba(255, 193, 7, 0.1);' : '';
+                const img = card.imageUrl || card.image_url || '';
+                const safeImg = (img && (img.startsWith('http://') || img.startsWith('https://'))) ? img.replace(/"/g, '&quot;').replace(/</g, '&lt;') : '';
+                const thumbHtml = safeImg
+                    ? `<img src="${safeImg}" alt="" style="width: 40px; height: 56px; object-fit: contain; background: #222; border-radius: 4px; display: block; margin: 0 auto;" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML='<span style=color:#666;font-size:10px>?</span>'">`
+                    : `<span style="color: #666; font-size: 10px; display: block; text-align: center;">—</span>`;
                 return `
                 <tr data-id="${card.id}" style="${rowStyle}">
                     <td><input type="checkbox" ${card.selected ? 'checked' : ''} onchange="updateCard(${card.id}, 'selected', this.checked)"></td>
+                    <td style="vertical-align: middle;">${thumbHtml}</td>
                     <td><input type="text" class="num-input" value="${card.number}" onchange="updateCard(${card.id}, 'number', this.value)" placeholder="#" style="width: 100px; min-width: 100px;"></td>
                     <td><input type="text" value="${card.name}" onchange="updateCard(${card.id}, 'name', this.value)" placeholder="Player Name" style="width: 170px; max-width: 170px;"></td>
                     <td><input type="text" value="${card.team || ''}" onchange="updateCard(${card.id}, 'team', this.value)" placeholder="Team" style="width: 190px; min-width: 190px;"></td>

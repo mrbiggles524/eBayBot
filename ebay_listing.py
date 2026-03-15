@@ -253,6 +253,8 @@ Please select the specific card you want from the variation dropdown menu."""
             return {"success": False, "error": "No valid cards after consolidating duplicates.", "created_items": 0, "errors": []}
         
         # Step 1: Create inventory items for each variation
+        # Track variation_value usage - eBay 25013: each SKU must have UNIQUE "Pick Your Card" value
+        used_variation_values = {}
         print(f"Creating {len(cards)} inventory items...")
         for idx, card in enumerate(cards):
             card_name = card.get('name', 'Unknown')
@@ -307,8 +309,18 @@ Please select the specific card you want from the variation dropdown menu."""
                 condition_data = ebay_condition
                 condition_descriptors = None
             
-            # Build variation value for this card (used in variesBy)
-            variation_value = f"{card_number} {card_name}".strip() if card_number else card_name
+            # Build variation value for this card (used in variesBy) - MUST be unique per SKU (eBay 25013)
+            base_value = f"{card_number} {card_name}".strip() if card_number else (card_name or "")
+            if not base_value:
+                base_value = f"Card {idx + 1}"
+            # Ensure uniqueness: if duplicate, append suffix
+            if base_value in used_variation_values:
+                used_variation_values[base_value] += 1
+                variation_value = f"{base_value} (#{used_variation_values[base_value]})"
+                print(f"[DEBUG] 25013: Duplicate variation value '{base_value[:40]}' - using unique '{variation_value[:50]}'")
+            else:
+                used_variation_values[base_value] = 1
+                variation_value = base_value
             
             inventory_item = {
                 "product": {
@@ -374,7 +386,8 @@ Please select the specific card you want from the variation dropdown menu."""
                 created_items.append({
                     "sku": sku,
                     "card": card,
-                    "price": card_price
+                    "price": card_price,
+                    "variation_value": variation_value  # Used for variesBy - must match inventory item
                 })
                 print(f"  [OK] Created item: {sku}")
             else:
@@ -447,25 +460,8 @@ Please select the specific card you want from the variation dropdown menu."""
         # Based on user's working listings, they use a single aspect like "PICK YOUR BASE/PARALLEL/INSERT"
         # with values like "9 Tyger Campbell - UCLA 1st", "12 Rasir Bolton - Gonzaga 1st", etc.
         
-        # Build full card descriptions for variation values (must be unique - eBay 25013)
-        import unicodedata
-        variation_values = []
-        seen_vals = set()
-        for card in cards:
-            card_name = str(card.get('name', '')).strip()
-            card_number = str(card.get('number', '')).strip()
-            
-            # Build variation value: "Number Name" or "Name" if no number
-            if card_number:
-                variation_value = f"{card_number} {card_name}".strip()
-            else:
-                variation_value = card_name or ""
-            # Normalize for dedup (eBay is case-sensitive; use exact string for API)
-            norm_key = unicodedata.normalize('NFKC', variation_value) if variation_value else ""
-            if variation_value and norm_key not in seen_vals:
-                seen_vals.add(norm_key)
-                variation_values.append(variation_value)
-        
+        # Build variation_values from created_items - guarantees 1:1 match (eBay 25013)
+        variation_values = [item["variation_value"] for item in created_items if item.get("variation_value")]
         if not variation_values:
             return {
                 "success": False,

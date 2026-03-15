@@ -1850,21 +1850,27 @@ def verify_draft():
 # =============================================================================
 
 if __name__ == '__main__':
-    # Auto-kill old Python processes to ensure fresh start
+    # Auto-kill old Python processes to ensure fresh start (skip when LOCAL_DEV=1)
     import subprocess
     import sys
     import os
+    
+    local_dev = os.environ.get('LOCAL_DEV', '').lower() in ('1', 'true', 'yes')
     
     print("=" * 60)
     print("eBay Card Listing Tool")
     print(f"Server Version: {VERSION}")
     print("=" * 60)
     print()
-    print("[STARTUP] ========================================")
-    print("[STARTUP] KILLING ALL PYTHON PROCESSES")
-    print("[STARTUP] ========================================")
     
-    if sys.platform == 'win32':
+    if not local_dev:
+        print("[STARTUP] ========================================")
+        print("[STARTUP] KILLING ALL PYTHON PROCESSES")
+        print("[STARTUP] ========================================")
+    else:
+        print("[STARTUP] LOCAL_DEV=1 - Skipping process kill (safe for development)")
+    
+    if not local_dev and sys.platform == 'win32':
         # Method 1: taskkill (most reliable)
         try:
             print("[STARTUP] Method 1: taskkill...")
@@ -1916,7 +1922,7 @@ if __name__ == '__main__':
                 print("[STARTUP] SUCCESS: All Python processes killed")
         except:
             print("[STARTUP] Could not verify kill status")
-    else:
+    elif not local_dev:
         # Linux/Mac
         try:
             subprocess.run(['pkill', '-9', 'python'], capture_output=True, timeout=5)
@@ -1925,7 +1931,8 @@ if __name__ == '__main__':
         except:
             print("[STARTUP] Process check complete (Unix)")
     
-    print("[STARTUP] ========================================")
+    if not local_dev:
+        print("[STARTUP] ========================================")
     print()
     
     print()
@@ -1945,7 +1952,7 @@ if __name__ == '__main__':
     sys.stdout.flush()
     sys.stderr.flush()
     
-    # Check if port 5001 is already in use (prevent multiple instances)
+    # Check if port 5001 is already in use
     import socket
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1953,21 +1960,17 @@ if __name__ == '__main__':
         result = sock.connect_ex(('127.0.0.1', 5001))
         sock.close()
         if result == 0:
+            if local_dev:
+                print("[STARTUP] Port 5001 in use - stop the other server or use a different port.")
+                print("[STARTUP] Edit port in app.py to change (e.g. 5002).")
+                sys.exit(1)
             print("=" * 60)
-            print("[ALERT] ========================================")
-            print("[ALERT] WARNING: Port 5001 is already in use!")
-            print("[ALERT] Another Flask server may be running.")
-            print("[ALERT] Multiple servers can cause incorrect results!")
-            print("[ALERT] ========================================")
+            print("[ALERT] Port 5001 is already in use! Attempting to clear...")
             print("=" * 60)
-            print()
-            print("[STARTUP] Attempting to kill processes and retry...")
-            # Try one more kill
             try:
-                subprocess.run(['taskkill', '/F', '/IM', 'python.exe'], 
+                subprocess.run(['taskkill', '/F', '/IM', 'python.exe'] if sys.platform == 'win32' else ['pkill', '-9', 'python'],
                              capture_output=True, timeout=5)
                 time.sleep(3)
-                # Check again
                 sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock2.settimeout(1)
                 result2 = sock2.connect_ex(('127.0.0.1', 5001))
@@ -1975,12 +1978,9 @@ if __name__ == '__main__':
                 if result2 == 0:
                     print("[STARTUP] Port still in use - exiting")
                     sys.exit(1)
-                else:
-                    print("[STARTUP] Port cleared - continuing")
             except:
-                print("[STARTUP] Could not clear port - exiting")
                 sys.exit(1)
-    except:
+    except Exception:
         pass
     
     try:

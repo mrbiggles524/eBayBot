@@ -857,7 +857,7 @@
                     <option value="price-low">Price (Low to High)</option>
                     <option value="qty">Quantity</option>
                 </select>
-                <button class="btn btn-secondary" onclick="fetchCardImages()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4);" title="Fetch images for cards with qty &gt; 0 (max 25)">🖼️ Fetch Images</button>
+                <button class="btn btn-secondary" onclick="fetchCardImages()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4);" title="Fetch images for cards with qty &gt; 0 (max 50)">🖼️ Fetch Images</button>
                 <button class="btn btn-secondary" onclick="applyMarketPricing()" style="padding: 8px 16px; background: rgba(255, 165, 0, 0.2); color: #ffa500; border: 2px solid rgba(255, 165, 0, 0.4);" title="Look up eBay sold prices for cards with qty&gt;0 (max 50). No results = $1">💰 Market Price</button>
                 <button class="btn btn-secondary" onclick="validateCards()" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Check for missing data">✓ Validate</button>
                 <button class="btn btn-secondary" onclick="toggleZeroQtyFilter()" id="zeroQtyFilterBtn" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Hide/show cards with quantity 0">🔍 Hide Qty=0</button>
@@ -1419,7 +1419,7 @@
                 showToast('Load cards first', 'error');
                 return;
             }
-            const toProcess = cards.map((c, i) => ({ ...c, _idx: i })).filter(c => (c.qty || 0) > 0).slice(0, 25);
+            const toProcess = cards.map((c, i) => ({ ...c, _idx: i })).filter(c => (c.qty || 0) > 0).slice(0, 50);
             if (toProcess.length === 0) {
                 showToast('Set quantity &gt; 0 on cards first', 'error');
                 return;

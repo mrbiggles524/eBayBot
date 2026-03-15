@@ -1569,10 +1569,17 @@ def api_fetch_images():
     """Auto-fetch card images from Beckett/Cardsmiths/eBay."""
     try:
         from features.card_images import CardImageFetcher
+        import re
         data = request.json
         cards = data.get('cards', [])
-        set_name = data.get('setName', '')
-        source_url = data.get('sourceUrl', '')
+        set_name = (data.get('setName') or '').strip()
+        source_url = data.get('sourceUrl', '') or ''
+        # Fallback: extract set name from source URL (e.g. cardsmiths/.../2025-26-topps-chrome-basketball/)
+        if not set_name and source_url:
+            m = re.search(r'/([a-z0-9\-]+?)(?:-hobby|-blaster|-retail|/)?$', source_url.lower())
+            if m:
+                slug = m.group(1)
+                set_name = slug.replace('-', ' ').replace('  ', ' ').strip().title()
         fetcher = CardImageFetcher()
         updated = fetcher.fetch_images_for_cards(cards, set_name, source_url)
         with_img = sum(1 for c in updated if c.get('image_url') or c.get('imageUrl'))

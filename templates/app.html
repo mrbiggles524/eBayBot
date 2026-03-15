@@ -2609,6 +2609,21 @@
         const UI_VERSION = '{{ version|default("4.019") }}';
         document.getElementById('versionBadge').textContent = `v${UI_VERSION}`;
         
+        // Auto-refresh when server has newer version (avoids getting stuck on old version)
+        async function checkVersionAndRefresh() {
+            try {
+                const r = await fetch('/health?t=' + Date.now());
+                const d = await r.json();
+                const serverVer = d.version || '';
+                if (serverVer && serverVer !== UI_VERSION) {
+                    console.log('[VERSION] Server has ' + serverVer + ', we have ' + UI_VERSION + ' - refreshing');
+                    location.reload();
+                }
+            } catch (e) { /* ignore */ }
+        }
+        setInterval(checkVersionAndRefresh, 30000);  // Check every 30 sec
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersionAndRefresh(); });  // Check when tab focused
+        
         // Clear all caches on app start
         if ('caches' in window) {
             caches.keys().then(names => {

@@ -358,19 +358,23 @@ def api_image_proxy():
     if not url:
         return '', 400
     try:
-        parsed = urllib.parse.urlparse(url)
+        parsed = urllib.parse.urlparse(urllib.parse.unquote(url))
         host = (parsed.netloc or '').lower()
         allowed = ('ebayimg.com', 'i.ebayimg.com', 'tcdb.com', 'www.tcdb.com')
         if not any(h in host for h in allowed):
             return '', 403
-        r = req_lib.get(url, timeout=10, headers={
-            'User-Agent': 'Mozilla/5.0 (compatible; CardLister/1.0)',
-            'Accept': 'image/*'
-        })
+        r = req_lib.get(url, timeout=15, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            'Referer': ''
+        }, stream=True)
         r.raise_for_status()
         ct = r.headers.get('Content-Type', 'image/jpeg')
-        return r.content, 200, {'Content-Type': ct}
-    except Exception:
+        if 'image/' not in (ct or ''):
+            ct = 'image/jpeg'
+        return r.content, 200, {'Content-Type': ct, 'Cache-Control': 'public, max-age=300'}
+    except Exception as e:
+        print(f"[IMAGE-PROXY] Failed for {url[:60]}...: {e}")
         return '', 502
 
 @app.route('/')
@@ -2029,15 +2033,15 @@ if __name__ == '__main__':
     except Exception:
         pass
     
+    use_reloader = local_dev  # Auto-restart on code change when LOCAL_DEV=1
+    if use_reloader:
+        print("[STARTUP] Auto-restart on file change: ON (restart when you edit code)")
     try:
-        # Run with use_reloader=False to prevent double processes
-        # threaded=True allows multiple requests
-        # use_reloader=False is CRITICAL - prevents Flask from spawning child processes
-        app.run(debug=True, port=5001, threaded=True, use_reloader=False)
+        app.run(debug=True, port=5001, threaded=True, use_reloader=use_reloader)
     except Exception as e:
         print(f"[FATAL ERROR] Flask app crashed: {e}")
         import traceback
         traceback.print_exc()
         print("\n[INFO] Attempting to restart...")
         time.sleep(2)
-        app.run(debug=True, port=5001, threaded=True, use_reloader=False)
+        app.run(debug=True, port=5001, threaded=True, use_reloader=use_reloader)

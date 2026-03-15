@@ -1505,9 +1505,9 @@
                 const div = document.createElement('div');
                 div.style.cssText = 'text-align: center; padding: 8px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);';
                 const safeImg = (img && (img.startsWith('http://') || img.startsWith('https://'))) ? img.replace(/"/g, '&quot;').replace(/</g, '&lt;') : '';
-                const imgSrc = safeImg ? ('/api/image-proxy?url=' + encodeURIComponent(img)) : '';
+                const proxySrc = safeImg ? ('/api/image-proxy?url=' + encodeURIComponent(img)) : '';
                 div.innerHTML = (safeImg
-                    ? `<img src="${imgSrc}" alt="" style="width: 90px; height: 126px; object-fit: contain; background: #1a1a2e; border-radius: 8px; display: block; margin: 0 auto 6px; border: 1px solid rgba(0,255,255,0.2);" onerror="this.style.background='#333';this.alt='?';this.onerror=null;">`
+                    ? `<img src="${safeImg}" alt="" data-proxy="${proxySrc}" style="width: 90px; height: 126px; object-fit: contain; background: #1a1a2e; border-radius: 8px; display: block; margin: 0 auto 6px; border: 1px solid rgba(0,255,255,0.2);" referrerpolicy="no-referrer" onerror="var p=this.dataset.proxy;if(p){this.src=p;this.onerror=function(){this.style.background='#333';this.alt='?'}}else{this.style.background='#333';this.alt='?'}">`
                     : `<div style="width: 90px; height: 126px; background: #333; border-radius: 8px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; color: #666;">?</div>`)
                     + `<span style="font-size: 0.75rem; color: #ccc; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${String(label || 'Card').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').substring(0, 18)}</span>`;
                 grid.appendChild(div);
@@ -1851,9 +1851,9 @@
                 const qtyStyle = isZeroQty ? 'border-color: rgba(255, 193, 7, 0.5); background: rgba(255, 193, 7, 0.1);' : '';
                 const img = card.imageUrl || card.image_url || '';
                 const safeImg = (img && (img.startsWith('http://') || img.startsWith('https://'))) ? img.replace(/"/g, '&quot;').replace(/</g, '&lt;') : '';
-                const imgSrc = safeImg ? ('/api/image-proxy?url=' + encodeURIComponent(img)) : '';
+                const proxySrc = safeImg ? ('/api/image-proxy?url=' + encodeURIComponent(img)) : '';
                 const thumbHtml = safeImg
-                    ? `<img src="${imgSrc}" alt="" style="width: 40px; height: 56px; object-fit: contain; background: #222; border-radius: 4px; display: block; margin: 0 auto;" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<span style=color:#666;font-size:10px>?</span>'">`
+                    ? `<img src="${safeImg}" alt="" data-proxy="${proxySrc}" style="width: 40px; height: 56px; object-fit: contain; background: #222; border-radius: 4px; display: block; margin: 0 auto;" loading="lazy" referrerpolicy="no-referrer" onerror="var p=this.dataset.proxy;if(p){this.src=p;this.onerror=function(){this.parentElement.innerHTML='<span style=color:#666;font-size:10px>?</span>'}}else{this.parentElement.innerHTML='<span style=color:#666;font-size:10px>?</span>'}">`
                     : `<span style="color: #666; font-size: 10px; display: block; text-align: center;">—</span>`;
                 return `
                 <tr data-id="${card.id}" style="${rowStyle}">

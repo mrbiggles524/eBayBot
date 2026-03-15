@@ -2,6 +2,9 @@
 echo Starting eBay Bot Flask App on port 5001...
 echo.
 cd /d %~dp0
+set LOCAL_DEV=1
+echo Auto-restart on code change: ON
+echo.
 echo Checking Python...
 python --version
 echo.

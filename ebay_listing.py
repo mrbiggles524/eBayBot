@@ -1395,8 +1395,8 @@ Thank you for your interest!"""
             # These help eBay understand the listing better and may help with Error 25016
             item_specifics = {}
             
-            # Sport is REQUIRED (eBay 25002) - use extracted sport
-            item_specifics["Sport"] = [sport_value]
+            # Sport is REQUIRED (eBay 25002) - MUST be present or publish fails
+            item_specifics["Sport"] = [sport_value] if sport_value else ["Basketball"]
             
             # Try to extract season/year
             import re
@@ -1435,9 +1435,10 @@ Thank you for your interest!"""
                 "title": group_title,  # Use group title for all variations
                 "description": listing_description,  # CRITICAL: Also in listing object
                 "listingPolicies": listing_policies,
-                "itemSpecifics": item_specifics  # Add item specifics to match live listings
+                "itemSpecifics": item_specifics  # eBay 25002: Sport etc required
             },
-            # ALSO set at root level (some eBay API versions require this)
+            # ALSO at root - eBay 25002 may require itemSpecifics here for publish
+            "itemSpecifics": item_specifics,
             "listingPolicies": listing_policies,
             "pricingSummary": {
                 "price": {

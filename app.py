@@ -1607,25 +1607,30 @@ def update_token():
 @require_subscription
 def api_fetch_images():
     """Auto-fetch card images from Beckett/Cardsmiths/eBay."""
+    print(f"[FETCH-IMAGES] Request received", flush=True)
     try:
         from features.card_images import CardImageFetcher
         import re
-        data = request.json
+        data = request.json or {}
         cards = data.get('cards', [])
         set_name = (data.get('setName') or '').strip()
         source_url = data.get('sourceUrl', '') or ''
-        # Fallback: extract set name from source URL (e.g. cardsmiths/.../2025-26-topps-chrome-basketball/)
+        print(f"[FETCH-IMAGES] Cards: {len(cards)}, setName: '{set_name}'", flush=True)
         if not set_name and source_url:
             m = re.search(r'/([a-z0-9\-]+?)(?:-hobby|-blaster|-retail|/)?$', source_url.lower())
             if m:
                 slug = m.group(1)
                 set_name = slug.replace('-', ' ').replace('  ', ' ').strip().title()
+                print(f"[FETCH-IMAGES] Extracted setName from URL: '{set_name}'", flush=True)
         fetcher = CardImageFetcher()
         updated = fetcher.fetch_images_for_cards(cards, set_name, source_url)
         with_img = sum(1 for c in updated if c.get('image_url') or c.get('imageUrl'))
-        print(f"[FETCH-IMAGES] Fetched {with_img}/{len(updated)} cards with images (v{VERSION})")
+        print(f"[FETCH-IMAGES] Done: {with_img}/{len(updated)} cards with images (v{VERSION})", flush=True)
         return jsonify({"success": True, "cards": updated, "version": VERSION, "withImages": with_img})
     except Exception as e:
+        print(f"[FETCH-IMAGES] ERROR: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/market-price', methods=['POST'])

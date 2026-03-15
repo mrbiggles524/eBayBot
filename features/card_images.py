@@ -2,14 +2,23 @@
 import requests
 import re
 import time
+import sys
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
+
+def _log(msg: str):
+    import os
+    debug = os.environ.get('IMAGE_FETCH_DEBUG') or os.environ.get('LOCAL_DEV')
+    if debug:
+        print(f"[IMAGE-FETCH] {msg}", flush=True)
+    elif any(x in msg.lower() for x in ('error', 'fail', 'exception', 'timeout')):
+        print(f"[IMAGE-FETCH] {msg}", flush=True)
 
 
 class CardImageFetcher:
     """Fetch card images from multiple sources: TCDB, eBay search, placeholder."""
     
-    def __init__(self, rate_limit_delay: float = 0.25):
+    def __init__(self, rate_limit_delay: float = 0.2):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -29,57 +38,69 @@ class CardImageFetcher:
         """
         Attempt to fetch images for cards. Tries: TCDB -> eBay search -> placeholder.
         Modifies cards in place with image_url, returns updated list.
-        Caller should pass only cards to process (e.g. qty>0, max 50).
         """
-        # Limit to 50 cards (increased from 25 for better coverage)
         to_process = cards[:50]
         set_name = (set_name or '').strip()
-        for i, card in enumerate(to_process):
-            if card.get('image_url') or card.get('imageUrl'):
-                card['image_url'] = card.get('image_url') or card.get('imageUrl')
-                card['imageUrl'] = card['image_url']
-                continue
-            name = (card.get('name') or '').strip()
-            number = str(card.get('number') or '')
-            
-            # Try TCDB first (sports cards), then eBay
-            img = self._search_tcdb_for_image(name, number, set_name)
-            if not img:
-                img = self._search_ebay_for_image(name, set_name)
-            if img:
-                card['image_url'] = img
-            else:
-                card['image_url'] = self.placeholder
-            card['imageUrl'] = card['image_url']
-            
-            time.sleep(self.rate_limit_delay)
+        _log(f"Starting fetch for {len(to_process)} cards, set_name='{set_name}' (enable IMAGE_FETCH_DEBUG=1 for per-card logs)")
         
+        for i, card in enumerate(to_process):
+            try:
+                if card.get('image_url') or card.get('imageUrl'):
+                    card['image_url'] = card.get('image_url') or card.get('imageUrl')
+                    card['imageUrl'] = card['image_url']
+                    _log(f"  [{i+1}/{len(to_process)}] {card.get('name','?')} - already has image, skip")
+                    continue
+                name = (card.get('name') or '').strip()
+                number = str(card.get('number') or '')
+                
+                img = self._search_tcdb_for_image(name, number, set_name)
+                if not img:
+                    img = self._search_ebay_for_image(name, set_name)
+                if img:
+                    card['image_url'] = img
+                    card['imageUrl'] = img
+                    _log(f"  [{i+1}/{len(to_process)}] {name} - FOUND: {img[:60]}...")
+                else:
+                    card['image_url'] = self.placeholder
+                    card['imageUrl'] = self.placeholder
+                    _log(f"  [{i+1}/{len(to_process)}] {name} - placeholder (no result)")
+                
+                time.sleep(self.rate_limit_delay)
+            except Exception as e:
+                _log(f"  [{i+1}/{len(to_process)}] EXCEPTION: {e}")
+                card['image_url'] = self.placeholder
+                card['imageUrl'] = self.placeholder
+        
+        ph = self.placeholder
+        found = sum(1 for c in to_process if (c.get('image_url') or '').startswith('http') and (c.get('image_url') or '') != ph)
+        _log(f"Done: {found} from eBay, {len(to_process)-found} placeholders")
         return cards
     
     def _search_tcdb_for_image(self, player_name: str, card_number: str, set_name: str) -> Optional[str]:
-        """Search TCDB (Trading Card Database) - search results have set links, not card images. Skip for now."""
         return None
     
     def _search_ebay_for_image(self, player_name: str, set_name: str) -> Optional[str]:
-        """Search eBay for listings and extract first image URL (real card photos)."""
+        """Search eBay for listings and extract first image URL."""
         if not player_name:
+            _log("  eBay search: no player_name, skip")
             return None
-        # Build query - include set_name if available, else just player
         query = f"{player_name} {set_name}".strip() if set_name else player_name
         query = query.replace(' ', '+')[:100]
         url = f"https://www.ebay.com/sch/i.html?_nkw={query}&_sacat=261328"
         try:
-            r = self.session.get(url, timeout=12)
+            _log(f"  eBay GET: {url[:80]}...")
+            r = self.session.get(url, timeout=10)
             if r.status_code != 200:
+                _log(f"  eBay: status {r.status_code}")
                 return None
             soup = BeautifulSoup(r.text, 'html.parser')
-            # Multiple selectors - eBay structure varies (lazy loading, A/B tests)
             imgs = (
                 soup.select('img.s-item__image-img') or
                 soup.select('img[class*="s-item__image"]') or
                 soup.find_all('img', src=re.compile(r'ebayimg\.com')) or
                 soup.find_all('img', attrs={'src': re.compile(r'i\.ebayimg\.com')})
             )
+            _log(f"  eBay: found {len(imgs)} img tags")
             for img in imgs[:8]:
                 src = (
                     img.get('src') or
@@ -91,10 +112,16 @@ class CardImageFetcher:
                     hi = re.sub(r'/s-l\d+\.', '/s-l1600.', str(src))
                     if hi and hi.startswith('http'):
                         return hi
-        except Exception:
-            pass
+        except requests.exceptions.Timeout:
+            _log(f"  eBay: TIMEOUT for {player_name}")
+            return None
+        except requests.exceptions.RequestException as e:
+            _log(f"  eBay: RequestException: {e}")
+            return None
+        except Exception as e:
+            _log(f"  eBay: Exception: {type(e).__name__}: {e}")
+            return None
         return None
     
     def get_placeholder(self) -> str:
-        """Return default placeholder image URL."""
         return self.placeholder

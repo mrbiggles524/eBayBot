@@ -328,16 +328,16 @@ Please select the specific card you want from the variation dropdown menu."""
                     "description": f"<p>{card_name} #{card_number} trading card.</p>" if card_number else f"<p>{card_name} trading card.</p>",
                     "categoryId": str(category_id),  # Ensure it's a string
                     "aspects": {
-                        "Card Name": [card_name],
+                        "Card Name": [card_name],  # Required for category discoverability
                         "Card Number": [card_number] if card_number else [],
-                        "Sport": ["Basketball"],  # Default, can be customized
-                        "Card Manufacturer": ["Topps"],  # Default, can be customized
+                        "Sport": ["Basketball"],
+                        "Card Manufacturer": ["Topps"],
                         "Season": ["2024-25"],
                         "Features": ["Base"],
                         "Type": ["Sports Trading Card"],
                         "Language": ["English"],
                         "Original/Licensed Reprint": ["Original"],
-                        "Pick Your Card": [variation_value]  # CRITICAL: Variation aspect must match variesBy
+                        "Pick Your Card": [variation_value]  # Pivoting aspect - must match variesBy exactly
                     }
                 },
                 "condition": condition_data,
@@ -462,6 +462,12 @@ Please select the specific card you want from the variation dropdown menu."""
         
         # Build variation_values from created_items - guarantees 1:1 match (eBay 25013)
         variation_values = [item["variation_value"] for item in created_items if item.get("variation_value")]
+        # Final validation: each must be unique (eBay rejects duplicate name-value in variation specifics)
+        seen = set()
+        for i, vv in enumerate(variation_values):
+            if vv in seen:
+                raise ValueError(f"[25013] Duplicate variation value at index {i}: '{vv[:50]}' - SKUs must have unique 'Pick Your Card' values")
+            seen.add(vv)
         if not variation_values:
             return {
                 "success": False,
@@ -469,10 +475,11 @@ Please select the specific card you want from the variation dropdown menu."""
                 "created_items": len(created_items),
                 "errors": errors
             }
-        
-        # Use a single variation aspect - eBay allows generic aspect names
-        # Common names: "Card", "Select Card", "PICK YOUR CARD", etc.
-        variation_aspect_name = "PICK YOUR CARD"
+        # Log each SKU -> variation_value for 25013 debugging
+        for item in created_items:
+            print(f"[DEBUG] 25013 check: SKU={item['sku'][:40]} -> Pick Your Card='{item.get('variation_value','')[:50]}'")
+        # Use a single variation aspect - MUST match exactly (case-sensitive) in inventory items
+        variation_aspect_name = "Pick Your Card"
         
         # Build aspects for inventoryItemGroup - ONLY common (non-varying) aspects (eBay 25013)
         # Card Name and Card Number vary per item (they're in "Pick Your Card") - do NOT include them

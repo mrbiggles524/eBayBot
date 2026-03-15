@@ -345,6 +345,30 @@ def health():
     """Quick health check - used by Render and for debugging."""
     return jsonify({"status": "ok", "version": VERSION}), 200
 
+@app.route('/api/image-proxy')
+def api_image_proxy():
+    """Proxy external card images to avoid CORS/hotlink blocking in previews."""
+    import urllib.parse
+    import requests as req_lib
+    url = request.args.get('url', '')
+    if not url:
+        return '', 400
+    try:
+        parsed = urllib.parse.urlparse(url)
+        host = (parsed.netloc or '').lower()
+        allowed = ('ebayimg.com', 'i.ebayimg.com', 'tcdb.com', 'www.tcdb.com')
+        if not any(h in host for h in allowed):
+            return '', 403
+        r = req_lib.get(url, timeout=10, headers={
+            'User-Agent': 'Mozilla/5.0 (compatible; CardLister/1.0)',
+            'Accept': 'image/*'
+        })
+        r.raise_for_status()
+        ct = r.headers.get('Content-Type', 'image/jpeg')
+        return r.content, 200, {'Content-Type': ct}
+    except Exception:
+        return '', 502
+
 @app.route('/')
 def landing():
     """Landing page."""

@@ -518,6 +518,7 @@
             backdrop-filter: blur(8px);
         }
         #publishModal.active { display: flex; }
+        .fetch-images-modal.active { display: flex !important; }
         .publish-modal-card {
             background: linear-gradient(145deg, rgba(0,30,50,0.98), rgba(0,15,30,0.98));
             border: 2px solid rgba(0,255,255,0.6);
@@ -1061,6 +1062,23 @@
             <p>Creating your listing...</p>
         </div>
         
+        <!-- Fetch Images Loading Modal (same style as publish) -->
+        <div id="fetchImagesModal" class="fetch-images-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+            <div class="publish-modal-card">
+                <div class="publish-modal-title"><span class="icon">🖼️</span> Fetching Card Images</div>
+                <div class="publish-modal-sub">Searching eBay for matching images... (up to 50 cards)</div>
+                <div class="publish-progress-wrap">
+                    <div class="publish-progress-bar" id="fetchImagesProgressBar" style="width: 15%; animation: progressShimmer 1.5s linear infinite;"></div>
+                </div>
+                <div class="publish-status-text" id="fetchImagesStatusText">Starting...</div>
+                <div class="publish-card-stack">
+                    <div class="publish-card-chip"></div>
+                    <div class="publish-card-chip"></div>
+                    <div class="publish-card-chip"></div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Publish Modal -->
         <div id="publishModal">
             <div class="publish-modal-card">
@@ -1425,7 +1443,25 @@
                 return;
             }
             const statusDiv = document.getElementById('fetchImagesStatus');
+            const modal = document.getElementById('fetchImagesModal');
+            const progressBar = document.getElementById('fetchImagesProgressBar');
+            const statusText = document.getElementById('fetchImagesStatusText');
+            const fetchBtn = document.querySelector('button[onclick*="fetchCardImages"]');
+            if (fetchBtn) fetchBtn.disabled = true;
             if (statusDiv) statusDiv.textContent = 'Fetching images for ' + toProcess.length + ' cards...';
+            if (modal) modal.classList.add('active');
+            if (statusText) statusText.textContent = 'Searching eBay for card images... (this may take 30-60 sec)';
+            const startTime = Date.now();
+            const simInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                const pct = Math.min(85, 15 + elapsed * 1.5);
+                if (progressBar) progressBar.style.width = pct + '%';
+                if (statusText) {
+                    if (elapsed < 5) statusText.textContent = 'Searching eBay for card images...';
+                    else if (elapsed < 15) statusText.textContent = 'Still fetching... (' + Math.floor(elapsed) + ' sec)';
+                    else statusText.textContent = 'Almost done... (this can take a minute for many cards)';
+                }
+            }, 500);
             try {
                 const payload = {
                     cards: toProcess.map(c => ({ name: c.name, number: c.number, team: c.team || '', image_url: c.imageUrl || '', _idx: c._idx })),
@@ -1434,17 +1470,27 @@
                 };
                 const res = await fetch('/api/fetch-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const data = await res.json();
-                if (data.success && data.cards) {
-                    const withImg = data.cards.filter(fc => fc.image_url || fc.imageUrl).length;
-                    window._pendingImageFetch = { cards: data.cards, toProcessCount: toProcess.length, version: data.version || '' };
-                    showImageConfirmModal(data.cards);
-                    if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
-                } else {
-                    if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = data.error || 'Failed';
-                    showToast(data.error || 'Failed to fetch images', 'error');
-                }
+                clearInterval(simInterval);
+                if (progressBar) progressBar.style.width = '100%';
+                if (statusText) statusText.textContent = 'Done!';
+                setTimeout(() => {
+                    if (modal) modal.classList.remove('active');
+                    if (fetchBtn) fetchBtn.disabled = false;
+                    if (data.success && data.cards) {
+                        const withImg = data.cards.filter(fc => fc.image_url || fc.imageUrl).length;
+                        window._pendingImageFetch = { cards: data.cards, toProcessCount: toProcess.length, version: data.version || '' };
+                        showImageConfirmModal(data.cards);
+                        if (statusDiv) statusDiv.textContent = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
+                    } else {
+                        if (statusDiv) statusDiv.textContent = data.error || 'Failed';
+                        showToast(data.error || 'Failed to fetch images', 'error');
+                    }
+                }, 400);
             } catch (e) {
-                if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Error: ' + e.message;
+                clearInterval(simInterval);
+                if (modal) modal.classList.remove('active');
+                if (fetchBtn) fetchBtn.disabled = false;
+                if (statusDiv) statusDiv.textContent = 'Error: ' + e.message;
                 showToast('Error: ' + e.message, 'error');
             }
         }
@@ -1459,8 +1505,9 @@
                 const div = document.createElement('div');
                 div.style.cssText = 'text-align: center; padding: 8px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);';
                 const safeImg = (img && (img.startsWith('http://') || img.startsWith('https://'))) ? img.replace(/"/g, '&quot;').replace(/</g, '&lt;') : '';
+                const imgSrc = safeImg ? ('/api/image-proxy?url=' + encodeURIComponent(img)) : '';
                 div.innerHTML = (safeImg
-                    ? `<img src="${safeImg}" alt="" style="width: 90px; height: 126px; object-fit: contain; background: #1a1a2e; border-radius: 8px; display: block; margin: 0 auto 6px; border: 1px solid rgba(0,255,255,0.2);" referrerpolicy="no-referrer" onerror="this.style.background='#333';this.alt='?';this.onerror=null;">`
+                    ? `<img src="${imgSrc}" alt="" style="width: 90px; height: 126px; object-fit: contain; background: #1a1a2e; border-radius: 8px; display: block; margin: 0 auto 6px; border: 1px solid rgba(0,255,255,0.2);" onerror="this.style.background='#333';this.alt='?';this.onerror=null;">`
                     : `<div style="width: 90px; height: 126px; background: #333; border-radius: 8px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; color: #666;">?</div>`)
                     + `<span style="font-size: 0.75rem; color: #ccc; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${String(label || 'Card').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').substring(0, 18)}</span>`;
                 grid.appendChild(div);
@@ -1804,8 +1851,9 @@
                 const qtyStyle = isZeroQty ? 'border-color: rgba(255, 193, 7, 0.5); background: rgba(255, 193, 7, 0.1);' : '';
                 const img = card.imageUrl || card.image_url || '';
                 const safeImg = (img && (img.startsWith('http://') || img.startsWith('https://'))) ? img.replace(/"/g, '&quot;').replace(/</g, '&lt;') : '';
+                const imgSrc = safeImg ? ('/api/image-proxy?url=' + encodeURIComponent(img)) : '';
                 const thumbHtml = safeImg
-                    ? `<img src="${safeImg}" alt="" style="width: 40px; height: 56px; object-fit: contain; background: #222; border-radius: 4px; display: block; margin: 0 auto;" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML='<span style=color:#666;font-size:10px>?</span>'">`
+                    ? `<img src="${imgSrc}" alt="" style="width: 40px; height: 56px; object-fit: contain; background: #222; border-radius: 4px; display: block; margin: 0 auto;" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<span style=color:#666;font-size:10px>?</span>'">`
                     : `<span style="color: #666; font-size: 10px; display: block; text-align: center;">—</span>`;
                 return `
                 <tr data-id="${card.id}" style="${rowStyle}">

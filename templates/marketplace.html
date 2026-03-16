@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketplace - CardPilot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000000;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(0, 255, 255, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 0, 255, 0.12) 0%, transparent 50%),
+                linear-gradient(135deg, #000000 0%, #0a0014 50%, #000000 100%);
+            min-height: 100vh;
+            color: #ffffff;
+        }
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: rgba(0,0,0,0.8);
+            border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .logo a { text-decoration: none; }
+        .nav-links a {
+            color: #cccccc;
+            text-decoration: none;
+            margin-left: 24px;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: #00ffff; }
+        .nav-links .active { color: #00ffff; font-weight: 600; }
+        .hero {
+            text-align: center;
+            padding: 60px 24px 50px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .hero h1 {
+            font-size: 2.8rem;
+            margin-bottom: 16px;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            color: #aaaaaa;
+            line-height: 1.6;
+        }
+        .main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 24px 60px;
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 25px;
+            color: #ccc;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: #00ffff; border-color: rgba(0, 255, 255, 0.6); }
+        .tab.active {
+            background: linear-gradient(90deg, rgba(0,255,255,0.2), rgba(255,0,255,0.2));
+            border-color: #00ffff;
+            color: #00ffff;
+        }
+        .filter-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .filter-row input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 18px;
+            background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1rem;
+        }
+        .filter-row input::placeholder { color: #666; }
+        .filter-row button {
+            padding: 12px 24px;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            border: none;
+            border-radius: 12px;
+            color: #000;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .filter-row button:hover { transform: scale(1.02); }
+        .add-form {
+            background: rgba(0,0,0,0.6);
+            border: 2px solid rgba(255, 255, 0, 0.4);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 32px;
+        }
+        .add-form h3 {
+            color: #ffff00;
+            margin-bottom: 16px;
+            font-size: 1.2rem;
+        }
+        .add-form label {
+            display: block;
+            color: #aaa;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+        .add-form input, .add-form textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #fff;
+            margin-bottom: 16px;
+            font-size: 1rem;
+        }
+        .add-form textarea { min-height: 80px; resize: vertical; }
+        .add-form .row { display: flex; gap: 16px; flex-wrap: wrap; }
+        .add-form .row > div { flex: 1; min-width: 180px; }
+        .add-form button {
+            padding: 14px 32px;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            border: none;
+            border-radius: 12px;
+            color: #000;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .add-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .post-grid {
+            display: grid;
+            gap: 20px;
+        }
+        .post-card {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(0, 255, 255, 0.25);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s;
+        }
+        .post-card:hover {
+            border-color: rgba(255, 0, 255, 0.5);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.15);
+        }
+        .post-card.want { border-left: 4px solid #00ff88; }
+        .post-card.forsale { border-left: 4px solid #ffaa00; }
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .post-type {
+            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+        }
+        .post-type.want { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
+        .post-type.forsale { background: rgba(255, 170, 0, 0.2); color: #ffaa00; }
+        .post-set { color: #00ffff; font-weight: 700; font-size: 1.1rem; }
+        .post-cards {
+            color: #e0e0e0;
+            margin: 12px 0;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        .post-meta { color: #888; font-size: 0.9rem; margin-top: 12px; }
+        .post-contact {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .post-contact a {
+            color: #00ffff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .post-contact a:hover { text-decoration: underline; }
+        .post-delete {
+            background: transparent;
+            border: 1px solid rgba(255,100,100,0.5);
+            color: #ff6666;
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .post-delete:hover { background: rgba(255,100,100,0.2); }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+            font-size: 1.1rem;
+        }
+        .login-prompt {
+            background: rgba(255, 200, 0, 0.1);
+            border: 2px solid rgba(255, 200, 0, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        .login-prompt a { color: #ffff00; font-weight: 700; text-decoration: none; }
+        .login-prompt a:hover { text-decoration: underline; }
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 16px 24px;
+            background: rgba(0,0,0,0.9);
+            border: 2px solid #00ff88;
+            border-radius: 12px;
+            color: #00ff88;
+            font-weight: 600;
+            z-index: 999;
+            display: none;
+        }
+        .toast.error { border-color: #ff6666; color: #ff6666; }
+        .post-reputation {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .post-reputation .ebay-link {
+            color: #00ffff;
+            font-size: 0.9rem;
+            text-decoration: none;
+        }
+        .post-reputation .ebay-link:hover { text-decoration: underline; }
+        .post-reputation .badge {
+            font-size: 0.8rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .post-reputation .badge.good { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
+        .post-reputation .badge.warn { background: rgba(255, 170, 0, 0.2); color: #ffaa00; }
+        .post-reputation .badge.bad { background: rgba(255, 100, 100, 0.2); color: #ff6666; }
+        .post-reputation .action-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #aaa;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .post-reputation .action-btn:hover { color: #00ffff; border-color: #00ffff; }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal {
+            background: #111;
+            border: 2px solid rgba(0, 255, 255, 0.4);
+            border-radius: 16px;
+            padding: 28px;
+            max-width: 420px;
+            width: 90%;
+        }
+        .modal h4 { margin-bottom: 16px; color: #00ffff; }
+        .modal label { display: block; color: #aaa; margin-bottom: 6px; font-size: 0.9rem; }
+        .modal input, .modal select, .modal textarea {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+        .modal textarea { min-height: 60px; resize: vertical; }
+        .modal-buttons { display: flex; gap: 12px; margin-top: 16px; }
+        .modal-buttons button { padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .modal-buttons .submit { background: linear-gradient(90deg, #00ffff, #ff00ff); color: #000; border: none; }
+        .modal-buttons .cancel { background: transparent; color: #888; border: 1px solid #444; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="logo">CardPilot</a>
+        <div class="nav-links">
+            <a href="/marketplace" class="active">Marketplace</a>
+            <a href="/shipping">Shipping</a>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+            {% if email %}
+                <a href="/app">Go to App</a>
+                <a href="/logout">Logout</a>
+            {% else %}
+                <a href="/login">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <section class="hero">
+        <h1>🛒 Marketplace</h1>
+        <p>Subscriber bonus! Post what you need, browse what others are selling. Connect with collectors and complete your sets faster.</p>
+        <div class="fee-banner" style="margin-top: 20px; padding: 16px 24px; background: rgba(255, 200, 0, 0.12); border: 2px solid rgba(255, 200, 0, 0.5); border-radius: 12px; display: inline-block;">
+            <strong style="color: #ffff00;">📋 Site fee:</strong>
+            <span style="color: #ddd;"> {{ (buyer_fee_pct|default(5)|round)|int }}% buyer fee, {{ (seller_fee_pct|default(5)|round)|int }}% seller fee on all marketplace transactions.</span>
+        </div>
+        <p style="margin-top: 16px; color: #888; font-size: 0.95rem;">Add your <strong style="color:#00ffff;">eBay username</strong> so buyers can check your feedback. When you ship, add tracking—sales auto-complete when delivered. 3 reports (didn’t pay, didn’t ship, not as described) or 3 negative ratings = suspension.</p>
+    </section>
+
+    <main class="main">
+        {% if not email %}
+        <div class="login-prompt">
+            <a href="/login">Log in</a> to post what you need or what you're selling.
+        </div>
+        {% endif %}
+
+        <div class="tabs">
+            <button class="tab active" data-filter="all">All</button>
+            <button class="tab" data-filter="wants">🎯 Wants</button>
+            <button class="tab" data-filter="forsale">💰 For Sale</button>
+        </div>
+
+        <div class="filter-row">
+            <input type="text" id="setFilter" placeholder="Filter by set name (e.g. Topps Chrome)">
+            <button type="button" id="applyFilter">Apply</button>
+            <button type="button" id="clearFilter">Clear</button>
+        </div>
+
+        {% if email %}
+        <div class="add-form">
+            <h3>➕ Add: I need these cards</h3>
+            <div class="row">
+                <div>
+                    <label>Set name *</label>
+                    <input type="text" id="wantSet" placeholder="e.g. 2024-25 Topps Chrome Basketball">
+                </div>
+                <div style="flex: 2;">
+                    <label>Cards needed * (numbers, names, or both)</label>
+                    <input type="text" id="wantCards" placeholder="e.g. #43, #44, Pascal Siakam, Risacher">
+                </div>
+            </div>
+            <div>
+                <label>eBay username (optional) – buyers can check your eBay feedback</label>
+                <input type="text" id="wantEbay" placeholder="e.g. cardcollector123" maxlength="50">
+            </div>
+            <div>
+                <label>Notes (optional)</label>
+                <input type="text" id="wantNotes" placeholder="Base only, no refractors">
+            </div>
+            <button type="button" id="submitWant">Post Want</button>
+        </div>
+
+        <div class="add-form">
+            <h3>➕ Add: I'm selling these cards</h3>
+            <div class="row">
+                <div>
+                    <label>Set name *</label>
+                    <input type="text" id="saleSet" placeholder="e.g. 2024-25 Topps Chrome Basketball">
+                </div>
+                <div style="flex: 2;">
+                    <label>Cards for sale *</label>
+                    <input type="text" id="saleCards" placeholder="e.g. #43 Pascal Siakam, #44 Risacher">
+                </div>
+                <div>
+                    <label>Price</label>
+                    <input type="text" id="salePrice" placeholder="Best offer">
+                </div>
+            </div>
+            <div>
+                <label>eBay username (optional) – buyers can check your eBay feedback</label>
+                <input type="text" id="saleEbay" placeholder="e.g. cardcollector123" maxlength="50">
+            </div>
+            <div>
+                <label>Notes (optional)</label>
+                <input type="text" id="saleNotes" placeholder="NM condition, shipped PWE">
+            </div>
+            <button type="button" id="submitSale">Post For Sale</button>
+        </div>
+        {% endif %}
+
+        <div id="postGrid" class="post-grid"></div>
+        <div id="emptyState" class="empty-state" style="display:none;">
+            No posts yet. Be the first to post what you need or what you're selling!
+        </div>
+
+        {% if email %}
+        <div id="shipment" class="add-form" style="margin-top: 32px; border-color: rgba(0, 255, 136, 0.4);">
+            <h3 style="color: #00ff88;">📦 Report Shipment (auto-completes when delivered)</h3>
+            <p style="color: #888; font-size: 0.9rem; margin-bottom: 12px;">When you ship, add tracking. Once tracking shows delivered, the sale auto-completes and fees are recorded. No extra work.</p>
+            <p id="trackingApiNote" style="color: #666; font-size: 0.85rem; margin-bottom: 8px; display: none;">ℹ️ Set TRACKINGMORE_API_KEY to enable automatic delivery detection.</p>
+            <div class="row">
+                <div style="flex:2;"><label>Tracking number *</label><input type="text" id="shipTracking" placeholder="e.g. 9400111899562537868492 (USPS)"></div>
+                <div><label>Buyer email *</label><input type="email" id="shipBuyerEmail" placeholder="buyer@email.com"></div>
+                <div><label>Sale amount ($) *</label><input type="number" id="shipAmount" step="0.01" min="0.01" placeholder="25.00"></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                <button type="button" id="reportShipmentBtn">Report Shipment</button>
+                <button type="button" id="checkTrackingBtn" class="action-btn" style="margin:0;">Check delivery status</button>
+            </div>
+        </div>
+        <div id="pendingShipments" class="add-form" style="margin-top: 16px; border-color: rgba(255, 170, 0, 0.4); display: none;">
+            <h3 style="color: #ffaa00;">📋 Your pending shipments</h3>
+            <div id="pendingList" style="color: #aaa; font-size: 0.95rem;"></div>
+        </div>
+        <div id="report" class="add-form" style="margin-top: 16px; border-color: rgba(255, 255, 255, 0.2);">
+            <h3 style="color: #aaa;">📋 Manual: Report completed sale</h3>
+            <p style="color: #666; font-size: 0.85rem; margin-bottom: 12px;">Use only if tracking isn't available (e.g. cash trade). With tracking, use Report Shipment above instead.</p>
+            <div class="row">
+                <div><label>I am *</label><select id="reportRole" style="width:100%;padding:12px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;"><option value="seller">Seller</option><option value="buyer">Buyer</option></select></div>
+                <div><label>Other party email *</label><input type="email" id="reportOtherEmail" placeholder="buyer@email.com or seller@email.com"></div>
+                <div><label>Sale amount ($) *</label><input type="number" id="reportAmount" step="0.01" min="0.01" placeholder="25.00"></div>
+            </div>
+            <div><label>Description (optional)</label><input type="text" id="reportDesc" placeholder="e.g. #43 Pascal Siakam, 2024-25 Topps Chrome"></div>
+            <button type="button" id="reportSaleBtn">Report Sale</button>
+        </div>
+        <p style="color: #666; font-size: 0.85rem; margin-top: 20px;">By using the Marketplace you agree to our <a href="/terms" style="color: #00ffff;">Terms of Use</a> and <a href="/privacy" style="color: #00ffff;">Privacy Policy</a>. We are a matching service only—we have no liability for transactions.</p>
+        {% endif %}
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="reportModal" class="modal-overlay">
+        <div class="modal">
+            <h4>Report User</h4>
+            <p style="color:#888;font-size:0.9rem;margin-bottom:12px;">3 reports = suspended. Use for: didn't pay, didn't ship, item not as described.</p>
+            <label>Their email</label>
+            <input type="email" id="reportTargetEmail" readonly>
+            <label>Report type</label>
+            <select id="reportType">
+                <option value="no_payment">Didn't pay</option>
+                <option value="no_ship">Didn't ship</option>
+                <option value="not_as_described">Item not as described</option>
+            </select>
+            <div class="modal-buttons">
+                <button class="submit" id="reportSubmit">Submit Report</button>
+                <button class="cancel" id="reportCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="feedbackModal" class="modal-overlay">
+        <div class="modal">
+            <h4>Leave Feedback</h4>
+            <p style="color:#888;font-size:0.9rem;margin-bottom:12px;">Rate 1-5. 3 ratings of 2 or lower = suspended.</p>
+            <label>Their email</label>
+            <input type="email" id="feedbackTargetEmail" readonly>
+            <label>They were the (in this deal)</label>
+            <select id="feedbackRole">
+                <option value="seller">Seller</option>
+                <option value="buyer">Buyer</option>
+            </select>
+            <label>Rating (1-5)</label>
+            <select id="feedbackRating">
+                <option value="5">5 – Excellent</option>
+                <option value="4">4 – Good</option>
+                <option value="3">3 – Okay</option>
+                <option value="2">2 – Poor</option>
+                <option value="1">1 – Bad</option>
+            </select>
+            <label>Comment (optional)</label>
+            <textarea id="feedbackComment" placeholder="Fast shipment, cards as described..."></textarea>
+            <div class="modal-buttons">
+                <button class="submit" id="feedbackSubmit">Submit</button>
+                <button class="cancel" id="feedbackCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilter = 'all';
+        let setFilter = '';
+
+        function showToast(msg, isError) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.toggle('error', !!isError);
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 4000);
+        }
+
+        async function loadPosts() {
+            let url = '/api/marketplace/posts?';
+            if (currentFilter === 'wants') url += 'filter=wants&';
+            if (currentFilter === 'forsale') url += 'filter=forsale&';
+            if (setFilter) url += 'set=' + encodeURIComponent(setFilter);
+            const r = await fetch(url);
+            const data = await r.json();
+            if (data.error) { showToast(data.error, true); return; }
+            renderPosts(data.wants || [], data.for_sale || []);
+        }
+
+        function renderPosts(wants, forSale) {
+            const grid = document.getElementById('postGrid');
+            const empty = document.getElementById('emptyState');
+            grid.innerHTML = '';
+            const email = '{{ email or "" }}';
+
+            const render = (posts, type) => {
+                for (const p of posts) {
+                    const card = document.createElement('div');
+                    card.className = 'post-card ' + type;
+                    const isOwn = email && (p.email || '').toLowerCase() === email.toLowerCase();
+                    const rep = p.reputation || {};
+                    const suspended = rep.suspended;
+                    let repHtml = '';
+                    if (suspended) {
+                        repHtml = '<span class="badge bad">🚫 Suspended</span>';
+                    } else {
+                        if (rep.feedback_count > 0) {
+                            const cls = rep.avg_rating >= 4 ? 'good' : rep.avg_rating >= 3 ? 'warn' : 'bad';
+                            repHtml += `<span class="badge ${cls}">★ ${rep.avg_rating} (${rep.feedback_count})</span>`;
+                        }
+                        if (rep.reports_count > 0) {
+                            repHtml += `<span class="badge warn">⚠️ ${rep.reports_count} report(s)</span>`;
+                        }
+                    }
+                    const ebayUser = (p.ebay_username || '').trim();
+                    const ebayLink = ebayUser
+                        ? `<a class="ebay-link" href="https://www.ebay.com/usr/${encodeURIComponent(ebayUser)}" target="_blank" rel="noopener">eBay: ${escapeHtml(ebayUser)} ↗</a>`
+                        : '';
+                    const actionBtns = (email && !isOwn && !suspended)
+                        ? `<button class="action-btn report-btn" data-email="${escapeAttr(p.email || '')}" data-type="${type}">Report</button>
+                           <button class="action-btn feedback-btn" data-email="${escapeAttr(p.email || '')}" data-type="${type}">Leave feedback</button>`
+                        : '';
+                    const contactHtml = email
+                        ? `<a href="mailto:${p.email}?subject=CardPilot: ${encodeURIComponent((p.set_name || '') + ' - ' + (type === 'want' ? 'Cards needed' : 'For sale'))}">📧 Contact</a>`
+                        : '<span style="color:#666">Log in to contact</span>';
+                    const delBtn = isOwn
+                        ? `<button class="post-delete" data-id="${p.id}" data-type="${type}">Delete</button>`
+                        : '';
+                    const shipLink = '<a href="/shipping" style="color:#00ff88;margin-top:6px;display:inline-block;font-size:0.9rem;">📦 Ship on my own</a>';
+                    const listOnEbay = (type === 'forsale' && isOwn) ? (() => {
+                        const first = parseFirstCard(p.cards || '');
+                        if (!first) return '';
+                        const q = new URLSearchParams({ listCard: '1', setName: p.set_name || '', number: first.num, name: first.name, price: (p.price || '1').replace(/[^0-9.]/g, '') || '1' });
+                        return `<a href="/app?${q}" style="color:#00ff88;margin-top:8px;display:inline-block;">📦 List on eBay → cheap labels</a>`;
+                    })() : '';
+                    card.innerHTML = `
+                        <div class="post-header">
+                            <span class="post-type ${type}">${type === 'want' ? '🎯 WANT' : '💰 FOR SALE'}</span>
+                            ${delBtn}
+                        </div>
+                        <div class="post-set">${escapeHtml(p.set_name || '')}</div>
+                        <div class="post-cards">${escapeHtml(p.cards || '')}</div>
+                        ${(p.price && type === 'forsale') ? `<div style="color:#ffaa00;font-weight:600;">${escapeHtml(p.price)}</div>` : ''}
+                        ${(p.notes || '').trim() ? `<div class="post-meta">${escapeHtml(p.notes)}</div>` : ''}
+                        <div class="post-meta">Posted ${p.created || ''}</div>
+                        <div class="post-reputation">${ebayLink} ${repHtml} ${actionBtns}</div>
+                        <div class="post-contact">${contactHtml}${listOnEbay}<br>${shipLink}</div>
+                    `;
+                    grid.appendChild(card);
+                }
+            };
+
+            render(wants, 'want');
+            render(forSale, 'forsale');
+
+            const total = wants.length + forSale.length;
+            empty.style.display = total === 0 ? 'block' : 'none';
+        }
+
+        function escapeHtml(s) {
+            if (!s) return '';
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+        function escapeAttr(s) {
+            if (!s) return '';
+            return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        }
+        function parseFirstCard(cardsText) {
+            const part = (cardsText.split(/[,;\n]/)[0] || '').trim();
+            const m = part.match(/#?(\d+)\s*(.*)/);
+            if (m) return { num: m[1], name: (m[2] || 'Card').trim() || 'Card' };
+            if (part) return { num: '1', name: part };
+            return null;
+        }
+
+        document.querySelectorAll('.tab').forEach(t => {
+            t.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+                t.classList.add('active');
+                currentFilter = t.dataset.filter || 'all';
+                loadPosts();
+            });
+        });
+
+        document.getElementById('applyFilter').addEventListener('click', () => {
+            setFilter = document.getElementById('setFilter').value.trim();
+            loadPosts();
+        });
+        document.getElementById('clearFilter').addEventListener('click', () => {
+            setFilter = '';
+            document.getElementById('setFilter').value = '';
+            loadPosts();
+        });
+
+        document.getElementById('submitWant')?.addEventListener('click', async () => {
+            const set_name = document.getElementById('wantSet').value.trim();
+            const cards = document.getElementById('wantCards').value.trim();
+            const notes = document.getElementById('wantNotes').value.trim();
+            if (!set_name || !cards) { showToast('Set name and cards required', true); return; }
+            const btn = document.getElementById('submitWant');
+            btn.disabled = true;
+            try {
+                const r = await fetch('/api/marketplace/want', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ set_name, cards, notes })
+                });
+                const data = await r.json();
+                if (data.error) { showToast(data.error, true); return; }
+                showToast('Posted!');
+                document.getElementById('wantSet').value = '';
+                document.getElementById('wantCards').value = '';
+                document.getElementById('wantNotes').value = '';
+                document.getElementById('wantEbay').value = '';
+                loadPosts();
+            } finally { btn.disabled = false; }
+        });
+
+        document.getElementById('submitSale')?.addEventListener('click', async () => {
+            const set_name = document.getElementById('saleSet').value.trim();
+            const cards = document.getElementById('saleCards').value.trim();
+            const price = document.getElementById('salePrice').value.trim();
+            const notes = document.getElementById('saleNotes').value.trim();
+            if (!set_name || !cards) { showToast('Set name and cards required', true); return; }
+            const btn = document.getElementById('submitSale');
+            btn.disabled = true;
+            try {
+                const r = await fetch('/api/marketplace/forsale', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ set_name, cards, price, notes })
+                });
+                const data = await r.json();
+                if (data.error) { showToast(data.error, true); return; }
+                showToast('Posted!');
+                document.getElementById('saleSet').value = '';
+                document.getElementById('saleCards').value = '';
+                document.getElementById('salePrice').value = '';
+                document.getElementById('saleNotes').value = '';
+                document.getElementById('saleEbay').value = '';
+                loadPosts();
+            } finally { btn.disabled = false; }
+        });
+
+        async function loadPendingShipments(autoCheck) {
+            try {
+                const r = await fetch('/api/marketplace/pending');
+                const data = await r.json();
+                const list = document.getElementById('pendingList');
+                const box = document.getElementById('pendingShipments');
+                if (data.error) { list.textContent = data.error; box.style.display = 'block'; return data; }
+                const p = data.pending || [];
+                const note = document.getElementById('trackingApiNote');
+                if (note) note.style.display = data.tracking_configured ? 'none' : 'block';
+                if (p.length === 0) { box.style.display = 'none'; return data; }
+                box.style.display = 'block';
+                list.innerHTML = p.map(x => `
+                    <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                        <strong>${escapeHtml(x.tracking_number)}</strong> → ${escapeHtml(x.buyer_email)} $${x.amount}
+                        <span style="color:#888;">(${x.status || 'pending'})</span>
+                    </div>
+                `).join('');
+                if (autoCheck && p.length > 0 && data.tracking_configured) {
+                    fetch('/api/marketplace/check-tracking', { method: 'POST' }).then(() => loadPendingShipments());
+                }
+                return data;
+            } catch (e) { console.error(e); return {}; }
+        }
+
+        document.getElementById('reportShipmentBtn')?.addEventListener('click', async () => {
+            const tracking = (document.getElementById('shipTracking')?.value || '').replace(/\s/g, '');
+            const buyerEmail = (document.getElementById('shipBuyerEmail')?.value || '').trim().toLowerCase();
+            const amount = parseFloat(document.getElementById('shipAmount')?.value || 0);
+            if (!tracking || !buyerEmail || amount <= 0) { showToast('Tracking, buyer email, and amount > 0 required', true); return; }
+            const btn = document.getElementById('reportShipmentBtn');
+            btn.disabled = true;
+            try {
+                const r = await fetch('/api/marketplace/report-shipment', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ tracking_number: tracking, buyer_email: buyerEmail, amount }) });
+                const data = await r.json();
+                if (data.error) { showToast(data.error, true); return; }
+                showToast(data.delivered ? 'Already delivered! Sale recorded.' : 'Shipment reported. Sale will auto-complete when delivered.');
+                document.getElementById('shipTracking').value = '';
+                document.getElementById('shipBuyerEmail').value = '';
+                document.getElementById('shipAmount').value = '';
+                loadPendingShipments();
+            } catch (e) { showToast('Error', true); }
+            finally { btn.disabled = false; }
+        });
+
+        document.getElementById('checkTrackingBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('checkTrackingBtn');
+            btn.disabled = true;
+            btn.textContent = 'Checking...';
+            try {
+                const r = await fetch('/api/marketplace/check-tracking', { method: 'POST' });
+                const data = await r.json();
+                if (data.error) { showToast(data.error, true); return; }
+                const c = data.completed || [];
+                if (c.length > 0) showToast(c.length + ' sale(s) completed! Total fee: $' + c.reduce((s,x)=>s+(x.total_fee||0),0).toFixed(2));
+                else showToast('Checked. No new deliveries.');
+                loadPendingShipments();
+            } catch (e) { showToast('Error', true); }
+            finally { btn.disabled = false; btn.textContent = 'Check delivery status'; }
+        });
+
+        document.getElementById('reportSaleBtn')?.addEventListener('click', async () => {
+            const myEmail = '{{ email }}'.toLowerCase();
+            const otherEmail = (document.getElementById('reportOtherEmail')?.value || '').trim().toLowerCase();
+            const amount = parseFloat(document.getElementById('reportAmount')?.value || 0);
+            const desc = (document.getElementById('reportDesc')?.value || '').trim();
+            const role = document.getElementById('reportRole')?.value || 'seller';
+            if (!otherEmail || amount <= 0) { showToast('Fill other party email and amount > 0', true); return; }
+            const payload = { seller_email: role === 'seller' ? myEmail : otherEmail, buyer_email: role === 'buyer' ? myEmail : otherEmail, amount, description: desc };
+            try {
+                const r = await fetch('/api/marketplace/report-sale', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const data = await r.json();
+                if (data.error) { showToast(data.error, true); return; }
+                showToast('Sale reported. Fee: $' + (data.total_fee || 0).toFixed(2) + ' (5% each)');
+                document.getElementById('reportOtherEmail').value = '';
+                document.getElementById('reportAmount').value = '';
+                document.getElementById('reportDesc').value = '';
+            } catch (e) { showToast('Error reporting sale', true); }
+        });
+
+        document.getElementById('postGrid').addEventListener('click', async (e) => {
+            const delBtn = e.target.closest('.post-delete');
+            if (delBtn) {
+                const id = delBtn.dataset.id, type = delBtn.dataset.type;
+                if (!id || !type) return;
+                try {
+                    const r = await fetch('/api/marketplace/delete', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id, type }) });
+                    const data = await r.json();
+                    if (data.error) { showToast(data.error, true); return; }
+                    showToast('Deleted'); loadPosts();
+                } catch (err) { showToast('Error', true); }
+                return;
+            }
+            const reportBtn = e.target.closest('.report-btn');
+            if (reportBtn) {
+                document.getElementById('reportTargetEmail').value = reportBtn.dataset.email || '';
+                document.getElementById('reportModal').classList.add('open');
+                return;
+            }
+            const feedbackBtn = e.target.closest('.feedback-btn');
+            if (feedbackBtn) {
+                document.getElementById('feedbackTargetEmail').value = feedbackBtn.dataset.email || '';
+                document.getElementById('feedbackModal').classList.add('open');
+                return;
+            }
+        });
+
+        document.getElementById('reportCancel')?.addEventListener('click', () => document.getElementById('reportModal').classList.remove('open'));
+        document.getElementById('feedbackCancel')?.addEventListener('click', () => document.getElementById('feedbackModal').classList.remove('open'));
+
+        document.getElementById('reportSubmit')?.addEventListener('click', async () => {
+            const target = document.getElementById('reportTargetEmail').value.trim();
+            const type = document.getElementById('reportType').value;
+            if (!target) { showToast('Target email required', true); return; }
+            try {
+                const r = await fetch('/api/marketplace/report', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ target_email: target, report_type: type }) });
+                const data = await r.json();
+                if (data.error) { showToast(data.error, true); return; }
+                showToast(data.suspended ? 'Report submitted. User suspended (3 strikes).' : `Report submitted. (${data.strikes} strike(s))`);
+                document.getElementById('reportModal').classList.remove('open');
+                loadPosts();
+            } catch (e) { showToast('Error', true); }
+        });
+
+        document.getElementById('feedbackSubmit')?.addEventListener('click', async () => {
+            const target = document.getElementById('feedbackTargetEmail').value.trim();
+            const rating = parseInt(document.getElementById('feedbackRating').value, 10);
+            const role = document.getElementById('feedbackRole').value;
+            const comment = document.getElementById('feedbackComment').value.trim();
+            if (!target) { showToast('Target email required', true); return; }
+            try {
+                const r = await fetch('/api/marketplace/feedback', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ target_email: target, rating, role, comment }) });
+                const data = await r.json();
+                if (data.error) { showToast(data.error, true); return; }
+                showToast(data.suspended ? 'Feedback submitted. User suspended (3 negative).' : 'Feedback submitted.');
+                document.getElementById('feedbackModal').classList.remove('open');
+                document.getElementById('feedbackComment').value = '';
+                loadPosts();
+            } catch (e) { showToast('Error', true); }
+        });
+
+        loadPosts();
+        loadPendingShipments(true);  // true = auto-check delivery when has pending + API configured
+    </script>
+</body>
+</html>

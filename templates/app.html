@@ -7,7 +7,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <link rel="manifest" href="/static/manifest.json">
-    <title>CardLister Pro - eBay Card Listing</title>
+    <title>CardPilot - Comps, Listings & Marketplace</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -77,12 +77,18 @@
         header h1 {
             font-size: 2.5rem;
             background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00, #00ff00);
+            background-size: 200% 100%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             margin-bottom: 10px;
             text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
             filter: drop-shadow(0 0 10px rgba(255, 0, 255, 0.3));
+            animation: headerGradient 4s ease infinite;
+        }
+        @keyframes headerGradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
         }
         
         header p { 
@@ -92,12 +98,17 @@
         }
         
         .card {
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.65);
             border-radius: 16px;
             padding: 25px;
             margin-bottom: 20px;
-            border: 2px solid rgba(0, 255, 255, 0.3);
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            border: 2px solid rgba(0, 255, 255, 0.35);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            border-color: rgba(255, 0, 255, 0.5);
+            box-shadow: 0 0 35px rgba(0, 255, 255, 0.3), 0 0 15px rgba(255, 0, 255, 0.15);
         }
         
         .card h2 {
@@ -672,21 +683,90 @@
             font-weight: 700;
             margin-bottom: 10px;
         }
+
+        /* Refined frame border - professional, understated */
+        .page-frame {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.06),
+                inset 0 0 0 2px rgba(0,0,0,0.15),
+                inset 0 0 80px rgba(0,0,0,0.08);
+        }
+        .card-corners {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            background:
+                linear-gradient(45deg, rgba(255,255,255,0.04) 0%, transparent 18%) top left,
+                linear-gradient(-45deg, rgba(255,255,255,0.03) 0%, transparent 18%) top right,
+                linear-gradient(-135deg, rgba(255,255,255,0.03) 0%, transparent 18%) bottom right,
+                linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 18%) bottom left;
+            background-size: 100px 100px;
+            background-repeat: no-repeat;
+        }
+        .floating-cards-app {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .float-card-app {
+            position: absolute;
+            width: 50px;
+            height: 70px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            animation: float-card-app 8s ease-in-out infinite;
+        }
+        .float-card-app:nth-child(1) { top: 12%; left: 4%; animation-delay: 0s; }
+        .float-card-app:nth-child(2) { top: 22%; right: 6%; animation-delay: 1.5s; }
+        .float-card-app:nth-child(3) { bottom: 28%; left: 8%; animation-delay: 3s; }
+        .float-card-app:nth-child(4) { bottom: 18%; right: 4%; animation-delay: 4.5s; }
+        .float-card-app:nth-child(5) { top: 48%; left: 2%; animation-delay: 2s; }
+        .float-card-app:nth-child(6) { top: 58%; right: 3%; animation-delay: 5s; }
+        @keyframes float-card-app {
+            0%, 100% { transform: translateY(0) rotate(var(--rot, -5deg)); opacity: 0.4; }
+            50% { transform: translateY(-10px) rotate(var(--rot, -5deg)); opacity: 0.75; }
+        }
+        .float-card-app:nth-child(1) { --rot: -10deg; }
+        .float-card-app:nth-child(2) { --rot: 6deg; }
+        .float-card-app:nth-child(3) { --rot: 4deg; }
+        .float-card-app:nth-child(4) { --rot: -8deg; }
+        .float-card-app:nth-child(5) { --rot: -5deg; }
+        .float-card-app:nth-child(6) { --rot: 10deg; }
     </style>
 </head>
 <body>
+    <div class="page-frame"></div>
+    <div class="card-corners"></div>
+    <div class="floating-cards-app">
+        <div class="float-card-app"></div>
+        <div class="float-card-app"></div>
+        <div class="float-card-app"></div>
+        <div class="float-card-app"></div>
+        <div class="float-card-app"></div>
+        <div class="float-card-app"></div>
+    </div>
     <!-- Version Badge -->
     <div class="version-badge" id="versionBadge">v{{ version|default('4.019') }}</div>
     
-    <!-- Cold start notice (hidden after policies load or 8 sec) -->
-    <div id="coldStartNotice" style="position: fixed; top: 50px; left: 50%; transform: translateX(-50%); background: rgba(255, 193, 7, 0.2); border: 1px solid rgba(255, 193, 7, 0.5); border-radius: 8px; padding: 10px 20px; font-size: 0.9rem; color: #ffc107; z-index: 9999; text-align: center; max-width: 90%;">
-        First visit? Render free tier may take 30-60 sec to wake up. Please wait…
+    <!-- Cold start notice (hidden after policies load or 8 sec) - bottom-right toast, non-intrusive -->
+    <div id="coldStartNotice" style="position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.9); border: 2px solid rgba(255, 193, 7, 0.6); border-radius: 12px; padding: 12px 18px; font-size: 0.85rem; color: #ffc107; z-index: 9998; max-width: 280px; box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(255, 193, 7, 0.2);">
+        <strong>First visit?</strong> Render free tier may take 30-60 sec to wake up. Please wait…
     </div>
     
     <div class="container">
         <header>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <a href="/" style="color: #00ffff; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">← Home</a>
+                <a href="/marketplace" style="color: #00ffff; margin-left: 16px; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">🛒 Marketplace</a>
                 <div>
                     <span style="color: #aaaaaa; text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);">{{ email }}</span>
                     <a href="/referral" style="color: #00ff00; margin-left: 15px; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);">Earn 20%</a>
@@ -694,7 +774,7 @@
                     <a href="/logout" style="color: #aaaaaa; margin-left: 15px; text-decoration: none;">Logout</a>
                 </div>
             </div>
-            <h1>CardLister Pro</h1>
+            <h1>CardPilot</h1>
             <p>List your card set on eBay in seconds</p>
             <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 <button onclick="saveTemplate()" style="padding: 8px 16px; background: rgba(255, 0, 255, 0.2); color: #ff00ff; border: 2px solid rgba(255, 0, 255, 0.4); border-radius: 6px; cursor: pointer; font-size: 0.9rem; text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);" title="Save current listing as template (Ctrl+S)">
@@ -715,6 +795,7 @@
                 <button onclick="showAnalytics()" style="padding: 8px 16px; background: rgba(255, 165, 0, 0.2); color: #ffa500; border: 2px solid rgba(255, 165, 0, 0.4); border-radius: 6px; cursor: pointer; font-size: 0.9rem;" title="Sales analytics">
                     📈 Analytics
                 </button>
+                <a href="/shipping" style="padding: 8px 16px; background: rgba(0, 200, 100, 0.2); color: #00c864; border: 2px solid rgba(0, 200, 100, 0.4); border-radius: 6px; text-decoration: none; font-size: 0.9rem;" title="Shipping labels">📦 Shipping</a>
             </div>
             
             <!-- Keyboard Shortcuts Modal -->
@@ -739,6 +820,19 @@
                     <button onclick="document.getElementById('analyticsModal').style.display='none'" style="margin-top: 20px; padding: 10px 24px; background: rgba(255,255,255,0.1); color: #fff; border-radius: 8px; cursor: pointer; width: 100%;">Close</button>
                 </div>
             </div>
+            <!-- Want Offer Modal -->
+            <div id="wantOfferModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center;" class="modal-flex">
+                <div style="background: rgba(15, 15, 26, 0.98); border: 2px solid rgba(255, 136, 0, 0.6); border-radius: 16px; padding: 30px; max-width: 460px; width: 90%;">
+                    <h3 style="color: #ff8800; margin-bottom: 10px;">🔥 Instant Offer – Someone Wants This Card!</h3>
+                    <p style="color: #ccc; margin-bottom: 16px;">Contact them to sell. <a href="/shipping" style="color:#00ff88;">Ship on your own</a> to avoid eBay fees, or list on eBay for ~$0.79 labels:</p>
+                    <div style="font-weight: 700; color: #00ffff; margin-bottom: 12px;" id="wantOfferCardLabel">#43 Pascal Siakam</div>
+                    <div id="wantOfferList" style="margin-bottom: 12px;"></div>
+                    <a id="wantOfferListOnEbay" href="#" style="display: block; text-align: center; padding: 12px; background: linear-gradient(90deg, #00ff88, #00ffff); color: #000; font-weight: 700; border-radius: 8px; text-decoration: none; margin-bottom: 10px;">📦 List on eBay → use ~$0.79 labels when it sells</a>
+                    <a href="/marketplace#report" style="display: block; text-align: center; padding: 10px; background: rgba(0, 255, 136, 0.2); color: #00ff88; border-radius: 8px; text-decoration: none; margin-bottom: 8px;">📋 Report sale (5% fee)</a>
+                    <a href="/marketplace" style="display: block; text-align: center; padding: 10px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border-radius: 8px; text-decoration: none; margin-bottom: 10px;">Go to Marketplace</a>
+                    <button onclick="hideWantOffer()" style="width: 100%; padding: 10px 24px; background: rgba(255,255,255,0.1); color: #fff; border-radius: 8px; cursor: pointer;">Close</button>
+                </div>
+            </div>
         </header>
         
         <!-- Step 1: Set Info -->
@@ -747,7 +841,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Set Name</label>
-                    <input type="text" id="setName" placeholder="e.g., 2024-25 Topps Chrome Basketball" value="2024-25 Topps Chrome Basketball">
+                    <input type="text" id="setName" placeholder="e.g., 2024-25 Topps Chrome Basketball" value="2024-25 Topps Chrome Basketball" onchange="if(cards.length) fetchWantMatches().then(()=>renderCards())">
                 </div>
                 <div class="form-group">
                     <label>Sport</label>
@@ -944,6 +1038,7 @@
                         <th style="width: 100px; min-width: 100px;">#</th>
                         <th style="width: 180px; max-width: 180px;">Player Name</th>
                         <th style="width: 200px; min-width: 200px;">Team</th>
+                        <th style="width: 90px;" title="Marketplace want matches">🔥 Offer</th>
                         <th style="width: 80px;">Price</th>
                         <th style="width: 60px;">Qty</th>
                         <th style="width: 60px;"></th>
@@ -1404,7 +1499,8 @@
                     }
                     
                     renderCards();
-                    
+                    fetchWantMatches().then(() => renderCards());
+
                     // Show search bar when cards are loaded
                     const searchContainer = document.getElementById('cardSearchContainer');
                     if (searchContainer && result.count > 0) {
@@ -1477,10 +1573,12 @@
                     if (modal) modal.classList.remove('active');
                     if (fetchBtn) fetchBtn.disabled = false;
                     if (data.success && data.cards) {
-                        const withImg = data.cards.filter(fc => fc.image_url || fc.imageUrl).length;
+                        const withImg = data.withImages != null ? data.withImages : data.cards.filter(fc => fc.image_url || fc.imageUrl).length;
                         window._pendingImageFetch = { cards: data.cards, toProcessCount: toProcess.length, version: data.version || '' };
                         showImageConfirmModal(data.cards);
-                        if (statusDiv) statusDiv.textContent = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
+                        let statusText = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
+                        if (data.hint) statusText += ' • ' + data.hint;
+                        if (statusDiv) statusDiv.textContent = statusText;
                     } else {
                         if (statusDiv) statusDiv.textContent = data.error || 'Failed';
                         showToast(data.error || 'Failed to fetch images', 'error');
@@ -1501,13 +1599,13 @@
             grid.innerHTML = '';
             fetchedCards.forEach(fc => {
                 const img = fc.image_url || fc.imageUrl;
-                const label = (fc.number ? fc.number + ' ' : '') + (fc.name || 'Card');
+                const label = (fc.number ? '#' + fc.number + ' ' : '') + (fc.name || 'Card');
                 const div = document.createElement('div');
                 div.style.cssText = 'text-align: center; padding: 8px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);';
                 const safeImg = (img && (img.startsWith('http://') || img.startsWith('https://'))) ? img.replace(/"/g, '&quot;').replace(/</g, '&lt;') : '';
                 const proxySrc = safeImg ? ('/api/image-proxy?url=' + encodeURIComponent(img)) : '';
                 div.innerHTML = (safeImg
-                    ? `<img src="${safeImg}" alt="" data-proxy="${proxySrc}" style="width: 90px; height: 126px; object-fit: contain; background: #1a1a2e; border-radius: 8px; display: block; margin: 0 auto 6px; border: 1px solid rgba(0,255,255,0.2);" referrerpolicy="no-referrer" onerror="var p=this.dataset.proxy;if(p){this.src=p;this.onerror=function(){this.style.background='#333';this.alt='?'}}else{this.style.background='#333';this.alt='?'}">`
+                    ? `<img src="${proxySrc || safeImg}" alt="" data-fallback="${safeImg}" style="width: 90px; height: 126px; object-fit: contain; background: #1a1a2e; border-radius: 8px; display: block; margin: 0 auto 6px; border: 1px solid rgba(0,255,255,0.2);" referrerpolicy="no-referrer" onerror="var f=this.dataset.fallback;if(f){this.src=f;this.onerror=function(){this.style.background='#333';this.alt='?'}}else{this.style.background='#333';this.alt='?'}">`
                     : `<div style="width: 90px; height: 126px; background: #333; border-radius: 8px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; color: #666;">?</div>`)
                     + `<span style="font-size: 0.75rem; color: #ccc; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${String(label || 'Card').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').substring(0, 18)}</span>`;
                 grid.appendChild(div);
@@ -1834,6 +1932,45 @@
             }
         }
         
+        window._wantMatches = [];
+        function getWantOfferBtn(cardId) {
+            const m = (window._wantMatches || []).find(x => x.cardId === cardId);
+            if (!m) return '';
+            return '<button type="button" onclick="showWantOffer(' + cardId + ')" title="Someone wants this card - sell now!" style="background: linear-gradient(90deg, #ff6b00, #ff9500); color: #000; border: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.8rem;">🔥 WANTED</button>';
+        }
+        async function fetchWantMatches() {
+            const setName = (document.getElementById('setName') || {}).value || '';
+            if (!setName || !cards || cards.length === 0) { window._wantMatches = []; return; }
+            try {
+                const r = await fetch('/api/marketplace/want-matches', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ set_name: setName, cards: cards.map(c => ({ id: c.id, name: c.name, number: c.number })) })
+                });
+                const data = await r.json();
+                window._wantMatches = (data.matches || []);
+                if (window._wantMatches.length > 0) showToast(window._wantMatches.length + ' card(s) match marketplace wants!', 'success');
+            } catch (e) { window._wantMatches = []; }
+        }
+        function showWantOffer(cardId) {
+            const card = cards.find(c => c.id === cardId);
+            const m = (window._wantMatches || []).find(x => x.cardId === cardId);
+            if (!card || !m) return;
+            const label = (card.number ? '#' + card.number + ' ' : '') + (card.name || 'Card');
+            const wantList = m.wants.map(w => {
+                const subj = encodeURIComponent('CardPilot: ' + (card.name || '') + ' #' + (card.number || '') + ' - for sale');
+                return '<div style="margin:10px 0; padding:10px; background:rgba(0,0,0,0.3); border-radius:8px;"><a href="mailto:' + (w.email||'') + '?subject=' + subj + '" style="color:#00ffff;">📧 Email ' + (w.email || 'buyer').split('@')[0] + '</a></div>';
+            }).join('');
+            const modal = document.getElementById('wantOfferModal');
+            if (!modal) return;
+            modal.querySelector('#wantOfferCardLabel').textContent = label;
+            modal.querySelector('#wantOfferList').innerHTML = wantList;
+            const setName = (document.getElementById('setName') || {}).value || '';
+            const listUrl = '/app?listCard=1&setName=' + encodeURIComponent(setName) + '&number=' + encodeURIComponent(card.number || '') + '&name=' + encodeURIComponent(card.name || '') + '&price=' + encodeURIComponent(card.price || '1.00');
+            const listLink = modal.querySelector('#wantOfferListOnEbay');
+            if (listLink) listLink.href = listUrl;
+            modal.style.display = 'flex';
+        }
+        function hideWantOffer() { const m = document.getElementById('wantOfferModal'); if (m) m.style.display = 'none'; }
         function renderCards() {
             const tbody = document.getElementById('cardsBody');
             if (!tbody) return;
@@ -1862,6 +1999,7 @@
                     <td><input type="text" class="num-input" value="${card.number}" onchange="updateCard(${card.id}, 'number', this.value)" placeholder="#" style="width: 100px; min-width: 100px;"></td>
                     <td><input type="text" value="${card.name}" onchange="updateCard(${card.id}, 'name', this.value)" placeholder="Player Name" style="width: 170px; max-width: 170px;"></td>
                     <td><input type="text" value="${card.team || ''}" onchange="updateCard(${card.id}, 'team', this.value)" placeholder="Team" style="width: 190px; min-width: 190px;"></td>
+                    <td style="vertical-align: middle; text-align: center;">${getWantOfferBtn(card.id)}</td>
                     <td><input type="number" class="price-input" value="${card.price}" step="0.25" min="0" onchange="updateCard(${card.id}, 'price', this.value)" style="width: 70px;"></td>
                     <td><input type="number" class="qty-input" value="${qty}" min="0" data-card-id="${card.id}" oninput="updateCard(${card.id}, 'qty', this.value)" style="width: 50px; ${qtyStyle}" title="${isZeroQty ? 'Quantity 0 - will be excluded from listing' : ''}"></td>
                     <td><button class="remove-btn" onclick="removeCard(${card.id})" style="padding: 4px 8px;">X</button></td>
@@ -2297,6 +2435,7 @@
             
             document.getElementById('bulkInput').value = '';
             showToast(`Added ${lines.length} cards`, 'success');
+            fetchWantMatches().then(() => renderCards());
         }
         
         function renderListingResult(result, cardCount, totalQuantity, avgPrice) {
@@ -2674,6 +2813,24 @@
             }, 500);
         }
         
+        // Check for marketplace "list on eBay" params - pre-fill single card for eBay sale (enables eBay labels)
+        (function initFromUrlParams() {
+            const p = new URLSearchParams(window.location.search);
+            if (p.get('listCard') !== '1') return;
+            const setName = p.get('setName') || p.get('set') || '';
+            const number = p.get('number') || p.get('num') || '';
+            const name = p.get('name') || '';
+            const price = p.get('price') || '1.00';
+            if (!number || !name) return;
+            const setNameEl = document.getElementById('setName');
+            if (setNameEl && setName) setNameEl.value = setName;
+            addCard(number, name, price, '1');
+            renderCards();
+            fetchWantMatches().then(() => renderCards());
+            showToast('Card from marketplace – list on eBay to use cheap ~$0.79 shipping labels', 'success');
+            window.history.replaceState({}, '', window.location.pathname); // Clean URL
+        })();
+
         // Start with empty cards - user will fetch from checklist
         // Or add sample cards for testing:
         // addCard('1', 'LeBron James', '5.00', '1', 'Lakers');

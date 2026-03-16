@@ -49,7 +49,16 @@ app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
 
 @app.errorhandler(404)
 def not_found(error):
-    """Handle 404 errors gracefully."""
+    """Handle 404 - JSON for API, HTML for pages."""
+    wants_html = not request.path.startswith('/api/')
+    if wants_html:
+        return (
+            '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Not Found - CardPilot</title></head>'
+            '<body style="font-family:sans-serif;background:#0a0a14;color:#fff;padding:40px;text-align:center;">'
+            '<h1>Page not found</h1><p>The page you requested could not be found.</p>'
+            '<p><a href="/" style="color:#00ffff;">Home</a> | <a href="/marketplace" style="color:#00ffff;">Marketplace</a> | <a href="/app" style="color:#00ffff;">App</a></p>'
+            '</body></html>', 404
+        )
     return jsonify({"error": "Not found"}), 404
 
 @app.errorhandler(500)
@@ -146,6 +155,15 @@ USER_TOKENS_FILE = "user_tokens.json"
 REFERRALS_FILE = "referrals.json"
 REFERRAL_COMMISSION_RATE = 0.20  # 20%
 
+# Marketplace - want/for-sale posts from set builders
+MARKETPLACE_FILE = "marketplace.json"
+MARKETPLACE_SALES_FILE = "marketplace_sales.json"
+MARKETPLACE_PENDING_FILE = "marketplace_pending_shipments.json"  # Pending = tracking added, awaiting delivery
+MARKETPLACE_REPUTATION_FILE = "marketplace_reputation.json"
+MARKETPLACE_BUYER_FEE_PCT = 5.0
+MARKETPLACE_SELLER_FEE_PCT = 5.0
+MARKETPLACE_STRIKES_BEFORE_SUSPENSION = 3
+
 # =============================================================================
 # SUBSCRIPTION MANAGEMENT
 # =============================================================================
@@ -214,6 +232,113 @@ def get_referral_code(email):
     """Generate a short referral code from email (6 chars)."""
     h = hashlib.sha256(email.lower().encode()).hexdigest()[:6]
     return h.upper()
+
+def load_marketplace():
+    """Load marketplace posts (wants + for_sale)."""
+    if os.path.exists(MARKETPLACE_FILE):
+        try:
+            with open(MARKETPLACE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {"wants": [], "for_sale": []}
+    return {"wants": [], "for_sale": []}
+
+def save_marketplace(data):
+    """Save marketplace data."""
+    with open(MARKETPLACE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+
+def load_marketplace_sales():
+    """Load reported marketplace sales for fee tracking."""
+    if os.path.exists(MARKETPLACE_SALES_FILE):
+        try:
+            with open(MARKETPLACE_SALES_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_marketplace_sales(sales):
+    """Save marketplace sales."""
+    with open(MARKETPLACE_SALES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(sales, f, indent=2)
+
+def load_marketplace_pending():
+    if os.path.exists(MARKETPLACE_PENDING_FILE):
+        try:
+            with open(MARKETPLACE_PENDING_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_marketplace_pending(pending):
+    with open(MARKETPLACE_PENDING_FILE, 'w', encoding='utf-8') as f:
+        json.dump(pending, f, indent=2)
+
+def _detect_carrier(tracking_number):
+    """Return TrackingMore carrier code from tracking number format."""
+    tn = re.sub(r'\s+', '', str(tracking_number or ''))
+    if tn.upper().startswith('1Z'):
+        return 'ups'
+    if tn.startswith('94') and len(tn) >= 20:
+        return 'usps'
+    if tn.isdigit() and len(tn) in (12, 13, 14, 15, 20, 22):
+        if len(tn) in (20, 22) or tn.startswith('94'):
+            return 'usps'
+        return 'fedex'
+    return 'usps'  # default for USPS-style numbers
+
+def _check_tracking_delivered(tracking_number, carrier=None):
+    """Check if package is delivered via TrackingMore API. Returns (is_delivered, status_str, error)."""
+    key = (os.environ.get('TRACKINGMORE_API_KEY') or '').strip()
+    if not key:
+        return None, None, "TRACKINGMORE_API_KEY not configured"
+    tn = re.sub(r'\s+', '', str(tracking_number or ''))
+    if not tn:
+        return False, None, "Invalid tracking number"
+    car = (carrier or _detect_carrier(tn)).lower()
+    try:
+        import urllib.request
+        url = f"https://api.trackingmore.com/v2/trackings/{car}/{urllib.parse.quote(tn)}"
+        req = urllib.request.Request(url)
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Trackingmore-Api-Key', key)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+        d = data.get('data') or {}
+        status = (d.get('status') or '').lower()
+        return status == 'delivered', status, None
+    except Exception as e:
+        return False, None, str(e)
+
+def load_marketplace_reputation():
+    if os.path.exists(MARKETPLACE_REPUTATION_FILE):
+        try:
+            with open(MARKETPLACE_REPUTATION_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_marketplace_reputation(data):
+    with open(MARKETPLACE_REPUTATION_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+
+def is_marketplace_suspended(email):
+    """True if user has 3+ reports or 3+ negative feedback against them."""
+    if not email:
+        return False
+    rep = load_marketplace_reputation()
+    r = rep.get((email or '').lower(), {})
+    if r.get("suspended"):
+        return True
+    reports = r.get("reports_against") or []
+    if len(reports) >= MARKETPLACE_STRIKES_BEFORE_SUSPENSION:
+        return True
+    feedback = r.get("feedback_received") or []
+    neg = sum(1 for f in feedback if f.get("rating", 5) <= 2)
+    return neg >= MARKETPLACE_STRIKES_BEFORE_SUSPENSION
 
 def get_referrer_from_code(code):
     """Look up referrer email from code. Returns None if not found."""
@@ -381,7 +506,8 @@ def api_image_proxy():
 def landing():
     """Landing page."""
     try:
-        return render_template('landing.html')
+        email = session.get('user_email', '')
+        return render_template('landing.html', email=email)
     except Exception as e:
         print(f"[ERROR] Error in landing: {e}")
         return f"<h1>Error</h1><p>An error occurred: {str(e)}</p>", 500
@@ -565,6 +691,14 @@ def referral():
         history=history,
         commission_rate=int(REFERRAL_COMMISSION_RATE * 100))
 
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
 @app.route('/contact')
 def contact():
     """Contact page."""
@@ -573,6 +707,451 @@ def contact():
     except Exception as e:
         print(f"[ERROR] Error in contact: {e}")
         return f"<h1>Error</h1><p>An error occurred: {str(e)}</p>", 500
+
+@app.route('/shipping')
+def shipping():
+    """Shipping info - public page. Links to USPS Ground Advantage, eBay labels, Pirate Ship."""
+    try:
+        email = session.get('user_email', '')
+        return render_template('shipping.html', email=email)
+    except Exception as e:
+        print(f"[ERROR] Error in shipping: {e}")
+        return f"<h1>Error</h1><p>An error occurred: {str(e)}</p>", 500
+
+@app.route('/marketplace', strict_slashes=False)
+def marketplace():
+    """Marketplace - subscriber bonus. Find cards you need, sell cards you have."""
+    try:
+        email = session.get('user_email', '')
+        if not email:
+            return redirect(url_for('login') + '?next=/marketplace')
+        if not is_subscribed(email):
+            return redirect('/subscribe?msg=Subscribe+to+get+Marketplace+access+free')
+        return render_template('marketplace.html',
+            email=email,
+            buyer_fee_pct=float(os.environ.get('MARKETPLACE_BUYER_FEE_PCT', MARKETPLACE_BUYER_FEE_PCT)),
+            seller_fee_pct=float(os.environ.get('MARKETPLACE_SELLER_FEE_PCT', MARKETPLACE_SELLER_FEE_PCT)))
+    except Exception as e:
+        print(f"[ERROR] Error in marketplace: {e}")
+        return f"<h1>Error</h1><p>An error occurred: {str(e)}</p>", 500
+
+@app.route('/api/marketplace/want-matches', methods=['POST'])
+def api_marketplace_want_matches():
+    """Return marketplace wants that match the user's cards. Subscribers only."""
+    email = session.get('user_email', '')
+    if not email or not is_subscribed(email):
+        return jsonify({"error": "Subscription required."}), 403
+    try:
+        data = request.get_json() or {}
+        set_name = (data.get("set_name") or "").strip().lower()
+        cards_in = data.get("cards") or []
+        if not set_name or not cards_in:
+            return jsonify({"matches": []})
+        mp = load_marketplace()
+        wants = [w for w in (mp.get("wants") or [])
+                 if (w.get("email") or "").lower() != email.lower()]
+        matches = []
+        for card in cards_in:
+            cid = card.get("id")
+            name = (card.get("name") or "").strip()
+            number = str(card.get("number") or "").strip()
+            if not cid:
+                continue
+            matching_wants = []
+            for w in wants:
+                wset = (w.get("set_name") or "").lower()
+                if not wset or (set_name not in wset and wset not in set_name):
+                    continue
+                cards_text = (w.get("cards") or "").lower()
+                if not cards_text:
+                    continue
+                name_match = name and len(name) > 2 and name.lower() in cards_text
+                num_match = number and (number in cards_text or f"#{number}".lower() in cards_text)
+                if name_match or num_match:
+                    matching_wants.append({"email": w.get("email"), "set_name": w.get("set_name"),
+                        "cards": w.get("cards"), "notes": w.get("notes")})
+            if matching_wants:
+                matches.append({"cardId": cid, "number": number, "name": name, "wants": matching_wants})
+        return jsonify({"matches": matches})
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_want_matches: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def _enrich_post_with_reputation(post):
+    """Add reputation info to a post for display."""
+    p = dict(post)
+    em = (post.get("email") or "").lower()
+    rep = load_marketplace_reputation()
+    r = rep.get(em, {})
+    reports = r.get("reports_against") or []
+    feedback = r.get("feedback_received") or []
+    neg_fb = sum(1 for f in feedback if f.get("rating", 5) <= 2)
+    suspended = r.get("suspended") or len(reports) >= MARKETPLACE_STRIKES_BEFORE_SUSPENSION or neg_fb >= MARKETPLACE_STRIKES_BEFORE_SUSPENSION
+    avg_rating = 0.0
+    if feedback:
+        avg_rating = sum(f.get("rating", 0) for f in feedback) / len(feedback)
+    p["reputation"] = {
+        "reports_count": len(reports),
+        "negative_feedback_count": neg_fb,
+        "avg_rating": round(avg_rating, 1),
+        "feedback_count": len(feedback),
+        "suspended": suspended,
+    }
+    return p
+
+@app.route('/api/marketplace/posts')
+def api_marketplace_posts():
+    """List marketplace posts (subscribers only). Supports filter=wants|forsale and set=..."""
+    email = session.get('user_email', '')
+    if not email or not is_subscribed(email):
+        return jsonify({"error": "Subscription required. Marketplace is free for subscribers."}), 403
+    try:
+        data = load_marketplace()
+        wants = [_enrich_post_with_reputation(w) for w in data.get("wants", [])]
+        for_sale = [_enrich_post_with_reputation(s) for s in data.get("for_sale", [])]
+        f = request.args.get("filter", "").lower()
+        set_filter = request.args.get("set", "").strip().lower()
+        if set_filter:
+            wants = [w for w in wants if set_filter in (w.get("set_name") or "").lower()]
+            for_sale = [s for s in for_sale if set_filter in (s.get("set_name") or "").lower()]
+        if f == "wants":
+            return jsonify({"wants": wants, "for_sale": []})
+        if f == "forsale":
+            return jsonify({"wants": [], "for_sale": for_sale})
+        return jsonify({"wants": wants, "for_sale": for_sale})
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_posts: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/marketplace/want', methods=['POST'])
+def api_marketplace_want():
+    """Add a want post (cards needed). Requires login. Suspended users cannot post."""
+    email = session.get('user_email', '')
+    if not email:
+        return jsonify({"error": "Login required"}), 401
+    if is_marketplace_suspended(email):
+        return jsonify({"error": "Your account is suspended (3+ reports). Contact support."}), 403
+    try:
+        data = request.get_json() or {}
+        set_name = (data.get("set_name") or "").strip()
+        cards = (data.get("cards") or "").strip()
+        notes = (data.get("notes") or "").strip()[:500]
+        ebay_username = (data.get("ebay_username") or "").strip()[:50]
+        if not set_name or not cards:
+            return jsonify({"error": "Set name and cards are required"}), 400
+        mp = load_marketplace()
+        mp.setdefault("wants", [])
+        post = {
+            "id": str(uuid.uuid4())[:12],
+            "email": email.lower(),
+            "ebay_username": ebay_username,
+            "set_name": set_name[:200],
+            "cards": cards[:1000],
+            "notes": notes,
+            "created": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+        mp["wants"].insert(0, post)
+        save_marketplace(mp)
+        return jsonify({"success": True, "post": post})
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_want: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/marketplace/forsale', methods=['POST'])
+def api_marketplace_forsale():
+    """Add a for-sale post. Requires login. Suspended users cannot post."""
+    email = session.get('user_email', '')
+    if not email:
+        return jsonify({"error": "Login required"}), 401
+    if is_marketplace_suspended(email):
+        return jsonify({"error": "Your account is suspended (3+ reports). Contact support."}), 403
+    try:
+        data = request.get_json() or {}
+        set_name = (data.get("set_name") or "").strip()
+        cards = (data.get("cards") or "").strip()
+        price = (data.get("price") or "").strip()[:100]
+        notes = (data.get("notes") or "").strip()[:500]
+        ebay_username = (data.get("ebay_username") or "").strip()[:50]
+        if not set_name or not cards:
+            return jsonify({"error": "Set name and cards are required"}), 400
+        mp = load_marketplace()
+        mp.setdefault("for_sale", [])
+        post = {
+            "id": str(uuid.uuid4())[:12],
+            "email": email.lower(),
+            "ebay_username": ebay_username,
+            "set_name": set_name[:200],
+            "cards": cards[:1000],
+            "price": price or "Best offer",
+            "notes": notes,
+            "created": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+        mp["for_sale"].insert(0, post)
+        save_marketplace(mp)
+        return jsonify({"success": True, "post": post})
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_forsale: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/marketplace/report-sale', methods=['POST'])
+def api_marketplace_report_sale():
+    """Report a completed marketplace sale for fee tracking. Subscribers only."""
+    email = session.get('user_email', '')
+    if not email or not is_subscribed(email):
+        return jsonify({"error": "Subscription required."}), 403
+    try:
+        data = request.get_json() or {}
+        seller_email = (data.get("seller_email") or "").strip().lower()
+        buyer_email = (data.get("buyer_email") or "").strip().lower()
+        amount = float(data.get("amount") or 0)
+        description = (data.get("description") or "").strip()[:500]
+        if not seller_email or not buyer_email or amount <= 0:
+            return jsonify({"error": "Seller email, buyer email, and amount (>0) are required"}), 400
+        # Reporter must be seller or buyer
+        if email.lower() not in (seller_email, buyer_email):
+            return jsonify({"error": "You must be the seller or buyer to report this sale"}), 403
+        sales = load_marketplace_sales()
+        buyer_fee = amount * (MARKETPLACE_BUYER_FEE_PCT / 100)
+        seller_fee = amount * (MARKETPLACE_SELLER_FEE_PCT / 100)
+        total_fee = buyer_fee + seller_fee
+        sale = {
+            "id": str(uuid.uuid4())[:12],
+            "seller_email": seller_email,
+            "buyer_email": buyer_email,
+            "amount": round(amount, 2),
+            "buyer_fee": round(buyer_fee, 2),
+            "seller_fee": round(seller_fee, 2),
+            "total_fee": round(total_fee, 2),
+            "description": description,
+            "reported_by": email.lower(),
+            "reported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        sales.append(sale)
+        save_marketplace_sales(sales)
+        return jsonify({"success": True, "sale": sale, "total_fee": sale["total_fee"]})
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": "Invalid amount"}), 400
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_report_sale: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/marketplace/report-shipment', methods=['POST'])
+def api_marketplace_report_shipment():
+    """Report a shipment (tracking + amount). When tracking shows delivered, sale auto-completes."""
+    email = session.get('user_email', '')
+    if not email or not is_subscribed(email):
+        return jsonify({"error": "Subscription required."}), 403
+    try:
+        data = request.get_json() or {}
+        tracking = (data.get("tracking_number") or "").strip().replace(" ", "")
+        buyer_email = (data.get("buyer_email") or "").strip().lower()
+        amount = float(data.get("amount") or 0)
+        if not tracking or not buyer_email or amount <= 0:
+            return jsonify({"error": "Tracking number, buyer email, and amount (>0) are required"}), 400
+        if buyer_email == email.lower():
+            return jsonify({"error": "You cannot sell to yourself"}), 400
+        pending = load_marketplace_pending()
+        for p in pending:
+            if (p.get("tracking_number", "").replace(" ", "") == tracking and
+                p.get("seller_email") == email.lower()):
+                return jsonify({"error": "This tracking is already reported"}), 400
+        rec = {
+            "id": str(uuid.uuid4())[:12],
+            "tracking_number": tracking,
+            "seller_email": email.lower(),
+            "buyer_email": buyer_email,
+            "amount": round(amount, 2),
+            "reported_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "status": "pending",
+            "last_checked": None,
+        }
+        pending.append(rec)
+        save_marketplace_pending(pending)
+        # Try immediate check if API key exists
+        delivered, status, _ = _check_tracking_delivered(tracking)
+        if delivered:
+            _complete_pending_sale(rec)
+            return jsonify({"success": True, "shipment": rec, "delivered": True, "message": "Already delivered! Sale recorded."})
+        return jsonify({"success": True, "shipment": rec, "delivered": False})
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": "Invalid amount"}), 400
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_report_shipment: {e}")
+        return jsonify({"error": str(e)}), 500
+
+def _complete_pending_sale(rec):
+    """Move pending shipment to completed sales (fee tracking) and remove from pending."""
+    pending = load_marketplace_pending()
+    pid = rec.get("id")
+    pending = [p for p in pending if p.get("id") != pid]
+    save_marketplace_pending(pending)
+    amount = float(rec.get("amount") or 0)
+    buyer_fee = amount * (MARKETPLACE_BUYER_FEE_PCT / 100)
+    seller_fee = amount * (MARKETPLACE_SELLER_FEE_PCT / 100)
+    sale = {
+        "id": str(uuid.uuid4())[:12],
+        "seller_email": rec.get("seller_email", ""),
+        "buyer_email": rec.get("buyer_email", ""),
+        "amount": round(amount, 2),
+        "buyer_fee": round(buyer_fee, 2),
+        "seller_fee": round(seller_fee, 2),
+        "total_fee": round(buyer_fee + seller_fee, 2),
+        "description": f"Auto-completed from tracking {rec.get('tracking_number', '')}",
+        "reported_by": "tracking_delivered",
+        "reported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    sales = load_marketplace_sales()
+    sales.append(sale)
+    save_marketplace_sales(sales)
+    return sale
+
+@app.route('/api/marketplace/check-tracking', methods=['POST'])
+def api_marketplace_check_tracking():
+    """Check all pending shipments; auto-complete those delivered. Call from cron or UI."""
+    email = session.get('user_email', '')
+    if not email or not is_subscribed(email):
+        return jsonify({"error": "Subscription required."}), 403
+    try:
+        pending = load_marketplace_pending()
+        completed = []
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        completed_ids = set()
+        for rec in list(pending):
+            tn = (rec.get("tracking_number") or "").replace(" ", "")
+            if not tn:
+                continue
+            delivered, status, err = _check_tracking_delivered(tn)
+            if delivered:
+                sale = _complete_pending_sale(rec)
+                completed.append({"tracking": tn, "amount": sale.get("amount"), "total_fee": sale.get("total_fee")})
+                completed_ids.add(rec.get("id"))
+            else:
+                rec["last_checked"] = now
+                rec["status"] = status or "pending"
+        pending = [p for p in pending if p.get("id") not in completed_ids]
+        save_marketplace_pending(pending)
+        return jsonify({"success": True, "completed": completed, "checked": len(pending) + len(completed_ids)})
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_check_tracking: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/marketplace/pending')
+def api_marketplace_pending():
+    """List pending shipments for current user (as seller or buyer)."""
+    email = session.get('user_email', '')
+    if not email or not is_subscribed(email):
+        return jsonify({"error": "Subscription required."}), 403
+    em = email.lower()
+    pending = [p for p in load_marketplace_pending() if p.get("seller_email") == em or p.get("buyer_email") == em]
+    tracking_configured = bool((os.environ.get('TRACKINGMORE_API_KEY') or '').strip())
+    return jsonify({"pending": pending, "tracking_configured": tracking_configured})
+
+@app.route('/api/marketplace/report', methods=['POST'])
+def api_marketplace_report():
+    """Report a user: no_payment, no_ship, not_as_described. 3 strikes = suspended."""
+    email = session.get('user_email', '')
+    if not email:
+        return jsonify({"error": "Login required"}), 401
+    try:
+        data = request.get_json() or {}
+        target_email = (data.get("target_email") or "").strip().lower()
+        report_type = (data.get("report_type") or "").strip().lower()
+        if report_type not in ("no_payment", "no_ship", "not_as_described"):
+            return jsonify({"error": "Invalid report type. Use: no_payment, no_ship, not_as_described"}), 400
+        if not target_email:
+            return jsonify({"error": "Target email required"}), 400
+        if target_email == email.lower():
+            return jsonify({"error": "You cannot report yourself"}), 400
+        rep = load_marketplace_reputation()
+        entry = rep.setdefault(target_email, {"reports_against": [], "feedback_received": []})
+        reports = entry.get("reports_against") or []
+        # Prevent same reporter reporting twice for same type (per target) - allow multiple reports from different users
+        from_email = email.lower()
+        for r in reports:
+            if r.get("from_email") == from_email and r.get("type") == report_type:
+                return jsonify({"error": "You already reported this user for this issue"}), 400
+        reports.append({"from_email": from_email, "type": report_type, "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
+        entry["reports_against"] = reports
+        if len(reports) >= MARKETPLACE_STRIKES_BEFORE_SUSPENSION:
+            entry["suspended"] = True
+            entry["suspended_reason"] = f"{len(reports)} reports (3-strike rule)"
+        rep[target_email] = entry
+        save_marketplace_reputation(rep)
+        return jsonify({"success": True, "strikes": len(reports), "suspended": entry.get("suspended", False)})
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_report: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/marketplace/feedback', methods=['POST'])
+def api_marketplace_feedback():
+    """Leave feedback for a user (rating 1-5). 3 negative (<=2) = contributes to suspension."""
+    email = session.get('user_email', '')
+    if not email:
+        return jsonify({"error": "Login required"}), 401
+    try:
+        data = request.get_json() or {}
+        target_email = (data.get("target_email") or "").strip().lower()
+        rating = int(data.get("rating") or 0)
+        role = (data.get("role") or "").strip().lower()  # "buyer" or "seller" - what they were in the deal
+        comment = (data.get("comment") or "").strip()[:300]
+        if rating < 1 or rating > 5:
+            return jsonify({"error": "Rating must be 1-5"}), 400
+        if not target_email:
+            return jsonify({"error": "Target email required"}), 400
+        if target_email == email.lower():
+            return jsonify({"error": "You cannot leave feedback for yourself"}), 400
+        rep = load_marketplace_reputation()
+        entry = rep.setdefault(target_email, {"reports_against": [], "feedback_received": []})
+        feedback_list = entry.get("feedback_received") or []
+        from_email = email.lower()
+        if any(f.get("from_email") == from_email for f in feedback_list):
+            return jsonify({"error": "You already left feedback for this user"}), 400
+        feedback_list.append({
+            "from_email": from_email,
+            "rating": rating,
+            "role": role or "unknown",
+            "comment": comment,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        })
+        entry["feedback_received"] = feedback_list
+        # Count negative feedback (<=2) - 3 negative = suspension
+        neg_count = sum(1 for f in feedback_list if f.get("rating", 5) <= 2)
+        if neg_count >= MARKETPLACE_STRIKES_BEFORE_SUSPENSION:
+            entry["suspended"] = True
+            entry["suspended_reason"] = f"{neg_count} negative feedback"
+        rep[target_email] = entry
+        save_marketplace_reputation(rep)
+        return jsonify({"success": True, "negative_count": neg_count, "suspended": entry.get("suspended", False)})
+    except (ValueError, TypeError) as e:
+        return jsonify({"error": "Invalid rating"}), 400
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_feedback: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/marketplace/delete', methods=['POST'])
+def api_marketplace_delete():
+    """Delete own post. Requires login."""
+    email = session.get('user_email', '')
+    if not email:
+        return jsonify({"error": "Login required"}), 401
+    try:
+        data = request.get_json() or {}
+        post_id = (data.get("id") or "").strip()
+        post_type = (data.get("type") or "").lower()
+        if not post_id or post_type not in ("want", "forsale"):
+            return jsonify({"error": "Invalid request"}), 400
+        mp = load_marketplace()
+        key = "wants" if post_type == "want" else "for_sale"
+        lst = mp.get(key, [])
+        orig_len = len(lst)
+        mp[key] = [p for p in lst if not (p.get("id") == post_id and (p.get("email") or "").lower() == email.lower())]
+        if len(mp[key]) == orig_len:
+            return jsonify({"error": "Post not found or you can't delete it"}), 404
+        save_marketplace(mp)
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"[ERROR] api_marketplace_delete: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/auth/ebay')
 def auth_ebay():
@@ -1609,13 +2188,18 @@ def api_fetch_images():
     """Auto-fetch card images from Beckett/Cardsmiths/eBay."""
     print(f"[FETCH-IMAGES] Request received", flush=True)
     try:
+        from dotenv import load_dotenv
+        load_dotenv(override=True)  # Ensure .env loaded (Render uses env vars, local uses .env)
+        serp_ok = bool((os.environ.get('SERPAPI_KEY') or '').strip())
+        print(f"[FETCH-IMAGES] SERPAPI_KEY {'set' if serp_ok else 'NOT set'}", flush=True)
         from features.card_images import CardImageFetcher
         import re
         data = request.json or {}
         cards = data.get('cards', [])
         set_name = (data.get('setName') or '').strip()
         source_url = data.get('sourceUrl', '') or ''
-        print(f"[FETCH-IMAGES] Cards: {len(cards)}, setName: '{set_name}'", flush=True)
+        first = (cards[0].get('name'), cards[0].get('number')) if cards else (None, None)
+        print(f"[FETCH-IMAGES] Cards: {len(cards)}, setName: '{set_name}', first: {first}", flush=True)
         if not set_name and source_url:
             m = re.search(r'/([a-z0-9\-]+?)(?:-hobby|-blaster|-retail|/)?$', source_url.lower())
             if m:
@@ -1624,9 +2208,13 @@ def api_fetch_images():
                 print(f"[FETCH-IMAGES] Extracted setName from URL: '{set_name}'", flush=True)
         fetcher = CardImageFetcher()
         updated = fetcher.fetch_images_for_cards(cards, set_name, source_url)
-        with_img = sum(1 for c in updated if c.get('image_url') or c.get('imageUrl'))
+        ph = getattr(fetcher, 'placeholder', '')
+        with_img = sum(1 for c in updated if (c.get('image_url') or c.get('imageUrl')) and (c.get('image_url') or c.get('imageUrl')) != ph)
         print(f"[FETCH-IMAGES] Done: {with_img}/{len(updated)} cards with images (v{VERSION})", flush=True)
-        return jsonify({"success": True, "cards": updated, "version": VERSION, "withImages": with_img})
+        resp = {"success": True, "cards": updated, "version": VERSION, "withImages": with_img}
+        if with_img < len(updated) and not os.environ.get('SERPAPI_KEY', '').strip():
+            resp["hint"] = "Add SERPAPI_KEY in .env (or Render env) for better image fetch. Free at serpapi.com"
+        return jsonify(resp)
     except Exception as e:
         print(f"[FETCH-IMAGES] ERROR: {e}", flush=True)
         import traceback

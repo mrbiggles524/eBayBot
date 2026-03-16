@@ -1,0 +1,29 @@
+---
+description: Bump VERSION file when making substantive code or template changes
+alwaysApply: true
+---
+
+# Bump Version on Changes
+
+After making **substantive changes** to the eBay Bot project (code, templates, config, styling), **always increment the VERSION file** by 1.
+
+## When to Bump
+
+- Code changes (app.py, API routes, listing logic, etc.)
+- Template changes (landing.html, app.html, etc.)
+- UI/styling updates
+- Feature additions or fixes
+
+## When to Skip
+
+- Typo fixes only
+- Comments/docs only
+- Purely exploratory/informational changes
+
+## How
+
+1. Read the current version from `VERSION` (e.g. `4.133`)
+2. Increment the number by 1 (e.g. `4.134`)
+3. Write the new version to `VERSION`
+
+Do this as part of the same change set—don't leave it for later.

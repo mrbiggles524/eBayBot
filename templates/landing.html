@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>eBay Card Listing Tool - List Cards Fast</title>
+    <title>CardPilot - Comps, Listings, Marketplace & More</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -47,7 +47,7 @@
             0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(255, 0, 255, 0.3); }
             50% { box-shadow: 0 0 30px rgba(0, 255, 255, 0.8), 0 0 60px rgba(255, 0, 255, 0.5); }
         }
-        .navbar, .hero, .features, .pricing, footer {
+        .navbar, .hero, .features, .vs-section, .card-gallery, .pricing, footer {
             position: relative;
             z-index: 1;
         }
@@ -357,26 +357,27 @@
             color: #ff00ff;
         }
         
-        /* Card frame border - sports card aesthetic */
+        /* Refined frame border - professional, understated */
         .page-frame {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             pointer-events: none;
             z-index: 0;
-            border: 14px solid;
-            border-image: linear-gradient(160deg, #00ffff 0%, #ff00ff 25%, #ffff00 50%, #00ffff 75%, #ff00ff 100%) 1;
-            box-shadow: inset 0 0 100px rgba(0,255,255,0.06);
+            box-shadow:
+                inset 0 0 0 1px rgba(255,255,255,0.06),
+                inset 0 0 0 2px rgba(0,0,0,0.15),
+                inset 0 0 80px rgba(0,0,0,0.08);
         }
         .card-corners {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
             pointer-events: none;
             z-index: 0;
-            background: 
-                linear-gradient(45deg, rgba(0,255,255,0.15) 0%, transparent 15%) top left,
-                linear-gradient(-45deg, rgba(255,0,255,0.15) 0%, transparent 15%) top right,
-                linear-gradient(-135deg, rgba(255,255,0,0.12) 0%, transparent 15%) bottom right,
-                linear-gradient(135deg, rgba(0,255,255,0.15) 0%, transparent 15%) bottom left;
+            background:
+                linear-gradient(45deg, rgba(255,255,255,0.04) 0%, transparent 18%) top left,
+                linear-gradient(-45deg, rgba(255,255,255,0.03) 0%, transparent 18%) top right,
+                linear-gradient(-135deg, rgba(255,255,255,0.03) 0%, transparent 18%) bottom right,
+                linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 18%) bottom left;
             background-size: 120px 120px;
             background-repeat: no-repeat;
         }
@@ -392,8 +393,8 @@
             position: absolute;
             width: 60px;
             height: 84px;
-            background: linear-gradient(145deg, rgba(0,255,255,0.08), rgba(255,0,255,0.05));
-            border: 1px solid rgba(0,255,255,0.2);
+            background: linear-gradient(145deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 6px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
             animation: float-card 8s ease-in-out infinite;
@@ -474,8 +475,10 @@
         <div class="float-card"></div>
     </div>
     <nav class="navbar">
-        <div class="logo">CardLister Pro</div>
+        <div class="logo">CardPilot</div>
         <div class="nav-links">
+            <a href="/marketplace">Marketplace</a>
+            <a href="/shipping">Shipping</a>
             <a href="/setup">Setup Guide</a>
             <a href="/referral">Earn 20%</a>
             <a href="/contact">Contact</a>
@@ -523,6 +526,12 @@
     </section>
     
     <section class="features">
+        <div class="feature" style="grid-column: 1 / -1; background: linear-gradient(135deg, rgba(0, 255, 255, 0.15), rgba(255, 0, 255, 0.15)); border-color: rgba(255, 255, 0, 0.5);">
+            <div class="feature-icon">🛒</div>
+            <h3>🆕 Marketplace – FREE for Subscribers!</h3>
+            <p><strong>Bonus:</strong> Post what cards you need. Browse what others are selling. Connect with collectors. Included free with your subscription.</p>
+            <a href="/marketplace" style="display: inline-block; margin-top: 15px; color: #00ffff; font-weight: 700; text-decoration: none; padding: 10px 24px; border: 2px solid #00ffff; border-radius: 25px; transition: all 0.3s;">Go to Marketplace →</a>
+        </div>
         <div class="feature">
             <div class="feature-icon">📋</div>
             <h3>Auto-Fetch Checklists</h3>
@@ -556,7 +565,7 @@
     </section>
     
     <section class="vs-section">
-        <h2>🃏 Why CardLister vs the Rest?</h2>
+        <h2>🃏 Why CardPilot vs the Rest?</h2>
         <div class="vs-grid">
             <div class="vs-col">
                 <h3>Manual Listing</h3>
@@ -567,7 +576,7 @@
             </div>
             <div class="vs-vs">VS</div>
             <div class="vs-col us">
-                <h3>CardLister Pro</h3>
+                <h3>CardPilot</h3>
                 <div class="vs-item yes">✓ Entire checklist in seconds</div>
                 <div class="vs-item yes">✓ Beckett + Cardsmiths fetch</div>
                 <div class="vs-item yes">✓ One-click variation listings</div>
@@ -658,7 +667,8 @@
                 <div style="text-decoration: line-through; color: #888; font-size: 1.2rem; margin-bottom: 10px;">$29.99/mo</div>
                 <div class="price">$14.99<span>/month</span></div>
                 <ul class="price-features">
-                    <li>Unlimited listings</li>
+                    <li><strong>🛒 Marketplace FREE</strong> – buy & sell with collectors</li>
+                    <li>Market pricing & comps</li>
                     <li>Auto-fetch checklists</li>
                     <li>Variation listings</li>
                     <li>Bulk pricing tools</li>
@@ -676,6 +686,7 @@
                 <ul class="price-features">
                     <li>Everything in Monthly</li>
                     <li><strong>Save $125 per year</strong></li>
+                    <li><strong>🛒 Marketplace FREE</strong></li>
                     <li>Priority support</li>
                     <li>Unlimited listings</li>
                     <li>Auto-fetch checklists</li>
@@ -693,12 +704,13 @@
         <div style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; margin-bottom: 30px; text-align: left;">
                 <div>
-                    <h3 style="color: #00ffff; margin-bottom: 15px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">CardLister Pro</h3>
-                    <p style="color: #aaaaaa; line-height: 1.8;">The fastest way to list premium sports cards on eBay. Built for serious collectors and professional sellers.</p>
+                    <h3 style="color: #00ffff; margin-bottom: 15px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">CardPilot</h3>
+                    <p style="color: #aaaaaa; line-height: 1.8;">Comps, listings, marketplace & auto images. Pilot your card business with one powerful tool.</p>
                 </div>
                 <div>
                     <h3 style="color: #00ffff; margin-bottom: 15px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">Quick Links</h3>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <a href="/marketplace" style="color: #cccccc; text-decoration: none; transition: all 0.2s;">🛒 Marketplace</a>
                         <a href="/setup" style="color: #cccccc; text-decoration: none; transition: all 0.2s;">📖 Setup Guide</a>
                         <a href="/contact" style="color: #cccccc; text-decoration: none; transition: all 0.2s;">📧 Contact Us</a>
                         <a href="/login" style="color: #cccccc; text-decoration: none; transition: all 0.2s;">🔐 Login</a>
@@ -707,15 +719,16 @@
                 <div>
                     <h3 style="color: #00ffff; margin-bottom: 15px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">Features</h3>
                     <div style="color: #aaaaaa; line-height: 1.8; font-size: 0.9rem;">
+                        ✓ Marketplace (subscriber bonus)<br>
+                        ✓ Market comps & pricing<br>
                         ✓ Auto-fetch checklists<br>
                         ✓ One-click publishing<br>
-                        ✓ Bulk pricing tools<br>
-                        ✓ CSV import/export
+                        ✓ Bulk pricing & CSV
                     </div>
                 </div>
             </div>
             <div style="border-top: 2px solid rgba(0, 255, 255, 0.2); padding-top: 20px; text-align: center;">
-                <p style="color: #aaaaaa; margin-bottom: 10px;">&copy; 2024 CardLister Pro | <a href="/contact" style="color: #00ffff; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">Contact Us</a> | <a href="/setup" style="color: #00ffff; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">Setup Guide</a></p>
+                <p style="color: #aaaaaa; margin-bottom: 10px;">&copy; 2026 CardPilot | <a href="/marketplace" style="color: #00ffff; text-decoration: none;">Marketplace</a> | <a href="/contact" style="color: #00ffff; text-decoration: none;">Contact</a> | <a href="/terms" style="color: #00ffff; text-decoration: none;">Terms</a> | <a href="/privacy" style="color: #00ffff; text-decoration: none;">Privacy</a> | <a href="/setup" style="color: #00ffff; text-decoration: none;">Setup</a></p>
                 <p style="color: #888; font-size: 0.9rem;">Powered by <span style="color: #00ffff; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">Manhattan Breaks</span></p>
             </div>
         </div>

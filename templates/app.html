@@ -741,6 +741,28 @@
         .float-card-app:nth-child(4) { --rot: -8deg; }
         .float-card-app:nth-child(5) { --rot: -5deg; }
         .float-card-app:nth-child(6) { --rot: 10deg; }
+        @media (max-width: 768px) {
+            body { padding: 12px 10px; }
+            body::before { background-image: none; background: radial-gradient(circle at 50% 50%, rgba(0, 255, 255, 0.08) 0%, transparent 60%); }
+            .floating-cards-app, .float-card-app { display: none !important; }
+            .container { max-width: 100%; }
+            header { padding: 15px 0 20px; }
+            header h1 { font-size: 1.6rem; }
+            header > div:first-child { flex-direction: column; align-items: stretch; gap: 12px; }
+            header > div:first-child > div { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+            header > div:first-child > div a, header > div:first-child > div span { margin: 0 !important; }
+            header > div:last-child { gap: 8px; }
+            header > div:last-child button, header > div:last-child a { padding: 8px 12px; font-size: 0.8rem; }
+            .card { padding: 16px; }
+            .card h2 { font-size: 1.1rem; }
+            .form-row { grid-template-columns: 1fr; }
+            .cards-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .cards-table th, .cards-table td { padding: 8px 6px; font-size: 0.85rem; }
+            .cards-table .num-input { width: 55px; min-width: 55px; }
+            .cards-table .price-input { width: 60px; }
+            .cards-table input { max-width: 140px; }
+            .version-badge { font-size: 0.75rem; padding: 4px 8px; top: 6px; right: 6px; }
+        }
     </style>
 </head>
 <body>

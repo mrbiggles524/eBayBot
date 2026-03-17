@@ -184,7 +184,7 @@ class CardImageFetcher:
             r = self.session.get(
                 "https://api.ebay.com/buy/browse/v1/item_summary/search",
                 headers={"Authorization": f"Bearer {token}", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
-                params={"q": q, "category_ids": "261328", "limit": 12},
+                params={"q": q, "category_ids": "261328", "limit": 12, "sort": "price"},
                 timeout=12
             )
             if r.status_code != 200:
@@ -247,7 +247,8 @@ class CardImageFetcher:
         set_kw = _set_keywords(set_name)
         try:
             r = self.session.get('https://serpapi.com/search.json', params={
-                'engine': 'ebay', '_nkw': query, 'ebay_domain': 'ebay.com', 'api_key': api_key
+                'engine': 'ebay', '_nkw': query, 'ebay_domain': 'ebay.com', 'api_key': api_key,
+                '_sop': 15
             }, timeout=15)
             try:
                 data = r.json() if r.text else {}
@@ -339,8 +340,7 @@ class CardImageFetcher:
             return None
         query = _build_search_query(player_name, set_name, card_number)
         from urllib.parse import quote_plus
-        url = f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(query)}&_sacat=261328"
-        # Prefer Base Set when we have a card number (reduces refractors/inserts)
+        url = f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(query)}&_sacat=261328&_sop=15"
         if card_number:
             url += "&Features=Base%2520Set"
         sess = self.session

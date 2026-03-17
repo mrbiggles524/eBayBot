@@ -853,40 +853,22 @@
             </div>
         </header>
         
-        <!-- Step 1: Set Info -->
-        <div class="card">
-            <h2><span class="step">1</span> Set Information</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Set Name</label>
-                    <input type="text" id="setName" placeholder="e.g., 2024-25 Topps Chrome Basketball" value="2024-25 Topps Chrome Basketball" onchange="if(cards.length) fetchWantMatches().then(()=>renderCards())">
-                </div>
-                <div class="form-group">
-                    <label>Sport</label>
-                    <select id="sport" title="Auto-detected from set name if not set">
-                        <option value="" selected>Auto (from set name)</option>
-                        <option value="Basketball">Basketball</option>
-                        <option value="Football">Football</option>
-                        <option value="Baseball">Baseball</option>
-                        <option value="Hockey">Hockey</option>
-                        <option value="Soccer">Soccer</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Default Image URL (Optional)</label>
-                    <input type="text" id="imageUrl" placeholder="Leave empty for no default image" value="">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Description (HTML supported) <span id="descriptionStatus" style="color: #00ffff; font-size: 0.85rem; margin-left: 10px;"></span></label>
-                <textarea id="description" placeholder="Your listing description... (Will be automatically filled when you fetch a checklist)"></textarea>
-            </div>
+        <div class="card" style="border-color: rgba(0, 255, 136, 0.5); background: rgba(0, 255, 136, 0.06);">
+            <h2 style="color: #00ff88; margin-bottom: 12px;">How to List Your Cards</h2>
+            <ol style="color: #ccc; line-height: 2; margin: 0; padding-left: 22px; font-size: 0.95rem;">
+                <li><strong style="color:#00ffff;">Find a checklist</strong> of the cards you want to list (Beckett, Cardsmiths Breaks, or Cardboard Connection).</li>
+                <li><strong style="color:#00ffff;">Copy the URL</strong> and paste it in Step 1. Set default quantities, then click Fetch Checklist.</li>
+                <li>Listing details (set name, description) auto-fill. <strong style="color:#00ffff;">Input quantities</strong> for each card you want to sell.</li>
+                <li><strong style="color:#00ffff;">Fetch images or prices</strong> automatically for your cards with one click.</li>
+                <li><strong style="color:#00ffff;">Connect your eBay token</strong> and select payment, shipping, and return policies.</li>
+                <li><strong style="color:#00ffff;">Publish</strong> to eBay when ready.</li>
+            </ol>
         </div>
         
-        <!-- Step 2: Fetch Checklist -->
+        <!-- Step 1: Import Checklist -->
         <div class="card">
-            <h2><span class="step">2</span> Fetch Checklist</h2>
-            
+            <h2><span class="step">1</span> Import Checklist</h2>
+            <p style="color: #888; margin-bottom: 16px; font-size: 0.95rem;">Paste the checklist URL, set default quantity and price, then click Fetch. Your cards and listing details will load automatically.</p>
             <div class="fetch-section" style="overflow-x: auto; max-width: 100%;">
                 <div class="form-row" style="flex-wrap: wrap;">
                     <div class="form-group" style="flex: 2;">
@@ -933,6 +915,37 @@
                     </div>
                 </div>
                 <div id="fetchStatus" style="margin-top: 10px; color: #888;"></div>
+            </div>
+        </div>
+        
+        <!-- Step 2: Listing Details (auto-filled from fetch) -->
+        <div class="card">
+            <h2><span class="step">2</span> Listing Details</h2>
+            <p style="color: #888; margin-bottom: 16px; font-size: 0.95rem;">Auto-filled when you fetch a checklist. Edit as needed.</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Set Name</label>
+                    <input type="text" id="setName" placeholder="e.g., 2024-25 Topps Chrome Basketball" value="2024-25 Topps Chrome Basketball" onchange="if(cards.length) fetchWantMatches().then(()=>renderCards())">
+                </div>
+                <div class="form-group">
+                    <label>Sport</label>
+                    <select id="sport" title="Auto-detected from set name if not set">
+                        <option value="" selected>Auto (from set name)</option>
+                        <option value="Basketball">Basketball</option>
+                        <option value="Football">Football</option>
+                        <option value="Baseball">Baseball</option>
+                        <option value="Hockey">Hockey</option>
+                        <option value="Soccer">Soccer</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Default Image URL (Optional)</label>
+                    <input type="text" id="imageUrl" placeholder="Leave empty for no default image" value="">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Description (HTML supported) <span id="descriptionStatus" style="color: #00ffff; font-size: 0.85rem; margin-left: 10px;"></span></label>
+                <textarea id="description" placeholder="Your listing description... (Auto-filled when you fetch a checklist)"></textarea>
             </div>
         </div>
         
@@ -2857,13 +2870,13 @@
         
         // ========== WALKTHROUGH ==========
         const WALKTHROUGH_STEPS = [
-            { target: 'setName', title: '1. Set Name', text: 'Enter your card set name (e.g., 2024-25 Topps Chrome Basketball). This appears in your eBay listing title.' },
-            { target: 'checklistUrl', title: '2. Checklist URL', text: 'Paste the full Beckett or Cardsmiths Breaks checklist URL here. Example: beckett.com/news/2024-25-topps-chrome-basketball-cards/' },
-            { target: 'checklistType', title: '3. Card Type', text: 'Select the type: Base Cards, Insert Cards, Autographs, #\'ed, or Parallels. This filters which cards to fetch.' },
-            { target: 'fetchBtn', title: '4. Fetch Checklist', text: 'Click this button to load all cards from the URL. The description may auto-fill. Set default price and quantity first if needed.' },
-            { target: 'cardsSection', title: '5. Your Cards', text: 'After fetching, set Price and Quantity for each card. Only cards with quantity > 0 are listed. Use the search bar to find specific cards. Use Bulk Edit for many cards at once.' },
-            { target: 'paymentPolicy', title: '6. Policies', text: 'Select Payment, Shipping, and Return policies. Click Refresh if empty—you may need to paste your eBay token first (Step 4 section).' },
-            { target: 'publishBtn', title: '7. Publish', text: 'When ready, click to publish your listing LIVE on eBay. Make sure you have cards with qty > 0 and policies selected.' }
+            { target: 'checklistUrl', title: '1. Checklist URL', text: 'Find a checklist of the cards you want to list (Beckett, Cardsmiths Breaks, or Cardboard Connection). Copy the full URL and paste it here.' },
+            { target: 'checklistType', title: '2. Card Type', text: 'Select the type: Base Cards, Insert Cards, Autographs, #\'ed, or Parallels. This filters which cards to fetch.' },
+            { target: 'fetchBtn', title: '3. Fetch Checklist', text: 'Set default price and quantity, then click Fetch Checklist. This loads your cards and auto-fills set name and description.' },
+            { target: 'setName', title: '4. Listing Details', text: 'Set name and description are auto-filled from the checklist. Edit as needed. Use Step 3 to fetch images or market prices.' },
+            { target: 'cardsSection', title: '5. Your Cards', text: 'Set Price and Quantity for each card. Only cards with quantity > 0 are listed. Use Fetch Images or Market Price to auto-populate.' },
+            { target: 'paymentPolicy', title: '6. Policies', text: 'Get your eBay token, then select Payment, Shipping, and Return policies. Click Refresh if empty.' },
+            { target: 'publishBtn', title: '7. Publish', text: 'When ready, click to publish your listing LIVE on eBay. Ensure you have cards with qty > 0 and policies selected.' }
         ];
         let walkthroughStep = 0;
         let walkthroughSpotlightEl = null;

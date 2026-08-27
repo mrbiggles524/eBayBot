@@ -632,8 +632,21 @@ class CardChecklistFetcher:
                     )
 
                     if mixed_bowman:
-                        # Bowman Baseball: veterans 1-N + Base Prospects BP-*
+                        # Bowman Baseball: veterans 1-N first, then Base Prospects BP-*
+                        def _bowman_order(card):
+                            n = str(card.get('number', ''))
+                            if n.isdigit():
+                                return (0, int(n))
+                            if n.startswith('BP-'):
+                                try:
+                                    return (1, int(n.split('-', 1)[1]))
+                                except ValueError:
+                                    return (1, 9999)
+                            return (2, n)
+
+                        result = sorted(result, key=_bowman_order)
                         print(f"[PARSER] Mixed Bowman base detected: {len(plain_cards)} plain + {len(prefixed_cards)} BP-")
+                        print(f"[PARSER] Ordered plain 1..N then BP-1..BP-N ({len(result)} cards)")
                         print(f"[PARSER] VALIDATION PASSED - keeping {len(result)} mixed base cards")
                         if result:
                             print(f"[PARSER] First card: {result[0].get('number')} {result[0].get('name')}")
@@ -1986,14 +1999,15 @@ class CardChecklistFetcher:
                 print(f"[NEW PARSER] Collected {bp_count} BP- prospect base cards")
 
             def sort_key(card):
-                num = card['number']
+                # Plain veterans (1..N) first, then prefixed groups (BP-/BD-/BDC-) by prefix + number
+                num = str(card['number'])
                 if num.isdigit():
-                    return (0, int(num))
+                    return (0, '', int(num))
                 if '-' in num:
                     parts = num.split('-', 1)
                     if len(parts) == 2 and parts[1].isdigit():
                         return (1, parts[0], int(parts[1]))
-                return (2, num)
+                return (2, num, 0)
 
             cards.sort(key=sort_key)
             print(

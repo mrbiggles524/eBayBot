@@ -1530,18 +1530,26 @@ def fetch_checklist():
                         # Examples: CPA-AE, DPPBA-EW, BIA-BC - sort alphabetically
                         return (0, num)  # Use 0 as first sort key, then alphabetical
                     else:
-                        # For base cards with prefixes (BD-1, BDC-1), sort by number first, then prefix
-                        return (int(num_part), prefix, num)
+                        # Base with prefixes: after all plain numbers, then by prefix, then number.
+                        # Bowman Baseball: 1..100 first, then BP-1..BP-150 (not interleaved).
+                        # Bowman Draft: BD-* then BDC-* (prefix groups, not number-interleaved).
+                        try:
+                            num_val = int(num_part)
+                        except ValueError:
+                            import re
+                            num_match = re.search(r'\d+', num_part)
+                            num_val = int(num_match.group()) if num_match else 0
+                        return (1, prefix, num_val, num)
                 elif num.isdigit():
-                    # Plain number format: "1", "2", etc.
-                    return (int(num), '', num)
+                    # Plain veterans first (group 0), before any BP-/BD-/etc. prefixes
+                    return (0, '', int(num), num)
                 else:
                     # Try to extract first number
                     import re
                     match = re.search(r'\d+', num)
                     if match:
-                        return (int(match.group()), '', num)
-                    return (999, '', num)
+                        return (2, '', int(match.group()), num)
+                    return (999, '', 0, num)
             except:
                 return (999, '', num)
         

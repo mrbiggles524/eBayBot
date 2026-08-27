@@ -504,13 +504,11 @@ class CardChecklistFetcher:
         soup = None
         description = None
         try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
             print(f"[DESC] Fetching page to extract description from: {url}")
-            response = requests.get(url, headers=headers, timeout=60)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.content, 'html.parser')
+            # Prefer cloudscraper via _fetch_page_soup (Beckett often fails plain SSL/requests)
+            soup = self._fetch_page_soup(url)
+            if soup is None:
+                raise RuntimeError('Failed to fetch page for description')
             description = self.extract_description_from_page(soup, url, checklist_type)
             if description:
                 print(f"[DESC] Successfully extracted description ({len(description)} chars)")
@@ -563,10 +561,10 @@ class CardChecklistFetcher:
                     print(f"[PARSER] First card: {result[0]}")
                     if len(result) > 1:
                         print(f"[PARSER] Last card: {result[-1]}")
-                    # Check for prefixed cards
+                    # Prefixed cards may be valid (BP- prospects, BD-/BDC- draft)
                     prefixed = [c for c in result if '-' in str(c.get('number', ''))]
                     if prefixed:
-                        print(f"[PARSER] WARNING: Found {len(prefixed)} prefixed cards in result!")
+                        print(f"[PARSER] Found {len(prefixed)} prefixed cards in base result (BP-/BD- OK)")
                         for c in prefixed[:5]:
                             print(f"[PARSER]   Prefixed: {c.get('number')} {c.get('name')}")
                 print(f"[PARSER] ========================================")
@@ -627,23 +625,26 @@ class CardChecklistFetcher:
                     # Check if this is a prefixed set
                     has_prefix = any('-' in str(c.get('number', '')) for c in result)
                     
-                    if has_prefix:
-                        # Prefixed set: validate that all cards have valid prefixes
-                        invalid_found = False
-                        invalid_cards = []
-                        for i, card in enumerate(result):
-                            card_num = str(card.get('number', ''))
-                            # For prefixed sets, card numbers should have prefixes
-                            if '-' not in card_num:
-                                print(f"[PARSER] WARNING: Card #{i+1} missing prefix: {card_num}")
-                                invalid_found = True
-                                invalid_cards.append(card)
-                        
-                        if invalid_found:
-                            print(f"[PARSER] ========================================")
+                    plain_cards = [c for c in result if str(c.get('number', '')).isdigit()]
+                    prefixed_cards = [c for c in result if '-' in str(c.get('number', ''))]
+                    mixed_bowman = bool(plain_cards) and bool(prefixed_cards) and all(
+                        str(c.get('number', '')).startswith('BP-') for c in prefixed_cards
+                    )
+
+                    if mixed_bowman:
+                        # Bowman Baseball: veterans 1-N + Base Prospects BP-*
+                        print(f"[PARSER] Mixed Bowman base detected: {len(plain_cards)} plain + {len(prefixed_cards)} BP-")
+                        print(f"[PARSER] VALIDATION PASSED - keeping {len(result)} mixed base cards")
+                        if result:
+                            print(f"[PARSER] First card: {result[0].get('number')} {result[0].get('name')}")
+                            print(f"[PARSER] Last card: {result[-1].get('number')} {result[-1].get('name')}")
+                    elif has_prefix:
+                        # Prefixed-only set (BD-/BDC-/etc.): all cards should be prefixed
+                        invalid_cards = [c for c in result if '-' not in str(c.get('number', ''))]
+                        if invalid_cards:
                             print(f"[PARSER] WARNING: Found {len(invalid_cards)} cards without prefixes in prefixed set!")
                             print(f"[PARSER] Removing invalid cards...")
-                            result = [c for c in result if c not in invalid_cards]
+                            result = [c for c in result if '-' in str(c.get('number', ''))]
                             print(f"[PARSER] Remaining cards: {len(result)}")
                         else:
                             print(f"[PARSER] VALIDATION PASSED - all {len(result)} prefixed cards are valid")
@@ -1757,456 +1758,260 @@ class CardChecklistFetcher:
             traceback.print_exc()
             return sections
     
+    def _fetch_page_soup(self, url: str):
+        """Fetch Beckett page HTML, preferring cloudscraper."""
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        import time
+        try:
+            import cloudscraper
+            scraper = cloudscraper.create_scraper()
+            for attempt in range(3):
+                try:
+                    response = scraper.get(url, timeout=60)
+                    if response.status_code == 200:
+                        return BeautifulSoup(response.content, 'html.parser')
+                    time.sleep(2)
+                except Exception as e:
+                    print(f"[NEW PARSER] cloudscraper error: {e}")
+                    if attempt == 2:
+                        break
+                    time.sleep(2)
+        except Exception as e:
+            print(f"[NEW PARSER] cloudscraper unavailable: {e}")
+
+        for attempt in range(3):
+            try:
+                response = requests.get(url, headers=headers, timeout=60, verify=False)
+                if response.status_code == 200:
+                    return BeautifulSoup(response.content, 'html.parser')
+                time.sleep(2)
+            except Exception as e:
+                print(f"[NEW PARSER] Request error: {e}")
+                if attempt == 2:
+                    return None
+                time.sleep(2)
+        return None
+
+    def _parse_card_line_matches(self, line: str, mode: str = 'plain'):
+        """Parse card entries from a line. mode is plain, BP, or BD."""
+        results = []
+        if mode == 'plain':
+            pattern = r'(?<![A-Za-z0-9-])(\d{1,3})\s+([A-Z][^,\d]{1,60}?),\s*([^,\d]{1,80}?)(?:\s+RC)?(?=(?:(?<![A-Za-z0-9-])\d{1,3}\s+[A-Z])|[A-Z]{2,}-\d+|$)'
+            for match in re.finditer(pattern, line):
+                num = match.group(1).strip()
+                name = match.group(2).strip()
+                team = match.group(3).strip().rstrip('.,;:')
+                if len(name) >= 2 and len(team) >= 2:
+                    results.append((num, name, team))
+        elif mode == 'BP':
+            pattern = r'BP-(\d+)\s+([A-Z][^,\d]{1,60}?),\s*([^,\d]{1,80}?)(?=\s*BP-\d+|[A-Z]{2,}-\d+|$)'
+            for match in re.finditer(pattern, line):
+                num = match.group(1).strip()
+                name = match.group(2).strip()
+                team = match.group(3).strip().rstrip('.,;:')
+                team = re.sub(r'BP-\d+.*$', '', team).strip()
+                if len(name) >= 2 and len(team) >= 2:
+                    results.append((f'BP-{num}', name, team))
+        elif mode == 'BD':
+            pattern = r'BDC?-(\d+)\s+(.+?)(?=BDC?-\d+|$)'
+            for match in re.finditer(pattern, line):
+                num = match.group(1).strip()
+                content = match.group(2).strip()
+                name_team = re.match(r'^([A-Z][^,\d]+?),\s*(.+?)$', content)
+                if not name_team:
+                    parts = content.split(',', 1)
+                    if len(parts) != 2:
+                        continue
+                    name, team = parts[0].strip(), parts[1].strip()
+                else:
+                    name, team = name_team.group(1).strip(), name_team.group(2).strip()
+                team = re.sub(r'BDC?-\d+.*$', '', team).strip()
+                prefix = 'BDC-' if 'BDC-' in line[max(0, match.start()-5):match.start()+10] else 'BD-'
+                if len(name) >= 2 and len(team) >= 2:
+                    results.append((f'{prefix}{num}', name, team))
+        return results
+
+    def _slice_section_lines(self, lines, start_phrases, stop_phrases):
+        """Return lines between first start heading and first stop heading."""
+        start_idx = None
+        for i, line in enumerate(lines):
+            low = line.lower()
+            if any(p in low for p in start_phrases):
+                if len(line) < 120:
+                    start_idx = i
+                    break
+        if start_idx is None:
+            return []
+        out = []
+        for j in range(start_idx + 1, len(lines)):
+            low = lines[j].lower()
+            if any(p in low for p in stop_phrases) and len(lines[j]) < 120:
+                break
+            out.append(lines[j])
+        return out
+
     def _fetch_base_cards_from_beckett(self, url: str, soup: BeautifulSoup = None) -> List[Dict]:
         """
-        COMPLETELY NEW PARSER - STARTED FRESH
-        
-        Strategy:
-        1. Find "Base Set Checklist" heading
-        2. Detect format: Check first few cards to see if they have prefixes (BD-1, BDP-1) or plain numbers (1, 2, 3)
-        3. If prefix detected: Collect cards with that prefix pattern (e.g., BD-1 through BD-200)
-        4. If no prefix: Collect plain numbers 1-300 (NO OTHER PREFIXES)
-        5. STOP when we hit a different prefix pattern or section
-        
-        Supports both formats:
-        - Plain numbers: "1 Pascal Siakam, Indiana Pacers" (Topps Chrome)
-        - Prefixed: "BD-1 Eli Willits, Washington Nationals" (Bowman Draft)
+        Beckett base parser.
+
+        Supports plain numbers, BD/BDC draft prefixes, and Bowman Baseball
+        veterans 1-N plus Base Prospects BP-1..BP-150 (before Chrome Prospects).
         """
         print(f"[NEW PARSER] ========================================")
-        print(f"[NEW PARSER] STARTING FRESH BASE CARDS PARSER")
+        print(f"[NEW PARSER] STARTING BASE CARDS PARSER")
         print(f"[NEW PARSER] URL: {url}")
-        print(f"[NEW PARSER] Supports both formats: plain numbers (1-300) and prefixed (BD-1, etc.)")
         print(f"[NEW PARSER] ========================================")
-        
+
         cards = []
-        
         try:
-            # Fetch page if needed
             if soup is None:
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-                import time
-                response = None
-                for attempt in range(3):
-                    try:
-                        response = requests.get(url, headers=headers, timeout=60)
-                        if response.status_code == 200:
-                            break
-                        time.sleep(2)
-                    except Exception as e:
-                        print(f"[NEW PARSER] Request error: {e}")
-                        if attempt == 2:
-                            return []
-                            time.sleep(2)
-                
-                if not response or response.status_code != 200:
-                    print(f"[NEW PARSER] Failed to fetch page")
+                soup = self._fetch_page_soup(url)
+                if soup is None:
+                    print("[NEW PARSER] Failed to fetch page")
                     return []
-                
-                soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Get all text and split into lines
-            page_text = soup.get_text()
+
+            page_text = soup.get_text('\n')
             lines = [line.strip() for line in page_text.split('\n') if line.strip()]
-            
             print(f"[NEW PARSER] Total lines: {len(lines)}")
-            
-            # Find "Base Set Checklist" and start collecting
-            collecting = False
-            found_checklist_heading = False
-            found_nums = set()  # Track which card numbers we've found
-            base_prefix = None  # Will be set to prefix like "BD-" or None for plain numbers
-            base_prefix_pattern = None  # Regex pattern for matching base cards
-            
-            # First pass: detect format and collect all cards
+
+            base_prefix = None
             for i, line in enumerate(lines):
-                line_lower = line.lower()
-                
-                # Step 1: Find "Base Set Checklist" heading (more flexible matching)
-                if not found_checklist_heading:
-                    # Look for variations of "Base Set Checklist"
-                    if any(phrase in line_lower for phrase in ['base set checklist', 'base set', 'base cards']):
-                        # Make sure it's not in the middle of other text
-                        if line_lower.count('base') <= 2:  # Avoid lines with multiple "base" mentions
-                            found_checklist_heading = True
-                            print(f"[NEW PARSER] Found 'Base Set Checklist' at line {i}: '{line[:80]}'")
-                            continue
-                
-                # Step 2: Detect format and start collecting
-                if found_checklist_heading and not collecting:
-                    # Try to detect the format by looking for first card
-                    # Pattern 1: Plain number "1 Player Name, Team"
-                    plain_match = re.match(r'^1\s+[A-Z]', line)
-                    # Pattern 2: Prefixed number "BD-1 Player Name, Team" or "BDC-1 Player Name, Team"
-                    prefix_match = re.match(r'^(BDC?-\d+)\s+[A-Z]', line)  # Match BD- or BDC- specifically
-                    # Also try other prefixes
-                    if not prefix_match:
-                        prefix_match = re.match(r'^([A-Z]{2,})-\d+\s+[A-Z]', line)
-                    
-                    if plain_match:
-                        # Plain number format (e.g., Topps Chrome)
-                        base_prefix = None
-                        base_prefix_pattern = r'^(\d{1,3})\s*([A-Z]'  # Plain numbers only
-                        collecting = True
-                        print(f"[NEW PARSER] Detected PLAIN NUMBER format (1, 2, 3...)")
-                        print(f"[NEW PARSER] Started collecting at line {i}: '{line[:70]}'")
-                    elif prefix_match:
-                        # Prefixed format (e.g., Bowman Draft BD-1, BDC-1, etc.)
-                        # Check if it's BD- or BDC- specifically
-                        if line.startswith('BDC-'):
-                            detected_prefix_base = 'BDC'
-                            base_prefix = 'BDC-'
-                            print(f"[NEW PARSER] Detected PREFIXED format: BDC- (will also collect BD- if present)")
-                        elif line.startswith('BD-'):
-                            detected_prefix_base = 'BD'
+                low = line.lower()
+                if 'base set checklist' in low or low == 'base set':
+                    for k in range(i + 1, min(i + 40, len(lines))):
+                        if re.match(r'^1\s+[A-Z]', lines[k]):
+                            base_prefix = None
+                            print("[NEW PARSER] Detected PLAIN NUMBER format")
+                            break
+                        if re.match(r'^BDC?-\d+\s+[A-Z]', lines[k]):
                             base_prefix = 'BD-'
-                            print(f"[NEW PARSER] Detected PREFIXED format: BD- (will also collect BDC- if present)")
-                        else:
-                            # Other prefix format
-                            detected_prefix_base = prefix_match.group(1)  # e.g., "YQ" or "SF"
-                            base_prefix = detected_prefix_base + '-'  # e.g., "YQ-" or "SF-"
+                            print("[NEW PARSER] Detected BD/BDC prefixed format")
+                            break
+                        m = re.match(r'^([A-Z]{2,})-\d+\s+[A-Z]', lines[k])
+                        if m:
+                            base_prefix = m.group(1) + '-'
                             print(f"[NEW PARSER] Detected PREFIXED format: {base_prefix}")
-                        
-                        # For BD/BDC, create pattern that matches both
-                        if base_prefix and base_prefix.startswith('BD') and len(base_prefix) == 3:  # "BD-"
-                            # Match BD- or BDC- (BD + optional C)
-                            base_prefix_pattern = rf'^BDC?-\d+\s*([A-Z]'  # Matches BD- or BDC-
-                        else:
-                            # Other prefixes - use exact match
-                            base_prefix_pattern = rf'^{re.escape(base_prefix)}(\d+)\s*([A-Z]'
-                        
-                        collecting = True
-                        print(f"[NEW PARSER] Started collecting at line {i}: '{line[:70]}'")
-                
-                # Step 3: Collect cards while collecting is True
-                if collecting:
-                    # Stop if we hit a different prefix pattern (different insert set)
-                    # But be more lenient - only stop if we see multiple different prefixes in a row
-                    should_stop = False
-                    if base_prefix is None:
-                        # Plain number format: stop if we see a prefixed card AND we've collected a reasonable amount
-                        if re.match(r'^[A-Z]{2,}-\d+', line) and len(cards) >= 50:
-                            # Hit a prefixed card (insert), stop collecting
-                            print(f"[NEW PARSER] Hit prefixed card (insert) after collecting {len(cards)} cards, stopping collection")
-                            collecting = False
-                            should_stop = True
-                    else:
-                        # Prefixed format: stop if we see a completely different prefix AND we've collected a reasonable amount
-                        # But allow variations like BD- and BDC- (both are base cards)
-                        other_prefix_match = re.match(r'^([A-Z]{2,})-\d+', line)
-                        if other_prefix_match:
-                            other_prefix = other_prefix_match.group(1) + '-'
-                            # Allow BD- and BDC- variations (both are base cards)
-                            if base_prefix.startswith('BD') and other_prefix.startswith('BD'):
-                                # Both are BD variations - continue collecting
-                                pass
-                            elif other_prefix != base_prefix and len(cards) >= 50:
-                                # Hit a completely different prefix (different insert set), stop collecting
-                                print(f"[NEW PARSER] Hit different prefix {other_prefix} (expected {base_prefix} or BD variation) after {len(cards)} cards, stopping")
-                                collecting = False
-                                should_stop = True
-                    
-                    if should_stop:
-                        break
-                    
-                    # Extract cards from this line based on detected format
-                    if base_prefix is None:
-                        # Plain number format: "114 Kelly Oubre Jr., Philadelphia 76ers"
-                        # Pattern: number, space OR no space, name, comma, team
-                        pattern = r'(\d{1,3})\s*([A-Z][^,\d]+?),\s*([^,\d]+?)(?:\s+RC)?(?=\d{1,3}[\sA-Z]|\d{1,3}[a-z]|$)'
-                    else:
-                        # Prefixed format: "BD-1" or "BDC-1" - handle both variations
-                        # For BD prefix, also match BDC- (both are base cards)
-                        if base_prefix and base_prefix.startswith('BD') and len(base_prefix) == 3:  # "BD-"
-                            # Match both BD- and BDC- with proper team extraction
-                            # Handle concatenated cards: "BD-1 Name, TeamBD-2 Name, Team"
-                            # Strategy: Match card prefix+number, then capture everything until next card prefix
-                            # Then parse the captured content to extract name and team
-                            pattern = r'BDC?-(\d+)\s+(.+?)(?=BDC?-\d+|$)'
-                        else:
-                            # Other prefixes - use exact match
-                            escaped_prefix = re.escape(base_prefix)
-                            pattern = rf'{escaped_prefix}(\d+)\s*([A-Z][^,\d]+?),\s*([^,\d]+?)(?=\s*{escaped_prefix}\d+|{escaped_prefix}\d+|$)'
-                    
-                    matches = re.finditer(pattern, line)
-                    
-                    for match in matches:
-                        card_num_str = match.group(1).strip()
-                        # For BD/BDC format, we captured everything after the number
-                        if base_prefix and base_prefix.startswith('BD') and len(base_prefix) == 3:
-                            card_content = match.group(2).strip() if len(match.groups()) > 1 and match.group(2) else ''
-                            # Parse card content: "Name, Team" format
-                            name_team_match = re.match(r'^([A-Z][^,\d]+?),\s*(.+?)$', card_content)
-                            if name_team_match:
-                                player_name = name_team_match.group(1).strip()
-                                team = name_team_match.group(2).strip()
-                            else:
-                                # Fallback: try to split at comma
-                                parts = card_content.split(',', 1)
-                                if len(parts) == 2:
-                                    player_name = parts[0].strip()
-                                    team = parts[1].strip()
-                                else:
-                                    continue
-                        else:
-                            player_name = match.group(2).strip()
-                            team = match.group(3).strip()
-                        
-                        # For BD/BDC variations, determine the actual prefix from the match
-                        actual_prefix = base_prefix
-                        if base_prefix and base_prefix.startswith('BD') and len(base_prefix) == 3:  # "BD-"
-                            # Check the original match to see if it was BDC- or BD-
-                            match_start = match.start()
-                            # Look at the text around the match to find the prefix
-                            prefix_text = line[max(0, match_start-5):match_start+10]
-                            if 'BDC-' in prefix_text:
-                                actual_prefix = 'BDC-'
-                            else:
-                                actual_prefix = 'BD-'
-                        
-                        # Clean team name - remove any trailing "BD-" or "BDC-" that got included
-                        # This handles concatenated cards like "NationalsBD-2" where the pattern might capture part of the next card
-                        team = re.sub(r'BDC?-\d+.*$', '', team).strip()  # Remove any trailing card prefix and number
-                        if team.endswith('BD') or team.endswith('BDC'):
-                            team = team.rstrip('BDC').strip()
-                        
-                        # VALIDATION 1: Must be valid number
+                            break
+                    break
+
+            seen = set()
+
+            def add_card(number, name, team):
+                if number in seen:
+                    return
+                if len(name) < 2 or len(team) < 2:
+                    return
+                seen.add(number)
+                cards.append({
+                    'number': number,
+                    'name': name,
+                    'team': team,
+                    'set_name': url,
+                    'type': 'base',
+                    'rarity': 'Base',
+                })
+
+            if base_prefix == 'BD-':
+                section = self._slice_section_lines(
+                    lines,
+                    start_phrases=['base set checklist', 'base set'],
+                    stop_phrases=[
+                        'autograph', 'insert', 'chrome prospects', 'parallels',
+                        'team set', 'checklist top', 'master card list',
+                    ],
+                )
+                for line in section:
+                    for num, name, team in self._parse_card_line_matches(line, 'BD'):
+                        add_card(num, name, team)
+                print(f"[NEW PARSER] Collected {len(cards)} BD/BDC cards")
+            elif base_prefix and base_prefix != 'BP-':
+                escaped = re.escape(base_prefix)
+                section = self._slice_section_lines(
+                    lines,
+                    start_phrases=['base set checklist', 'base set'],
+                    stop_phrases=['autograph', 'insert', 'chrome prospects', 'parallels', 'team set', 'checklist top'],
+                )
+                pat = rf'{escaped}(\d+)\s+([A-Z][^,\d]+?),\s*([^,\d]+?)(?=\s*{escaped}\d+|{escaped}\d+|$)'
+                for line in section:
+                    for match in re.finditer(pat, line):
+                        add_card(
+                            f"{base_prefix}{match.group(1)}",
+                            match.group(2).strip(),
+                            match.group(3).strip().rstrip('.,;:'),
+                        )
+                print(f"[NEW PARSER] Collected {len(cards)} {base_prefix} cards")
+            else:
+                veteran_section = self._slice_section_lines(
+                    lines,
+                    start_phrases=['base set checklist'],
+                    stop_phrases=[
+                        'etched in glass', 'etched-in glass', 'base prospects',
+                        'chrome prospects', 'red rc', 'variation', 'autograph',
+                        'insert', 'checklist top', 'prospects',
+                    ],
+                )
+                if not veteran_section:
+                    veteran_section = self._slice_section_lines(
+                        lines,
+                        start_phrases=['base set'],
+                        stop_phrases=[
+                            'etched in glass', 'etched-in glass', 'base prospects',
+                            'chrome prospects', 'variation', 'autograph', 'insert',
+                            'checklist top', 'prospects',
+                        ],
+                    )
+                for line in veteran_section:
+                    for num, name, team in self._parse_card_line_matches(line, 'plain'):
                         try:
-                            card_num = int(card_num_str)
-                            if card_num < 1:
-                                continue
+                            n = int(num)
                         except ValueError:
                             continue
-                    
-                        # No limit on card numbers - collect all base cards
-                        
-                        # VALIDATION 3: Basic name/team validation
-                        if len(player_name) < 2 or len(team) < 2:
-                            continue
-                    
-                        # Clean up
-                        player_name = player_name.strip()
-                        team = team.strip().rstrip('.,;:')
-                        
-                        # Clean team name - remove any trailing "BD-" or "BDC-" that got included
-                        # This handles concatenated cards like "NationalsBD-2" where the pattern might capture part of the next card
-                        team = re.sub(r'BDC?-\d+.*$', '', team).strip()  # Remove any trailing card prefix and number
-                        if team.endswith('BD') or team.endswith('BDC'):
-                            team = team.rstrip('BDC').strip()
-                        
-                        # Format card number with prefix if needed
-                        if base_prefix:
-                            # Use the actual prefix we detected (BD- or BDC-)
-                            full_card_num = f"{actual_prefix}{card_num_str}"
-                        else:
-                            full_card_num = card_num_str
-                        
-                        # Add card (avoid duplicates by full card number)
-                        existing_nums = {c['number'] for c in cards}
-                        if full_card_num not in existing_nums:
-                            cards.append({
-                                'number': full_card_num,
-                                'name': player_name,
-                                'team': team,
-                                'set_name': url,
-                                'type': 'base',
-                                'rarity': 'Base'
-                            })
-                            
-                            # Log progress periodically
-                            if len(cards) % 50 == 0:
-                                if base_prefix:
-                                    print(f"[NEW PARSER] Collected {len(cards)} {base_prefix} cards so far...")
-                                else:
-                                    found_nums = {int(c['number']) for c in cards if c['number'].isdigit()}
-                                    print(f"[NEW PARSER] Collected {len(cards)} cards so far (range: {min(found_nums) if found_nums else 'N/A'} to {max(found_nums) if found_nums else 'N/A'})...")
-                    
-                    # If we stopped collecting, break from outer loop
-                    if not collecting:
-                        break
-                    
-            # Always do a second pass to catch any cards we might have missed
-            # This helps with cards that appear in different formats or sections
-            if base_prefix is None:
-                # For plain numbers, do a second pass to find any we missed
-                found_nums = {int(c['number']) for c in cards if c['number'].isdigit()}
-                print(f"[NEW PARSER] First pass found {len(cards)} cards, doing second pass to catch any missed cards...")
-                
-                # Second pass: look for any plain number cards we might have missed
-                # Use more flexible patterns to catch cards in different formats
-                for i, line in enumerate(lines):
-                    # Pattern 1: Standard format "114 Name, Team" (with space)
-                    pattern1 = r'(\d{1,3})\s+([A-Z][^,\d]+?),\s*([^,\d]+?)(?:\s+RC)?(?=\d{1,3}[\sA-Z]|\d{1,3}[a-z]|$)'
-                    # Pattern 2: No space after number "114Name, Team" (common in team sections)
-                    pattern2 = r'(\d{1,3})([A-Z][^,\d]+?),\s*([^,\d]+?)(?:\s+RC)?(?=\d{1,3}[\sA-Z]|\d{1,3}[a-z]|$)'
-                    # Pattern 3: With optional space "114 Name, Team" or "114Name, Team"
-                    pattern3 = r'(\d{1,3})\s*([A-Z][^,\d]+?),\s*([^,\d]+?)(?:\s+RC)?'
-                    
-                    for pattern in [pattern1, pattern2, pattern3]:
-                        matches = re.finditer(pattern, line)
-                        for match in matches:
-                            card_num_str = match.group(1).strip()
-                            try:
-                                card_num = int(card_num_str)
-                                if card_num < 1:
-                                    continue
-                                
-                                # Skip if we already have this card
-                                if card_num in found_nums:
-                                    continue
-                                
-                                player_name = match.group(2).strip()
-                                team = match.group(3).strip() if len(match.groups()) >= 3 else ''
-                                
-                                if len(player_name) >= 2 and len(team) >= 2:
-                                    cards.append({
-                                        'number': str(card_num),
-                                        'name': player_name,
-                                        'team': team.strip().rstrip('.,;:'),
-                                        'set_name': url,
-                                        'type': 'base',
-                                        'rarity': 'Base'
-                            })
-                                    found_nums.add(card_num)
-                                    print(f"[NEW PARSER] Second pass found card {card_num}: {player_name}, {team}")
-                            except (ValueError, IndexError):
-                                continue
-                    
-                print(f"[NEW PARSER] Second pass complete: Found {len(cards)} total cards")
-            else:
-                # For prefixed format, do a second pass with more flexible patterns
-                print(f"[NEW PARSER] First pass found {len(cards)} cards, doing second pass to catch any missed cards...")
-                found_nums = {c['number'] for c in cards}
-                
-                # For BD prefix, match both BD- and BDC-
-                if base_prefix and base_prefix.startswith('BD') and len(base_prefix) == 3:  # "BD-"
-                    # Handle concatenated cards - capture everything until next card prefix
-                    pattern = r'BDC?-(\d+)\s+(.+?)(?=BDC?-\d+|$)'
-                else:
-                    escaped_prefix = re.escape(base_prefix) if base_prefix else ''
-                    pattern = rf'{escaped_prefix}(\d+)\s*([A-Z][^,\d]+?),\s*([^,\d]+?)(?=\s*{escaped_prefix}\d+|{escaped_prefix}\d+|$)'
-                
-                for i, line in enumerate(lines):
-                    # Skip lines that are clearly not cards
-                    if len(line) > 200:  # Skip very long lines
-                            continue
-                    line_lower = line.lower()
-                    if any(skip in line_lower for skip in ['collectors can find', 'university of', 'pursue a', 'career']):
-                        continue
-                    
-                    matches = re.finditer(pattern, line)
-                    
-                    for match in matches:
-                        card_num_str = match.group(1).strip()
-                        
-                        # Determine actual prefix (BD- or BDC-)
-                        if base_prefix and base_prefix.startswith('BD') and len(base_prefix) == 3:  # "BD-"
-                            # Check the match to see if it was BDC- or BD-
-                            match_start = match.start()
-                            prefix_text = line[max(0, match_start-5):match_start+10]
-                            if 'BDC-' in prefix_text:
-                                actual_prefix = 'BDC-'
-                            else:
-                                actual_prefix = 'BD-'
-                        else:
-                            actual_prefix = base_prefix
-                        
-                        full_card_num = f"{actual_prefix}{card_num_str}"
-                        
-                        # Skip if we already have this card
-                        if full_card_num in found_nums:
-                            continue
-                        
-                        try:
-                            card_num = int(card_num_str)
-                            # Only accept reasonable card numbers (1-500 for base sets)
-                            if card_num < 1 or card_num > 500:
-                                continue
-                            
-                            # For BD/BDC format, parse the captured content
-                            if base_prefix and base_prefix.startswith('BD') and len(base_prefix) == 3:
-                                card_content = match.group(2).strip() if len(match.groups()) > 1 and match.group(2) else ''
-                                # Parse card content: "Name, Team" format
-                                name_team_match = re.match(r'^([A-Z][^,\d]+?),\s*(.+?)$', card_content)
-                                if name_team_match:
-                                    player_name = name_team_match.group(1).strip()
-                                    team = name_team_match.group(2).strip()
-                                else:
-                                    # Fallback: try to split at comma
-                                    parts = card_content.split(',', 1)
-                                    if len(parts) == 2:
-                                        player_name = parts[0].strip()
-                                        team = parts[1].strip()
-                                    else:
-                                        continue
-                            else:
-                                player_name = match.group(2).strip()
-                                team = match.group(3).strip() if len(match.groups()) >= 3 else ''
-                            
-                            # Clean team name - remove any trailing "BD-" or "BDC-" that got included
-                            # This handles concatenated cards like "NationalsBD-2" where the pattern might capture part of the next card
-                            team = re.sub(r'BDC?-\d+.*$', '', team).strip()  # Remove any trailing card prefix and number
-                            if team.endswith('BD') or team.endswith('BDC'):
-                                team = team.rstrip('BDC').strip()
-                            
-                            # Validate: player name and team should be reasonable length
-                            if len(player_name) < 2 or len(player_name) > 50:
-                                continue
-                            if len(team) < 2 or len(team) > 60:
-                                continue
-                            
-                            # Skip if team name looks like it contains card info or is too long
-                            if any(skip in team.lower() for skip in ['university', 'pursue', 'career', 'collectors']):
-                                continue
-                            
-                            cards.append({
-                                'number': full_card_num,
-                                'name': player_name,
-                                'team': team.strip().rstrip('.,;:'),
-                                'set_name': url,
-                                'type': 'base',
-                                'rarity': 'Base'
-                            })
-                            found_nums.add(full_card_num)
-                            print(f"[NEW PARSER] Second pass found card {full_card_num}: {player_name}, {team}")
-                        except (ValueError, IndexError):
-                            continue
-                
-                print(f"[NEW PARSER] Second pass complete: Found {len(cards)} total cards")
-            
-            # Sort by card number (handle both plain numbers and prefixed)
+                        if 1 <= n <= 300:
+                            add_card(num, name, team)
+                plain_count = len(cards)
+                print(f"[NEW PARSER] Collected {plain_count} plain veteran base cards")
+
+                prospect_section = self._slice_section_lines(
+                    lines,
+                    start_phrases=['base prospects'],
+                    stop_phrases=[
+                        'chrome prospects', 'autograph', 'insert', 'packfractor',
+                        'etched in glass', 'checklist top', 'team set', 'master card',
+                    ],
+                )
+                for line in prospect_section:
+                    for num, name, team in self._parse_card_line_matches(line, 'BP'):
+                        add_card(num, name, team)
+                bp_count = len(cards) - plain_count
+                print(f"[NEW PARSER] Collected {bp_count} BP- prospect base cards")
+
             def sort_key(card):
                 num = card['number']
                 if num.isdigit():
-                    return (0, int(num))  # Plain numbers first
-                elif '-' in num:
-                    # Extract prefix and number for sorting
+                    return (0, int(num))
+                if '-' in num:
                     parts = num.split('-', 1)
                     if len(parts) == 2 and parts[1].isdigit():
-                        return (1, parts[0], int(parts[1]))  # Prefixed: sort by prefix, then number
-                return (2, num)  # Fallback
-            
+                        return (1, parts[0], int(parts[1]))
+                return (2, num)
+
             cards.sort(key=sort_key)
-            
-            # Simple validation - just check format consistency, no count limits
-            if base_prefix is None:
-                # Plain numbers - just log what we found
-                found_nums = {int(c['number']) for c in cards if c['number'].isdigit()}
-                print(f"[NEW PARSER] Found {len(cards)} plain number base cards (range: {min(found_nums) if found_nums else 'N/A'} to {max(found_nums) if found_nums else 'N/A'})")
-            else:
-                # Prefixed format - just log what we found
-                print(f"[NEW PARSER] Found {len(cards)} {base_prefix} base cards!")
-            
-            print(f"[NEW PARSER] SUCCESS: Found {len(cards)} base cards (range: {cards[0]['number'] if cards else 'N/A'} to {cards[-1]['number'] if cards else 'N/A'})")
+            print(
+                f"[NEW PARSER] SUCCESS: Found {len(cards)} base cards "
+                f"(range: {cards[0]['number'] if cards else 'N/A'} to {cards[-1]['number'] if cards else 'N/A'})"
+            )
+            if cards:
+                print(f"[NEW PARSER] First: {cards[0]['number']} {cards[0]['name']}")
+                print(f"[NEW PARSER] Last: {cards[-1]['number']} {cards[-1]['name']}")
             print(f"[NEW PARSER] ========================================")
-            
             return cards
-            
+
         except Exception as e:
             print(f"[NEW PARSER] ERROR: {e}")
             import traceback
             traceback.print_exc()
             return []
-    
+
     def _fetch_autographs_from_beckett(self, url: str, soup: BeautifulSoup = None) -> List[Dict]:
         """
         DEDICATED AUTOGRAPH PARSER - Only handles autograph cards

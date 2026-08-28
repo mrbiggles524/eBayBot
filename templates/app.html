@@ -1245,6 +1245,12 @@
             </div>
         </div>
         
+        <div id="publishBackgroundBanner" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:99998; max-width:640px; width:calc(100% - 40px); background:rgba(0,0,0,0.92); border:2px solid rgba(255,193,7,0.5); border-radius:12px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div style="color:#ffc107; font-weight:700; margin-bottom:6px;">⏳ Publish still running</div>
+            <div id="publishBackgroundText" style="color:#ccc; font-size:0.95rem;">Working in the background...</div>
+            <div style="margin-top:10px; font-size:0.85rem; color:#888;">Large sets can take 15–20 minutes. You can stay on this page or check Seller Hub.</div>
+        </div>
+        
         <!-- Result -->
         <div class="result" id="result"></div>
     </div>
@@ -2635,6 +2641,161 @@
             fetchWantMatches().then(() => renderCards());
         }
         
+        const ACTIVE_LISTING_JOB_KEY = 'cardpilot_active_listing_job';
+        const PUBLISH_POLL_MS = 3000;
+        const PUBLISH_BACKGROUND_AFTER_SEC = 600;
+        const PUBLISH_MAX_POLL_SEC = 3600;
+        let activePublishPollInterval = null;
+
+        function saveActiveListingJob(meta) {
+            try { sessionStorage.setItem(ACTIVE_LISTING_JOB_KEY, JSON.stringify(meta)); } catch (e) {}
+        }
+
+        function clearActiveListingJob() {
+            try { sessionStorage.removeItem(ACTIVE_LISTING_JOB_KEY); } catch (e) {}
+            const banner = document.getElementById('publishBackgroundBanner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        function showPublishBackgroundBanner(text) {
+            const banner = document.getElementById('publishBackgroundBanner');
+            const textEl = document.getElementById('publishBackgroundText');
+            if (textEl) textEl.textContent = text || 'Working in the background...';
+            if (banner) banner.style.display = 'block';
+        }
+
+        function updatePublishProgressUI(job, startTime, fallbackTotal) {
+            const elapsed = (Date.now() - startTime) / 1000;
+            const total = job.total || fallbackTotal || 0;
+            const progress = job.progress || 0;
+            let pct = 5;
+            if (total > 0 && progress > 0) {
+                pct = Math.min(95, 5 + (progress / total) * 90);
+            } else {
+                pct = Math.min(90, 5 + elapsed * 0.8);
+            }
+            const bar = document.getElementById('publishProgressBar');
+            const status = document.getElementById('publishStatusText');
+            if (bar) bar.style.width = pct + '%';
+            const phaseLabels = {
+                inventory: 'Creating inventory items',
+                group: 'Creating variation group',
+                offers: 'Creating offers',
+                linking: 'Linking offers to group',
+                publishing: 'Publishing to eBay',
+                starting: 'Starting',
+                queued: 'Queued'
+            };
+            const phaseLabel = phaseLabels[job.phase] || job.phase || 'Working';
+            const statusText = total > 0 && progress >= 0
+                ? `${phaseLabel}: ${progress}/${total}`
+                : (job.message || phaseLabel);
+            if (status) status.textContent = statusText;
+            showPublishBackgroundBanner(statusText + ` (${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s)`);
+        }
+
+        function stopPublishPolling() {
+            if (activePublishPollInterval) {
+                clearInterval(activePublishPollInterval);
+                activePublishPollInterval = null;
+            }
+        }
+
+        function startListingJobPoll(jobId, meta) {
+            stopPublishPolling();
+            const startTime = meta.startedAt || Date.now();
+            const cardCount = meta.cardCount || 0;
+            const totalQuantity = meta.totalQuantity || 0;
+            const avgPrice = meta.avgPrice || 0;
+            const fallbackTotal = meta.total || cardCount || 0;
+            let warnedSlow = false;
+            let backgroundMode = false;
+
+            saveActiveListingJob({ jobId, startedAt: startTime, cardCount, totalQuantity, avgPrice, total: fallbackTotal });
+
+            activePublishPollInterval = setInterval(async () => {
+                const elapsed = (Date.now() - startTime) / 1000;
+
+                if (elapsed > 120 && !warnedSlow) {
+                    warnedSlow = true;
+                    showToast('Large listings can take 15–20 minutes. Still publishing...', 'warning');
+                }
+
+                if (elapsed > PUBLISH_BACKGROUND_AFTER_SEC && !backgroundMode) {
+                    backgroundMode = true;
+                    document.getElementById('publishModal')?.classList.remove('active');
+                    showToast('Publish continues in background — stay on this page or check Seller Hub.', 'warning');
+                }
+
+                try {
+                    const statusRes = await fetch('/api/list-status/' + jobId);
+                    const job = await statusRes.json();
+
+                    if (!backgroundMode) {
+                        updatePublishProgressUI(job, startTime, fallbackTotal);
+                    } else {
+                        updatePublishProgressUI(job, startTime, fallbackTotal);
+                    }
+
+                    if (job.status === 'completed') {
+                        stopPublishPolling();
+                        clearActiveListingJob();
+                        document.getElementById('publishModal')?.classList.remove('active');
+                        document.getElementById('publishProgressBar').style.width = '100%';
+                        document.getElementById('publishStatusText').textContent = 'Done!';
+                        renderListingResult(job.result, cardCount, totalQuantity, avgPrice);
+                        showToast('Listing published successfully!', 'success');
+                    } else if (job.status === 'failed') {
+                        stopPublishPolling();
+                        clearActiveListingJob();
+                        document.getElementById('publishModal')?.classList.remove('active');
+                        const resultDiv = document.getElementById('result');
+                        resultDiv.className = 'result show error';
+                        resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${(job.error || '').replace(/</g, '&lt;')}</p>`;
+                        showToast(job.error || 'Publish failed', 'error');
+                    } else if (elapsed > PUBLISH_MAX_POLL_SEC) {
+                        stopPublishPolling();
+                        document.getElementById('publishModal')?.classList.remove('active');
+                        showPublishBackgroundBanner('Job may still be running server-side. Refresh this page to check status, or verify in Seller Hub.');
+                        showToast('Stopped polling after 60 minutes — check Seller Hub or refresh to resume status.', 'warning');
+                    }
+                } catch (e) {
+                    console.error('[poll]', e);
+                }
+            }, PUBLISH_POLL_MS);
+        }
+
+        function resumeActiveListingJobIfAny() {
+            try {
+                const raw = sessionStorage.getItem(ACTIVE_LISTING_JOB_KEY);
+                if (!raw) return;
+                const meta = JSON.parse(raw);
+                if (!meta.jobId) return;
+                fetch('/api/list-status/' + meta.jobId)
+                    .then(r => r.json())
+                    .then(job => {
+                        if (job.status === 'completed' && job.result) {
+                            clearActiveListingJob();
+                            renderListingResult(job.result, meta.cardCount, meta.totalQuantity, meta.avgPrice);
+                            showToast('Your listing finished while you were away!', 'success');
+                        } else if (job.status === 'failed') {
+                            clearActiveListingJob();
+                            const resultDiv = document.getElementById('result');
+                            resultDiv.className = 'result show error';
+                            resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${(job.error || '').replace(/</g, '&lt;')}</p>`;
+                        } else if (job.status === 'processing') {
+                            document.getElementById('publishModal')?.classList.add('active');
+                            showPublishBackgroundBanner('Resuming publish status...');
+                            startListingJobPoll(meta.jobId, meta);
+                            showToast('Resuming publish in progress...', 'warning');
+                        }
+                    })
+                    .catch(() => {});
+            } catch (e) {}
+        }
+
+        document.addEventListener('DOMContentLoaded', resumeActiveListingJobIfAny);
+
         function renderListingResult(result, cardCount, totalQuantity, avgPrice) {
             const resultDiv = document.getElementById('result');
             resultDiv.className = 'result show success';
@@ -2797,42 +2958,13 @@
                 
                 // Background job flow: poll for result
                 if (result.job_id && result.status === 'processing') {
-                    let warnedSlow = false;
-                    const pollInterval = setInterval(async () => {
-                        const elapsed = (Date.now() - startTime) / 1000;
-                        const simProgress = Math.min(95, 5 + elapsed * 1.5);
-                        document.getElementById('publishProgressBar').style.width = simProgress + '%';
-                        document.getElementById('publishStatusText').textContent = statusMessages[Math.floor(elapsed / 4) % statusMessages.length];
-                        if (elapsed > 120 && !warnedSlow) {
-                            warnedSlow = true;
-                            showToast('Large listings can take several minutes. Still publishing...', 'warning');
-                        }
-                        
-                        try {
-                            const statusRes = await fetch('/api/list-status/' + result.job_id);
-                            const job = await statusRes.json();
-                            if (job.status === 'completed') {
-                                clearInterval(pollInterval);
-                                document.getElementById('publishProgressBar').style.width = '100%';
-                                document.getElementById('publishStatusText').textContent = 'Done!';
-                                document.getElementById('publishModal').classList.remove('active');
-                                renderListingResult(job.result, cardCount, totalQuantity, avgPrice);
-                            } else if (job.status === 'failed') {
-                                clearInterval(pollInterval);
-                                document.getElementById('publishModal').classList.remove('active');
-                                const resultDiv = document.getElementById('result');
-                                resultDiv.className = 'result show error';
-                                resultDiv.innerHTML = `<h3>❌ Publish Failed</h3><p style="color: #dc3545;">${(job.error || '').replace(/</g, '&lt;')}</p>`;
-                                showToast(job.error, 'error');
-                            }
-                        } catch (e) { console.error('[poll]', e); }
-                        
-                        if (elapsed > 600) {
-                            clearInterval(pollInterval);
-                            document.getElementById('publishModal').classList.remove('active');
-                            showToast('Publish timed out after 10 minutes – check Seller Hub or try fewer cards.', 'warning');
-                        }
-                    }, 2000);
+                    startListingJobPoll(result.job_id, {
+                        startedAt: startTime,
+                        cardCount,
+                        totalQuantity,
+                        avgPrice,
+                        total: result.total || cardCount
+                    });
                     return;
                 }
                 

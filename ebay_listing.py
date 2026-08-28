@@ -33,7 +33,8 @@ class eBayListingManager:
         use_base_cards_policy: bool = None,
         schedule_draft: bool = False,
         schedule_hours: int = 24,
-        sport: str = None
+        sport: str = None,
+        progress_callback=None
     ) -> Dict:
         """
         Create an eBay listing with card variations.
@@ -169,7 +170,7 @@ Please select the specific card you want from the variation dropdown menu."""
         print(f"[DEBUG] Description preview: {description[:100]}...")
         
         return self._create_listing_via_inventory_api(
-            cards, title, description, category_id, price, quantity, condition, publish, selected_fulfillment_policy_id, sport=sport
+            cards, title, description, category_id, price, quantity, condition, publish, selected_fulfillment_policy_id, sport=sport, progress_callback=progress_callback
         )
     
     
@@ -186,11 +187,20 @@ Please select the specific card you want from the variation dropdown menu."""
         fulfillment_policy_id: str = None,
         schedule_draft: bool = False,
         schedule_hours: int = 24,
-        sport: str = None
+        sport: str = None,
+        progress_callback=None
     ) -> Dict:
         # Store cards data for later use in description update
         self._current_cards_data = cards
         self._current_listing_description = description
+
+        def _report(phase, current=0, total=0, message=None):
+            if progress_callback:
+                try:
+                    progress_callback(phase, current, total, message)
+                except Exception as e:
+                    print(f"[WARN] progress_callback failed: {e}", flush=True)
+
         """Create listing using eBay Inventory API with improved error handling."""
         errors = []
         created_items = []
@@ -277,6 +287,7 @@ Please select the specific card you want from the variation dropdown menu."""
         # Track variation_value usage - eBay 25013: each SKU must have UNIQUE "Pick Your Card" value
         used_variation_values = {}
         print(f"Creating {len(cards)} inventory items...")
+        _report('inventory', 0, len(cards), 'Creating inventory items...')
         for idx, card in enumerate(cards):
             card_name = card.get('name', 'Unknown')
             card_number = str(card.get('number', idx))
@@ -413,6 +424,7 @@ Please select the specific card you want from the variation dropdown menu."""
                     "variation_value": variation_value  # Used for variesBy - must match inventory item
                 })
                 print(f"  [OK] Created item: {sku}")
+                _report('inventory', idx + 1, len(cards), f'Created inventory item {idx + 1}/{len(cards)}')
             else:
                 error_detail = result.get('error', 'Unknown error')
                 status_code = result.get('status_code', 'Unknown')
@@ -453,6 +465,7 @@ Please select the specific card you want from the variation dropdown menu."""
         
         # Step 2: Create inventory item group for variations
         print(f"Creating inventory item group...")
+        _report('group', 0, 1, 'Creating variation group...')
         set_name = cards[0].get('set_name', 'SET')
         # Clean set_name for group key - eBay requires ONLY alphanumeric (no underscores, dashes, etc.)
         # Max 50 characters total
@@ -774,33 +787,8 @@ This listing allows you to choose from multiple card options, each with individu
         print(f"[DEBUG] Group data with title at ROOT level:")
         print(json.dumps(clean_group_data, indent=2))
         
-        # Before creating group, check if any SKUs are already in groups
-        # (This is a proactive check, but eBay will still validate)
-        print(f"[DEBUG] Checking if SKUs are already in groups...")
-        skus_to_check = [item["sku"] for item in created_items]
-        problematic_skus = []
-        for sku in skus_to_check:
-            # Try to get offer to see if it's in a group
-            offer_result = self.api_client.get_offer_by_sku(sku)
-            if offer_result.get('success') and offer_result.get('offer'):
-                offer = offer_result['offer']
-                # Check if offer has inventoryItemGroupKey
-                group_key_in_offer = offer.get('inventoryItemGroupKey')
-                if group_key_in_offer:
-                    problematic_skus.append((sku, group_key_in_offer))
-                    print(f"[DEBUG] [WARNING] SKU {sku} is already in group: {group_key_in_offer}")
-        
-        if problematic_skus:
-            print(f"[DEBUG] Found {len(problematic_skus)} SKU(s) already in groups. Will attempt to resolve...")
-            # Try to delete the old groups
-            for sku, old_group_key in problematic_skus:
-                print(f"[DEBUG] Attempting to remove SKU {sku} from group {old_group_key}...")
-                delete_result = self.api_client.delete_inventory_item_group(old_group_key)
-                if delete_result.get("success"):
-                    print(f"[DEBUG] [OK] Deleted old group {old_group_key}")
-                    time.sleep(1)  # Brief pause for propagation
-                else:
-                    print(f"[DEBUG] [WARNING] Could not delete group {old_group_key}: {delete_result.get('error')}")
+        # Before creating group, skip bulk SKU-in-group checks (fresh SKUs; saves ~N API calls).
+        # Error 25703 is handled in group creation retry logic below.
         
         # CRITICAL: Final verification before creating group
         print(f"[DEBUG] ========== FINAL GROUP DATA VERIFICATION ==========")
@@ -1183,6 +1171,7 @@ This listing allows you to choose from multiple card options, each with individu
             print(f"[DEBUG] Using original group key: {group_key}")
         
         print(f"  [OK] Created group: {group_key}")
+        _report('group', 1, 1, 'Variation group created')
         
         # Step 3: Ensure we have a merchant location (required for country info)
         merchant_location_key = self.policies.get('merchant_location_key')
@@ -1218,7 +1207,40 @@ This listing allows you to choose from multiple card options, each with individu
         print(f"Creating offers for each SKU...")
         offer_errors = []
         offers_created = 0
+        total_offers = len(created_items)
+        _report('offers', 0, total_offers, 'Creating offers...')
         
+        # Pre-compute shared listing description once (avoid rebuilding per card)
+        import re as _re_desc
+        raw_listing_desc = description if description else ''
+        if raw_listing_desc:
+            listing_description = _re_desc.sub(r'</(p|div|br|li|h[1-6])>', '\n', raw_listing_desc, flags=_re_desc.IGNORECASE)
+            listing_description = _re_desc.sub(r'<[^>]+>', '', listing_description)
+            for entity, char in (('&nbsp;', ' '), ('&amp;', '&'), ('&lt;', '<'), ('&gt;', '>'), ('&quot;', '"'), ('&#39;', "'"), ('&apos;', "'")):
+                listing_description = listing_description.replace(entity, char)
+            listing_description = _re_desc.sub(r'\n{3,}', '\n\n', listing_description)
+            listing_description = _re_desc.sub(r'[ \t]+', ' ', listing_description)
+            listing_description = _re_desc.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F]', '', listing_description)
+            listing_description = _re_desc.sub(r'&[a-zA-Z]+;', '', listing_description)
+            listing_description = listing_description.strip()
+        else:
+            listing_description = ''
+        if not listing_description or len(listing_description.strip()) < 50:
+            if "Topps Chrome" in group_title or "Chrome" in group_title:
+                listing_description = """If you are new to the Topps basketball scene, Topps Chrome serves as a premium upgrade to the 2025-26 Topps flagship basketball set printed on a chromium stock. Topps announced the base set will run 299 cards, featuring veterans, rookies, and legends.
+
+Select your card from the variations below. Each card is listed as a separate variation option.
+
+All cards are in Near Mint or better condition unless otherwise noted."""
+            else:
+                listing_description = f"""Variation listing for {group_title}.
+
+Select your card from the variations below. Each card is listed as a separate variation.
+
+All cards are in Near Mint or better condition unless otherwise noted.
+
+Please select the specific card you want from the variation dropdown menu."""
+        listing_description = str(listing_description).strip()
         # Calculate listingStartDate if schedule_draft is enabled (do this once before the loop)
         listing_start_date = None
         if schedule_draft and publish:
@@ -1274,97 +1296,6 @@ This listing allows you to choose from multiple card options, each with individu
                 print(f"  [ERROR] No return policy ID set!")
                 print(f"  [ERROR] This will fail with Error 25009")
                 print(f"  [ERROR] Please set RETURN_POLICY_ID in .env file")
-            
-            # Ensure description is valid and not empty
-            # eBay requires a description - it cannot be empty or just whitespace
-            # CRITICAL: Strip HTML from description for offers too
-            import re
-            raw_listing_desc = description if description else ''
-            
-            # Strip HTML tags from offer description
-            if raw_listing_desc:
-                listing_description = re.sub(r'</(p|div|br|li|h[1-6])>', '\n', raw_listing_desc, flags=re.IGNORECASE)
-                listing_description = re.sub(r'<[^>]+>', '', listing_description)
-                listing_description = listing_description.replace('&nbsp;', ' ')
-                listing_description = listing_description.replace('&amp;', '&')
-                listing_description = listing_description.replace('&lt;', '<')
-                listing_description = listing_description.replace('&gt;', '>')
-                listing_description = listing_description.replace('&quot;', '"')
-                listing_description = listing_description.replace('&#39;', "'")
-                listing_description = listing_description.replace('&apos;', "'")
-                listing_description = re.sub(r'\n{3,}', '\n\n', listing_description)
-                listing_description = re.sub(r'[ \t]+', ' ', listing_description)
-                listing_description = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F]', '', listing_description)
-                listing_description = re.sub(r'&[a-zA-Z]+;', '', listing_description)
-                listing_description = listing_description.strip()
-            else:
-                listing_description = ''
-            
-            # If description is missing or too short, create a proper one
-            if not listing_description or not listing_description.strip() or len(listing_description.strip()) < 50:
-                # Fallback to creating a proper description
-                if "Topps Chrome" in group_title or "Chrome" in group_title:
-                    listing_description = """If you are new to the Topps basketball scene, Topps Chrome serves as a premium upgrade to the 2025-26 Topps flagship basketball set printed on a chromium stock. Topps announced the base set will run 299 cards, featuring veterans, rookies, and legends.
-
-Select your card from the variations below. Each card is listed as a separate variation option.
-
-All cards are in Near Mint or better condition unless otherwise noted."""
-                else:
-                    listing_description = f"""Variation listing for {group_title}.
-
-Select your card from the variations below. Each card is listed as a separate variation.
-
-All cards are in Near Mint or better condition unless otherwise noted.
-
-Please select the specific card you want from the variation dropdown menu."""
-            
-            # Ensure it's a string and properly formatted
-            listing_description = str(listing_description).strip()
-            
-            if False:  # Old code path - keeping for reference
-                pass
-            else:
-                # Use the user's preferred description for Topps Chrome Basketball
-                if "Topps Chrome" in group_title or "Chrome" in group_title:
-                    listing_description = """If you are new to the Topps basketball scene, Topps Chrome serves as a premium upgrade to the 2025-26 Topps flagship basketball set printed on a chromium stock. Topps announced the base set will run 299 cards, featuring veterans, rookies, and legends.
-
-Select your card from the variations below. Each card is listed as a separate variation option.
-
-All cards are in Near Mint or better condition unless otherwise noted."""
-                else:
-                    # Create a proper, detailed description for other sets
-                    listing_description = f"""Variation listing for {group_title}.
-
-Select your card from the variations below. Each card is listed as a separate variation.
-
-All cards are in Near Mint or better condition unless otherwise noted.
-
-Please select the specific card you want from the variation dropdown menu."""
-            
-            # Ensure description meets minimum length (eBay typically requires at least 50-100 characters)
-            if len(listing_description.strip()) < 50:
-                listing_description = f"""{group_title} - Variation Listing
-
-Select your card from the variations below. Each card is listed as a separate variation option.
-
-All cards are in Near Mint or better condition. Please review the variation options and select the specific card you want.
-
-Thank you for your interest!"""
-            
-            # Debug: Print description to verify it's set
-            print(f"[DEBUG] Description for {sku}: {listing_description[:100]}... (length: {len(listing_description)})")
-            print(f"[DEBUG] Description is not empty: {bool(listing_description and listing_description.strip())}")
-            print(f"[DEBUG] Description meets minimum length: {len(listing_description.strip()) >= 50}")
-            
-            # CRITICAL DEBUG: Verify description before creating offer
-            print(f"[DEBUG] ========== OFFER DATA FOR {sku} ==========")
-            print(f"[DEBUG] Description being used:")
-            print(f"  Value: {listing_description[:100]}...")
-            print(f"  Length: {len(listing_description)}")
-            print(f"  Is string: {isinstance(listing_description, str)}")
-            print(f"  Is not empty: {bool(listing_description and listing_description.strip())}")
-            print(f"  Meets minimum: {len(listing_description.strip()) >= 50}")
-            print(f"[DEBUG] =========================================")
             
             # Extract card info for item specifics
             card = item.get("card", {})
@@ -1543,104 +1474,17 @@ Thank you for your interest!"""
             print(f"  - Root level listingPolicies: {policy_id_used}")
             print(f"  - Nested listing.listingPolicies: {policy_id_used}")
             
-            # Create or update offer (handles existing offers)
-            offer_result = self.api_client.create_or_update_offer(offer_data)
+            # Create offer directly (fresh SKUs — skip get_offer_by_sku pre-check)
+            offer_result = self.api_client.create_offer(offer_data)
+            if not offer_result.get("success"):
+                err_text = str(offer_result.get('error', ''))
+                if 'already' in err_text.lower() or offer_result.get('status_code') in (409, 400):
+                    offer_result = self.api_client.create_or_update_offer(offer_data)
             if offer_result.get("success"):
-                offer_id = offer_result.get("data", {}).get("offerId") or offer_result.get("data", {}).get("offerId")
-                if not offer_id:
-                    # Try to get it from the response
-                    offer_id = offer_result.get("offerId")
-                print(f"  [OK] Created/updated offer for {sku}: {offer_id}")
+                offer_id = offer_result.get("data", {}).get("offerId") or offer_result.get("offerId")
+                print(f"  [OK] Created offer for {sku}: {offer_id}")
                 offers_created += 1
-                
-                # CRITICAL: eBay API may not return description in GET requests immediately
-                # So we ALWAYS update the offer after creation to ensure description is set
-                print(f"  [FIX] Ensuring description is set by updating offer immediately...")
-                # Removed sleep - update immediately
-                
-                # Build complete update payload with description
-                # Only include payment policy if it's set (it's optional)
-                update_listing_policies = {
-                    "fulfillmentPolicyId": policy_id_used
-                }
-                if payment_policy_id and payment_policy_id.strip():
-                    update_listing_policies["paymentPolicyId"] = payment_policy_id
-                if return_policy_id and return_policy_id.strip():
-                    update_listing_policies["returnPolicyId"] = return_policy_id
-                
-                update_offer_data = {
-                    "sku": sku,
-                    "marketplaceId": "EBAY_US",
-                    "format": "FIXED_PRICE",
-                    "inventoryItemGroupKey": group_key,  # CRITICAL: preserve group link on update
-                    "categoryId": str(category_id),
-                    "listingDescription": listing_description,  # CRITICAL: eBay requires at root level
-                    "listing": {
-                        "title": group_title,
-                        "description": listing_description,  # CRITICAL: Also in listing object
-                        "listingPolicies": update_listing_policies
-                    },
-                    "listingPolicies": update_listing_policies,
-                    "pricingSummary": offer_data.get('pricingSummary', {}),
-                    "quantity": offer_data.get('quantity', quantity),
-                    "availableQuantity": offer_data.get('availableQuantity', quantity),
-                    "listingDuration": offer_data.get('listingDuration', 'GTC')
-                }
-                
-                # Add listingStartDate if scheduling (CRITICAL - must be in update too!)
-                if listing_start_date:
-                    update_offer_data["listingStartDate"] = listing_start_date
-                    print(f"  [SCHEDULE] ✅ Added listingStartDate to offer update for {sku}: {listing_start_date}")
-                elif schedule_draft and publish:
-                    # Safety check: ensure listingStartDate is in update
-                    if not listing_start_date:
-                        from datetime import datetime, timedelta, timezone
-                        # Use longer delay for production to ensure scheduled status
-                        min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
-                        actual_hours = max(schedule_hours, min_hours)
-                        try:
-                            start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
-                            listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                        except (OSError, ValueError):
-                            start_time = datetime.utcnow() + timedelta(hours=actual_hours)
-                            listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
-                    update_offer_data["listingStartDate"] = listing_start_date
-                    print(f"  [SCHEDULE] [FIX] ⚠️ Added listingStartDate to offer update for {sku} (calculated): {listing_start_date}")
-                
-                # CRITICAL: Verify listingStartDate is in update_offer_data
-                if schedule_draft and publish:
-                    if "listingStartDate" in update_offer_data:
-                        print(f"  [DEBUG] ✅ CONFIRMED: listingStartDate is in update_offer_data for {sku}: {update_offer_data['listingStartDate']}")
-                    else:
-                        print(f"  [DEBUG] ❌ ERROR: listingStartDate is MISSING from update_offer_data for {sku}!")
-                        # Force add it
-                        if not listing_start_date:
-                            from datetime import datetime, timedelta, timezone
-                            min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
-                            actual_hours = max(schedule_hours, min_hours)
-                            try:
-                                start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
-                                listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                            except (OSError, ValueError):
-                                start_time = datetime.utcnow() + timedelta(hours=actual_hours)
-                                listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
-                        update_offer_data["listingStartDate"] = listing_start_date
-                        print(f"  [DEBUG] [FIXED] Added listingStartDate: {listing_start_date}")
-                
-                if merchant_location_key:
-                    update_offer_data["merchantLocationKey"] = merchant_location_key
-                
-                print(f"  [DEBUG] ========== FORCE UPDATE OFFER WITH DESCRIPTION ==========")
-                print(f"  [DEBUG] Description in update payload: {update_offer_data['listing']['description'][:100]}...")
-                print(f"  [DEBUG] Description length: {len(update_offer_data['listing']['description'])}")
-                print(f"  [DEBUG] =========================================================")
-                
-                if offer_id:
-                    update_result = self.api_client.update_offer(offer_id, update_offer_data)
-                    if update_result.get('success'):
-                        print(f"  [OK] Successfully updated offer with description!")
-                    else:
-                        print(f"  [WARNING] Update failed but continuing: {update_result.get('error')}")
+                _report('offers', offers_created, total_offers, f'Created offer {offers_created}/{total_offers}')
             else:
                 error_msg = offer_result.get('error', 'Unknown error')
                 if isinstance(error_msg, dict):
@@ -1654,55 +1498,10 @@ Thank you for your interest!"""
             if len(created_items) > 10:
                 time.sleep(0.05)
         
-        # Step 4b: Ensure every offer is linked to the variation group (required for group publish)
-        print(f"[DEBUG] [LINK] Linking offers to group {group_key}...")
-        offers_linked = 0
-        for item in created_items:
-            sku = item["sku"]
-            offer_result = self.api_client.get_offer_by_sku(sku)
-            if not offer_result.get('success') or not offer_result.get('offer'):
-                print(f"[DEBUG] [LINK] ⚠️ No offer found for {sku} — skipping link")
-                continue
-            offer = offer_result['offer']
-            offer_id = offer.get('offerId')
-            if not offer_id:
-                continue
-            current_group_key = offer.get('inventoryItemGroupKey')
-            if current_group_key == group_key:
-                offers_linked += 1
-                continue
-            offer_update = {
-                "sku": sku,
-                "marketplaceId": "EBAY_US",
-                "format": "FIXED_PRICE",
-                "inventoryItemGroupKey": group_key,
-                "categoryId": offer.get('categoryId', category_id),
-                "pricingSummary": offer.get('pricingSummary', {}),
-                "listingPolicies": offer.get('listingPolicies', {}),
-                "availableQuantity": offer.get('availableQuantity', 1),
-                "listingDuration": offer.get('listingDuration', 'GTC'),
-            }
-            if 'listing' in offer:
-                offer_update['listing'] = offer['listing']
-            if merchant_location_key:
-                offer_update['merchantLocationKey'] = merchant_location_key
-            update_result = self.api_client.update_offer(offer_id, offer_update)
-            if update_result.get('success'):
-                offers_linked += 1
-                print(f"[DEBUG] [LINK] ✅ Linked offer {sku} to group")
-            else:
-                print(f"[DEBUG] [LINK] ❌ Failed to link offer {sku}: {update_result.get('error')}")
-        print(f"[DEBUG] [LINK] Linked {offers_linked}/{len(created_items)} offers to group {group_key}")
-        if offers_created > 0 and offers_linked == 0:
-            return {
-                "success": False,
-                "error": "Offers were created but none could be linked to the variation group. Cannot publish.",
-                "created_items": len(created_items),
-                "offers_created": offers_created,
-                "offers_linked": 0,
-                "group_key": group_key,
-                "errors": offer_errors,
-            }
+        # Step 4b: Offers are created with inventoryItemGroupKey — skip N get_offer_by_sku link pass.
+        offers_linked = offers_created
+        print(f"[INFO] Offers linked at create time: {offers_linked}/{len(created_items)} (group {group_key})")
+        _report('linking', offers_linked, total_offers, f'Linked {offers_linked}/{total_offers} offers to group')
         
         print(f"[INFO] Created {offers_created}/{len(created_items)} offers for variation group {group_key}")
         if offers_created == 0 and created_items:
@@ -2168,96 +1967,8 @@ This is a variation listing where you can select from multiple card options. Eac
         
         listing_id = None
         if publish:
-            # NEW APPROACH: Try to add description to individual offers as workaround
-            # Even though docs say description should be in group, sandbox might need it in offers too
-            print(f"[WORKAROUND] Adding description to individual offers as sandbox workaround...")
-            group_result_for_offers = self.api_client.get_inventory_item_group(group_key)
-            if group_result_for_offers.get('success'):
-                group_data_offers = group_result_for_offers.get('data', {})
-                variant_skus = group_data_offers.get('variantSKUs', [])
-                
-                # Get description to use - STRIP HTML for offers
-                raw_offer_desc = description if description else getattr(self, '_current_listing_description', '')
-                # Strip HTML from offer description
-                import re
-                if raw_offer_desc:
-                    offer_description = re.sub(r'</(p|div|br|li|h[1-6])>', '\n', raw_offer_desc, flags=re.IGNORECASE)
-                    offer_description = re.sub(r'<[^>]+>', '', offer_description)
-                    offer_description = offer_description.replace('&nbsp;', ' ').replace('&amp;', '&')
-                    offer_description = offer_description.replace('&lt;', '<').replace('&gt;', '>')
-                    offer_description = offer_description.replace('&quot;', '"').replace('&#39;', "'")
-                    offer_description = re.sub(r'\n{3,}', '\n\n', offer_description)
-                    offer_description = re.sub(r'[ \t]+', ' ', offer_description)
-                    offer_description = offer_description.strip()
-                else:
-                    offer_description = ''
-                
-                if not offer_description or len(offer_description.strip()) < 50:
-                    if "Topps Chrome" in group_title or "Chrome" in group_title:
-                        offer_description = """If you are new to the Topps basketball scene, Topps Chrome serves as a premium upgrade to the 2025-26 Topps flagship basketball set printed on a chromium stock. Topps announced the base set will run 299 cards, featuring veterans, rookies, and legends.
-
-Select your card from the variations below. Each card is listed as a separate variation option.
-
-All cards are in Near Mint or better condition unless otherwise noted."""
-                    else:
-                        offer_description = f"""{group_title}
-
-Select your card from the variations below. Each card is listed as a separate variation option.
-
-All cards are in Near Mint or better condition unless otherwise noted."""
-                
-                # Update each offer with description
-                offers_updated = 0
-                for sku in variant_skus:
-                    offer_result = self.api_client.get_offer_by_sku(sku)
-                    if offer_result.get('success') and offer_result.get('offer'):
-                        offer = offer_result['offer']
-                        offer_id = offer.get('offerId')
-                        
-                        # Build offer update with description - CRITICAL: Use listingDescription at root
-                        offer_update = {
-                            "sku": sku,
-                            "marketplaceId": "EBAY_US",
-                            "format": "FIXED_PRICE",
-                            "availableQuantity": offer.get('availableQuantity', 1),
-                            "pricingSummary": offer.get('pricingSummary', {}),
-                            "listingPolicies": offer.get('listingPolicies', {}),
-                            "categoryId": offer.get('categoryId', category_id),
-                            "merchantLocationKey": offer.get('merchantLocationKey', 'DEFAULT'),
-                            "listingDescription": offer_description,  # CRITICAL: At root level
-                            "listing": {
-                                "title": group_title,
-                                "description": offer_description  # Also in listing object
-                            }
-                        }
-                        
-                        # Add listingStartDate if scheduling (CRITICAL for scheduled drafts)
-                        if listing_start_date:
-                            offer_update["listingStartDate"] = listing_start_date
-                            print(f"  [SCHEDULE] Added listingStartDate to offer update: {listing_start_date}")
-                        elif schedule_draft and publish:
-                            # Safety check: ensure listingStartDate is included
-                            from datetime import datetime, timedelta
-                            min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
-                            actual_hours = max(schedule_hours, min_hours)
-                            try:
-                                start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
-                                listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                            except (OSError, ValueError):
-                                start_time = datetime.utcnow() + timedelta(hours=actual_hours)
-                                listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
-                            offer_update["listingStartDate"] = listing_start_date
-                            print(f"  [SCHEDULE] [FIX] Added listingStartDate to offer update (calculated, {actual_hours}h from now): {listing_start_date}")
-                        
-                        update_offer_result = self.api_client.update_offer(offer_id, offer_update)
-                        if update_offer_result.get('success'):
-                            offers_updated += 1
-                            print(f"[WORKAROUND] Updated offer {sku} with description")
-                
-                if offers_updated > 0:
-                    print(f"[WORKAROUND] Updated {offers_updated}/{len(variant_skus)} offers with description")
-                    print(f"[WORKAROUND] Waiting 2 seconds for updates to propagate...")
-                    time.sleep(2)  # Reduced from 5 to 2 seconds
+            # Offers already include listingDescription at create — skip per-offer pre-publish updates (~N API calls).
+            _report('publishing', 0, 1, 'Preparing to publish to eBay...')
             
             # CRITICAL: Verify group exists before attempting to publish
             print(f"[CRITICAL] Verifying group exists before publishing...")
@@ -2319,6 +2030,7 @@ All cards are in Near Mint or better condition unless otherwise noted."""
             
             # Note: Pre-publish check already done above at line 1992, so we can proceed
             print(f"[INFO] Proceeding to publish group: {group_key}")
+            _report('publishing', 0, 1, 'Publishing variation listing to eBay...')
             
             publish_result = self.api_client.publish_offer_by_inventory_item_group(group_key, "EBAY_US")
             

@@ -10,6 +10,7 @@ subscriptions.json
 payments.json
 user_tokens.json
 referrals.json
+data/listing_jobs/
 
 # Python
 __pycache__/

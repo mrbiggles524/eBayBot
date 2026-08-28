@@ -27,6 +27,42 @@ except Exception as e:
 
 # Background job store (shared across requests with --workers 1)
 listing_jobs = {}
+LISTING_JOBS_DIR = os.path.join(os.path.dirname(__file__) or '.', 'data', 'listing_jobs')
+
+def _listing_job_path(job_id):
+    return os.path.join(LISTING_JOBS_DIR, f'{job_id}.json')
+
+def _save_listing_job(job_id, data):
+    """Persist job to memory and disk so status survives reconnects."""
+    os.makedirs(LISTING_JOBS_DIR, exist_ok=True)
+    listing_jobs[job_id] = data
+    try:
+        with open(_listing_job_path(job_id), 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"[WARN] Could not persist listing job {job_id}: {e}", flush=True)
+
+def _load_listing_job(job_id):
+    """Load job from memory or disk."""
+    if job_id in listing_jobs:
+        return listing_jobs[job_id]
+    path = _listing_job_path(job_id)
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                listing_jobs[job_id] = data
+                return data
+        except Exception as e:
+            print(f"[WARN] Could not load listing job {job_id}: {e}", flush=True)
+    return {}
+
+def _update_listing_job(job_id, **fields):
+    job = _load_listing_job(job_id) or {"status": "processing"}
+    job.update(fields)
+    job['updated_at'] = datetime.now().isoformat()
+    _save_listing_job(job_id, job)
+    return job
 
 # =============================================================================
 # VERSION - Auto from VERSION file (written at build: 4.<git rev-list count>)
@@ -1796,7 +1832,44 @@ def fetch_checklist():
 
 def _run_listing_job(job_id, job_data):
     """Background worker: create listing and store result. Avoids HTTP timeout."""
-    global listing_jobs
+    stop_keepalive = threading.Event()
+
+    def _keep_render_alive():
+        """Ping /health during long jobs so Render free tier stays awake."""
+        import urllib.request
+        base = (os.environ.get('RENDER_EXTERNAL_URL') or '').strip().rstrip('/')
+        if not base:
+            port = os.environ.get('PORT', '5001')
+            base = f'http://127.0.0.1:{port}'
+        while not stop_keepalive.wait(45):
+            try:
+                urllib.request.urlopen(f'{base}/health', timeout=15)
+            except Exception:
+                pass
+
+    def _progress(phase, current=0, total=0, message=None):
+        _update_listing_job(
+            job_id,
+            status='processing',
+            phase=phase,
+            progress=int(current),
+            total=int(total),
+            message=message or phase,
+        )
+
+    keepalive_thread = threading.Thread(target=_keep_render_alive, daemon=True)
+    keepalive_thread.start()
+    _update_listing_job(
+        job_id,
+        status='processing',
+        phase='starting',
+        progress=0,
+        total=len(job_data.get('listing_cards', [])),
+        message='Starting publish job...',
+        started_at=datetime.now().isoformat(),
+        user_email=job_data.get('user_email', ''),
+        set_name=job_data.get('set_name', ''),
+    )
     try:
         from config import Config
         from dotenv import load_dotenv
@@ -1825,7 +1898,8 @@ def _run_listing_job(job_id, job_data):
             fulfillment_policy_id=job_data.get('shipping_id'),
             use_base_cards_policy=None,
             schedule_draft=False,
-            schedule_hours=0
+            schedule_hours=0,
+            progress_callback=_progress,
         )
         
         if result.get('success'):
@@ -1846,20 +1920,22 @@ def _run_listing_job(job_id, job_data):
                 "scheduled": result.get('scheduled', False),
                 "message": result.get('message', 'Listing created successfully'),
             }
-            listing_jobs[job_id] = {"status": "completed", "result": response_data}
+            _update_listing_job(job_id, status='completed', result=response_data, phase='done', message='Published successfully')
         else:
             err = result.get('error', 'Unknown error')
-            listing_jobs[job_id] = {"status": "failed", "error": err, "error_code": result.get('error_code'), "group_key": result.get('group_key')}
+            _update_listing_job(job_id, status='failed', error=err, error_code=result.get('error_code'), group_key=result.get('group_key'), phase='failed')
     except Exception as e:
         import traceback
         traceback.print_exc()
-        listing_jobs[job_id] = {"status": "failed", "error": str(e)}
+        _update_listing_job(job_id, status='failed', error=str(e), phase='failed')
+    finally:
+        stop_keepalive.set()
 
 @app.route('/api/list-status/<job_id>')
 @require_subscription
 def list_status(job_id):
     """Poll for background listing job result."""
-    job = listing_jobs.get(job_id, {})
+    job = _load_listing_job(job_id)
     if not job:
         return jsonify({"status": "unknown", "error": "Job not found or expired"}), 404
     return jsonify(job)
@@ -1931,10 +2007,19 @@ def create_listing():
             'shipping_id': shipping_id,
             'payment_id': payment_id,
             'return_id': return_id,
+            'user_email': session.get('user_email', ''),
         }
-        listing_jobs[job_id] = {"status": "processing"}
-        threading.Thread(target=_run_listing_job, args=(job_id, job_data)).start()
-        return jsonify({"job_id": job_id, "status": "processing"})
+        _save_listing_job(job_id, {
+            "status": "processing",
+            "phase": "queued",
+            "progress": 0,
+            "total": len(listing_cards),
+            "message": "Publish job queued...",
+            "started_at": datetime.now().isoformat(),
+            "set_name": set_name,
+        })
+        threading.Thread(target=_run_listing_job, args=(job_id, job_data), daemon=True).start()
+        return jsonify({"job_id": job_id, "status": "processing", "total": len(listing_cards)})
     
     except Exception as e:
         print(f"[ERROR] Exception in create_listing: {e}")

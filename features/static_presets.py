@@ -78,7 +78,7 @@ def filter_cards_by_preset(cards: List[Dict], flt: Dict) -> List[Dict]:
 
 
 def merge_preset_into_cards(cards: List[Dict], preset_cards: List[Dict]) -> List[Dict]:
-    """Apply preset price/qty (and optional team) by card number."""
+    """Apply preset price/qty (and optional team) by card number; inject preset-only cards."""
     if not preset_cards:
         return cards
     by_num = {}
@@ -86,8 +86,10 @@ def merge_preset_into_cards(cards: List[Dict], preset_cards: List[Dict]) -> List
         num = str(pc.get('number', '')).strip()
         if num:
             by_num[num] = pc
+    existing_nums = set()
     for card in cards:
         num = str(card.get('number', '')).strip()
+        existing_nums.add(num)
         pc = by_num.get(num)
         if not pc:
             continue
@@ -99,4 +101,19 @@ def merge_preset_into_cards(cards: List[Dict], preset_cards: List[Dict]) -> List
             card['quantity'] = int(pc['qty'])
         if pc.get('team'):
             card['team'] = pc['team']
+        if pc.get('name') and not card.get('name'):
+            card['name'] = pc['name']
+    for num, pc in by_num.items():
+        if num in existing_nums:
+            continue
+        cards.append({
+            'number': num,
+            'name': pc.get('name', ''),
+            'team': pc.get('team', ''),
+            'price': float(pc.get('price', 1.0)),
+            'quantity': int(pc.get('quantity', pc.get('qty', 0))),
+            'imageUrl': pc.get('imageUrl', pc.get('image_url', '')),
+        })
+    if cards and all(str(c.get('number', '')).isdigit() for c in cards):
+        cards.sort(key=lambda c: int(c['number']))
     return cards

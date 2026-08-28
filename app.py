@@ -40,8 +40,19 @@ def _load_version():
         return "4.019"
 VERSION = os.environ.get("VERSION", _load_version())
 
+def _live_version():
+    """Re-read VERSION from disk so updates apply without server restart."""
+    try:
+        return os.environ.get("VERSION") or open(os.path.join(os.path.dirname(__file__) or '.', 'VERSION')).read().strip() or VERSION
+    except Exception:
+        return VERSION
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
+
+@app.context_processor
+def inject_version():
+    return {'version': _live_version()}
 
 # =============================================================================
 # GLOBAL ERROR HANDLERS - Prevent crashes
@@ -1221,13 +1232,6 @@ def setup():
 def guide_page():
     """Interactive guide / ad for social media sharing."""
     return render_template('guide.html')
-
-def _live_version():
-    """Re-read VERSION from disk so updates apply without server restart."""
-    try:
-        return os.environ.get("VERSION") or open(os.path.join(os.path.dirname(__file__) or '.', 'VERSION')).read().strip() or VERSION
-    except Exception:
-        return VERSION
 
 @app.route('/app')
 def app_page():

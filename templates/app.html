@@ -60,18 +60,35 @@
         }
         
         .version-badge {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 255, 255, 0.2);
-            border: 1px solid rgba(0, 255, 255, 0.5);
-            border-radius: 8px;
-            padding: 5px 12px;
-            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0, 255, 255, 0.18);
+            border: 1px solid rgba(0, 255, 255, 0.55);
+            border-radius: 6px;
+            padding: 5px 11px;
+            font-size: 0.82rem;
             color: #00ffff;
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
-            z-index: 10000;
-            font-family: monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+        }
+
+        .app-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0 0;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+        }
+
+        .app-topbar-label {
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
         }
         
         header h1 {
@@ -761,7 +778,8 @@
             .cards-table .num-input { width: 55px; min-width: 55px; }
             .cards-table .price-input { width: 60px; }
             .cards-table input { max-width: 140px; }
-            .version-badge { font-size: 0.75rem; padding: 4px 8px; top: 6px; right: 6px; }
+            .version-badge { font-size: 0.75rem; padding: 4px 8px; }
+            .app-topbar { padding-top: 6px; margin-bottom: 6px; }
         }
     </style>
 </head>
@@ -776,16 +794,18 @@
         <div class="float-card-app"></div>
         <div class="float-card-app"></div>
     </div>
-    <!-- Version Badge -->
-    <div class="version-badge" id="versionBadge">v{{ version|default('4.019') }}</div>
-    
-    
     <div class="container">
+        <div class="app-topbar">
+            <span class="app-topbar-label">CardPilot</span>
+            <span class="version-badge" id="versionBadge" title="App version">v{{ version }}</span>
+        </div>
         <header>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <a href="/" style="color: #00ffff; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">← Home</a>
-                <a href="/marketplace" style="color: #00ffff; margin-left: 16px; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">🛒 Marketplace</a>
-                <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    <a href="/" style="color: #00ffff; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">← Home</a>
+                    <a href="/marketplace" style="color: #00ffff; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);">🛒 Marketplace</a>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                     <span style="color: #aaaaaa; text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);">{{ email }}</span>
                     <a href="/referral" style="color: #00ff00; margin-left: 15px; text-decoration: none; text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);">Earn 20%</a>
                     <a href="/admin" style="color: #ff00ff; margin-left: 15px; text-decoration: none; text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);">Admin</a>

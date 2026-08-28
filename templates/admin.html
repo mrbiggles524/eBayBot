@@ -18,6 +18,20 @@
         .header-links { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .header-links a { color: #888; text-decoration: none; margin-left: 15px; }
         .header-links a:hover { color: #00d4ff; }
+        .version-badge {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid rgba(0, 212, 255, 0.45);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            color: #00d4ff;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
         h1 {
             font-size: 2.5rem;
             margin-bottom: 30px;
@@ -68,7 +82,8 @@
     <div class="container">
         <div class="header-links">
             <a href="/app">← Back to App</a>
-            <div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="version-badge" title="App version">v{{ version }}</span>
                 <a href="/referral">My Referral Link</a>
                 <a href="/admin/logout">Logout Admin</a>
             </div>

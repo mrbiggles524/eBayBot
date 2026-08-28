@@ -23,6 +23,20 @@
         .logo { font-size: 1.3rem; font-weight: 700; color: #00ffff; text-decoration: none; }
         .nav-links a { color: #ccc; text-decoration: none; margin-left: 20px; }
         .nav-links a:hover { color: #00ffff; }
+        .version-badge {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0, 255, 255, 0.15);
+            border: 1px solid rgba(0, 255, 255, 0.45);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            color: #00ffff;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
         .main {
             max-width: 700px;
             margin: 0 auto;
@@ -101,7 +115,10 @@
 </head>
 <body>
     <nav class="navbar">
-        <a href="/" class="logo">CardPilot</a>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <a href="/" class="logo">CardPilot</a>
+            <span class="version-badge" title="App version">v{{ version }}</span>
+        </div>
         <div class="nav-links">
             <a href="/app">eBay Listing Bot</a>
             <a href="/">Home</a>

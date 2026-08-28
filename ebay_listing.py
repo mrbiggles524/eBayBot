@@ -1256,6 +1256,7 @@ This listing allows you to choose from multiple card options, each with individu
         # Step 4: Create offers for each SKU (required before publishing variation listing)
         print(f"Creating offers for each SKU...")
         offer_errors = []
+        offers_created = 0
         
         # Calculate listingStartDate if schedule_draft is enabled (do this once before the loop)
         listing_start_date = None
@@ -1489,166 +1490,61 @@ Thank you for your interest!"""
             item_specifics["Country of Origin"] = ["United States"]
             item_specifics["Language"] = ["English"]
             item_specifics["Original/Licensed Reprint"] = ["Original"]
-        
-        offer_data = {
-            "sku": sku,
-            "marketplaceId": "EBAY_US",
-            "format": "FIXED_PRICE",
-            "categoryId": str(category_id),  # REQUIRED for publishing
-            "listingDescription": listing_description,  # CRITICAL: eBay requires this at root level
-            "listing": {
-                "title": group_title,  # Use group title for all variations
-                "description": listing_description,  # CRITICAL: Also in listing object
-                "listingPolicies": listing_policies,
-                "itemSpecifics": item_specifics  # eBay 25002: Sport etc required
-            },
-            # ALSO at root - eBay 25002 may require itemSpecifics here for publish
-            "itemSpecifics": item_specifics,
-            "listingPolicies": listing_policies,
-            "pricingSummary": {
-                "price": {
-                    "value": str(card_price),
-                    "currency": "USD"
-                }
-            },
-            "quantity": int(item.get("card", {}).get("quantity", quantity)),
-            "availableQuantity": int(item.get("card", {}).get("quantity", quantity)),
-            "listingDuration": "GTC"  # Good 'Til Cancelled
-        }
-        
-        # Add listingStartDate if scheduling (CRITICAL for scheduled drafts)
-        if listing_start_date:
-            offer_data["listingStartDate"] = listing_start_date
-            print(f"  [SCHEDULE] ✅ Added listingStartDate to offer {sku}: {listing_start_date}")
-        elif schedule_draft and publish:
-            # Safety check: if schedule_draft is True but listing_start_date wasn't set, calculate it now
-            from datetime import datetime, timedelta, timezone
-            # Use longer delay for production to ensure scheduled status
-            min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
-            actual_hours = max(schedule_hours, min_hours)
-            try:
-                start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
-                listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-            except (OSError, ValueError) as e:
-                # Fallback for Windows compatibility
-                start_time = datetime.utcnow() + timedelta(hours=actual_hours)
-                listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
-            offer_data["listingStartDate"] = listing_start_date
-            print(f"  [SCHEDULE] [FIX] ⚠️ Added listingStartDate to offer {sku} (calculated, {actual_hours}h from now): {listing_start_date}")
-        
-        # CRITICAL DEBUG: Verify listingStartDate is in offer_data before sending
-        if schedule_draft and publish:
-            if "listingStartDate" in offer_data:
-                print(f"  [DEBUG] ✅ CONFIRMED: listingStartDate is in offer_data for {sku}: {offer_data['listingStartDate']}")
-            else:
-                print(f"  [DEBUG] ❌ ERROR: listingStartDate is MISSING from offer_data for {sku}!")
-                print(f"  [DEBUG] ❌ This will cause the listing to NOT appear in Scheduled section!")
-                # Try to fix it
-                if not listing_start_date:
-                    from datetime import datetime, timedelta, timezone
-                    min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
-                    actual_hours = max(schedule_hours, min_hours)
-                    try:
-                        start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
-                        listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                    except (OSError, ValueError):
-                        start_time = datetime.utcnow() + timedelta(hours=actual_hours)
-                        listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
-                offer_data["listingStartDate"] = listing_start_date
-                print(f"  [DEBUG] [FIXED] Added listingStartDate ({actual_hours}h from now): {listing_start_date}")
-                
-                # CRITICAL: Verify it's actually in the data before sending
-                if "listingStartDate" not in offer_data:
-                    print(f"  [DEBUG] ❌ CRITICAL ERROR: listingStartDate still missing after fix attempt!")
-                    print(f"  [DEBUG] offer_data keys: {list(offer_data.keys())}")
-                else:
-                    print(f"  [DEBUG] ✅ VERIFIED: listingStartDate is in offer_data: {offer_data['listingStartDate']}")
-        
-        # Debug item specifics
-        print(f"[DEBUG] Item specifics for {sku}: {item_specifics}")
-        
-        # Merchant location is REQUIRED for publishing (provides country info)
-        if merchant_location_key:
-            offer_data["merchantLocationKey"] = merchant_location_key
-        else:
-            # Last resort: try without location (may fail)
-            print(f"  [WARNING] No merchant location available for {sku}")
-        
-        # Debug: Print the policy ID being used (already set above)
-        print(f"[DEBUG] Creating offer for {sku} with fulfillmentPolicyId: {policy_id_used}")
-        print(f"[DEBUG] Policy IDs being set:")
-        print(f"  - Root level listingPolicies: {policy_id_used}")
-        print(f"  - Nested listing.listingPolicies: {policy_id_used}")
-        
-        # Create or update offer (handles existing offers)
-        offer_result = self.api_client.create_or_update_offer(offer_data)
-        if offer_result.get("success"):
-            offer_id = offer_result.get("data", {}).get("offerId") or offer_result.get("data", {}).get("offerId")
-            if not offer_id:
-                # Try to get it from the response
-                offer_id = offer_result.get("offerId")
-            print(f"  [OK] Created/updated offer for {sku}: {offer_id}")
             
-            # CRITICAL: eBay API may not return description in GET requests immediately
-            # So we ALWAYS update the offer after creation to ensure description is set
-            print(f"  [FIX] Ensuring description is set by updating offer immediately...")
-            # Removed sleep - update immediately
-            
-            # Build complete update payload with description
-            # Only include payment policy if it's set (it's optional)
-            update_listing_policies = {
-                "fulfillmentPolicyId": policy_id_used
-            }
-            if payment_policy_id and payment_policy_id.strip():
-                update_listing_policies["paymentPolicyId"] = payment_policy_id
-            if return_policy_id and return_policy_id.strip():
-                update_listing_policies["returnPolicyId"] = return_policy_id
-            
-            update_offer_data = {
+            offer_data = {
                 "sku": sku,
                 "marketplaceId": "EBAY_US",
                 "format": "FIXED_PRICE",
-                "categoryId": str(category_id),
-                "listingDescription": listing_description,  # CRITICAL: eBay requires at root level
+                "categoryId": str(category_id),  # REQUIRED for publishing
+                "listingDescription": listing_description,  # CRITICAL: eBay requires this at root level
                 "listing": {
-                    "title": group_title,
+                    "title": group_title,  # Use group title for all variations
                     "description": listing_description,  # CRITICAL: Also in listing object
-                    "listingPolicies": update_listing_policies
+                    "listingPolicies": listing_policies,
+                    "itemSpecifics": item_specifics  # eBay 25002: Sport etc required
                 },
-                "listingPolicies": update_listing_policies,
-                "pricingSummary": offer_data.get('pricingSummary', {}),
-                "quantity": offer_data.get('quantity', quantity),
-                "availableQuantity": offer_data.get('availableQuantity', quantity),
-                "listingDuration": offer_data.get('listingDuration', 'GTC')
+                # ALSO at root - eBay 25002 may require itemSpecifics here for publish
+                "itemSpecifics": item_specifics,
+                "listingPolicies": listing_policies,
+                "pricingSummary": {
+                    "price": {
+                        "value": str(card_price),
+                        "currency": "USD"
+                    }
+                },
+                "quantity": int(item.get("card", {}).get("quantity", quantity)),
+                "availableQuantity": int(item.get("card", {}).get("quantity", quantity)),
+                "listingDuration": "GTC"  # Good 'Til Cancelled
             }
             
-            # Add listingStartDate if scheduling (CRITICAL - must be in update too!)
+            # Add listingStartDate if scheduling (CRITICAL for scheduled drafts)
             if listing_start_date:
-                update_offer_data["listingStartDate"] = listing_start_date
-                print(f"  [SCHEDULE] ✅ Added listingStartDate to offer update for {sku}: {listing_start_date}")
+                offer_data["listingStartDate"] = listing_start_date
+                print(f"  [SCHEDULE] ✅ Added listingStartDate to offer {sku}: {listing_start_date}")
             elif schedule_draft and publish:
-                # Safety check: ensure listingStartDate is in update
-                if not listing_start_date:
-                    from datetime import datetime, timedelta, timezone
-                    # Use longer delay for production to ensure scheduled status
-                    min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
-                    actual_hours = max(schedule_hours, min_hours)
-                    try:
-                        start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
-                        listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-                    except (OSError, ValueError):
-                        start_time = datetime.utcnow() + timedelta(hours=actual_hours)
-                        listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
-                update_offer_data["listingStartDate"] = listing_start_date
-                print(f"  [SCHEDULE] [FIX] ⚠️ Added listingStartDate to offer update for {sku} (calculated): {listing_start_date}")
+                # Safety check: if schedule_draft is True but listing_start_date wasn't set, calculate it now
+                from datetime import datetime, timedelta, timezone
+                # Use longer delay for production to ensure scheduled status
+                min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
+                actual_hours = max(schedule_hours, min_hours)
+                try:
+                    start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
+                    listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                except (OSError, ValueError) as e:
+                    # Fallback for Windows compatibility
+                    start_time = datetime.utcnow() + timedelta(hours=actual_hours)
+                    listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
+                offer_data["listingStartDate"] = listing_start_date
+                print(f"  [SCHEDULE] [FIX] ⚠️ Added listingStartDate to offer {sku} (calculated, {actual_hours}h from now): {listing_start_date}")
             
-            # CRITICAL: Verify listingStartDate is in update_offer_data
+            # CRITICAL DEBUG: Verify listingStartDate is in offer_data before sending
             if schedule_draft and publish:
-                if "listingStartDate" in update_offer_data:
-                    print(f"  [DEBUG] ✅ CONFIRMED: listingStartDate is in update_offer_data for {sku}: {update_offer_data['listingStartDate']}")
+                if "listingStartDate" in offer_data:
+                    print(f"  [DEBUG] ✅ CONFIRMED: listingStartDate is in offer_data for {sku}: {offer_data['listingStartDate']}")
                 else:
-                    print(f"  [DEBUG] ❌ ERROR: listingStartDate is MISSING from update_offer_data for {sku}!")
-                    # Force add it
+                    print(f"  [DEBUG] ❌ ERROR: listingStartDate is MISSING from offer_data for {sku}!")
+                    print(f"  [DEBUG] ❌ This will cause the listing to NOT appear in Scheduled section!")
+                    # Try to fix it
                     if not listing_start_date:
                         from datetime import datetime, timedelta, timezone
                         min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
@@ -1659,106 +1555,130 @@ Thank you for your interest!"""
                         except (OSError, ValueError):
                             start_time = datetime.utcnow() + timedelta(hours=actual_hours)
                             listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
-                    update_offer_data["listingStartDate"] = listing_start_date
-                    print(f"  [DEBUG] [FIXED] Added listingStartDate: {listing_start_date}")
-            
-            if merchant_location_key:
-                update_offer_data["merchantLocationKey"] = merchant_location_key
-            
-            print(f"  [DEBUG] ========== FORCE UPDATE OFFER WITH DESCRIPTION ==========")
-            print(f"  [DEBUG] Description in update payload: {update_offer_data['listing']['description'][:100]}...")
-            print(f"  [DEBUG] Description length: {len(update_offer_data['listing']['description'])}")
-            print(f"  [DEBUG] =========================================================")
-            
-            if offer_id:
-                update_result = self.api_client.update_offer(offer_id, update_offer_data)
-                if update_result.get('success'):
-                    print(f"  [OK] Successfully updated offer with description!")
-                else:
-                    print(f"  [WARNING] Update failed but continuing: {update_result.get('error')}")
-            
-            # Skip verification to speed up - description should be set by update
-            # Removed sleep and verification to speed up publishing (verify_offer was removed)
-            if False:  # Disabled: verification block used undefined verify_offer
-                offer_obj = verify_offer['offer']
-                offer_policy_id = offer_obj.get('listing', {}).get('listingPolicies', {}).get('fulfillmentPolicyId')
-                
-                # Check description in multiple places
-                offer_description = (
-                    offer_obj.get('listing', {}).get('description', '') or
-                    offer_obj.get('description', '') or
-                    ''
-                )
-                
-                print(f"  [DEBUG] ========== FINAL VERIFICATION ==========")
-                print(f"  [DEBUG] Offer object keys: {list(offer_obj.keys())}")
-                if 'listing' in offer_obj:
-                    print(f"  [DEBUG] Listing keys: {list(offer_obj['listing'].keys())}")
-                    print(f"  [DEBUG] Listing.description present: {'description' in offer_obj['listing']}")
-                    if 'description' in offer_obj['listing']:
-                        desc_val = offer_obj['listing']['description']
-                        print(f"  [DEBUG] Listing.description value: {desc_val[:50] if desc_val else 'EMPTY'}...")
-                        print(f"  [DEBUG] Listing.description length: {len(desc_val) if desc_val else 0}")
-                print(f"  [DEBUG] Found description: {offer_description[:50] if offer_description else 'NOT FOUND'}...")
-                print(f"  [DEBUG] Description length: {len(offer_description) if offer_description else 0}")
-                print(f"  [DEBUG] =========================================")
-                
-                needs_update = False
-                
-                # Check if description is still missing
-                if not offer_description or not offer_description.strip():
-                    print(f"  [CRITICAL ERROR] Description STILL missing after update!")
-                    print(f"  [FIX] Will try one more time with explicit description...")
-                    needs_update = True
-                else:
-                    print(f"  [OK] Verified offer has description: {offer_description[:50]}... (length: {len(offer_description)})")
-                
-                if offer_policy_id:
-                    print(f"  [OK] Verified offer has fulfillmentPolicyId: {offer_policy_id}")
-                else:
-                    print(f"  [WARNING] Offer created but fulfillmentPolicyId is missing!")
-                    needs_update = True
-                
-                if needs_update:
-                    print(f"  [FIX] Attempting to update offer with missing fields...")
-                    # Force update the offer with the policy ID and description
-                    offer_id = offer_obj.get('offerId')
-                    if offer_id:
-                        # Get the full offer structure and update it
-                        update_offer_data = offer_data.copy()  # Use the offer_data we just sent
-                        # Ensure listing structure exists
-                        if 'listing' not in update_offer_data:
-                            update_offer_data['listing'] = {}
-                        # Ensure description is set
-                        if 'description' not in update_offer_data['listing'] or not update_offer_data['listing']['description']:
-                            update_offer_data['listing']['description'] = listing_description
-                        # Ensure listingPolicies is set
-                        if 'listingPolicies' not in update_offer_data['listing']:
-                            update_offer_data['listing']['listingPolicies'] = {}
-                        update_offer_data['listing']['listingPolicies']['fulfillmentPolicyId'] = policy_id_used
-                        update_offer_data['listing']['listingPolicies']['paymentPolicyId'] = self.policies.get('payment_policy_id')
-                        update_offer_data['listing']['listingPolicies']['returnPolicyId'] = self.policies.get('return_policy_id')
-                        
-                        print(f"  [DEBUG] Updating offer with description: {update_offer_data['listing'].get('description', 'MISSING')[:50]}...")
-                        
-                        # Update the offer
-                        update_result = self.api_client.update_offer(offer_id, update_offer_data)
-                        if update_result.get('success'):
-                            print(f"  [OK] Successfully updated offer with fulfillmentPolicyId: {policy_id_used}")
-                            # Verify again
-                            time.sleep(1)  # Brief pause
-                            verify_again = self.api_client.get_offer_by_sku(sku)
-                            if verify_again.get('success') and verify_again.get('offer'):
-                                final_policy_id = verify_again['offer'].get('listing', {}).get('listingPolicies', {}).get('fulfillmentPolicyId')
-                                if final_policy_id:
-                                    print(f"  [OK] Confirmed offer now has fulfillmentPolicyId: {final_policy_id}")
-                                else:
-                                    print(f"  [ERROR] Policy ID still missing after update - this is a critical issue")
-                        else:
-                            print(f"  [ERROR] Failed to update offer: {update_result.get('error')}")
+                    offer_data["listingStartDate"] = listing_start_date
+                    print(f"  [DEBUG] [FIXED] Added listingStartDate ({actual_hours}h from now): {listing_start_date}")
+                    
+                    # CRITICAL: Verify it's actually in the data before sending
+                    if "listingStartDate" not in offer_data:
+                        print(f"  [DEBUG] ❌ CRITICAL ERROR: listingStartDate still missing after fix attempt!")
+                        print(f"  [DEBUG] offer_data keys: {list(offer_data.keys())}")
                     else:
-                        print(f"  [ERROR] Could not get offer ID to update")
-        else:
+                        print(f"  [DEBUG] ✅ VERIFIED: listingStartDate is in offer_data: {offer_data['listingStartDate']}")
+            
+            # Debug item specifics
+            print(f"[DEBUG] Item specifics for {sku}: {item_specifics}")
+            
+            # Merchant location is REQUIRED for publishing (provides country info)
+            if merchant_location_key:
+                offer_data["merchantLocationKey"] = merchant_location_key
+            else:
+                # Last resort: try without location (may fail)
+                print(f"  [WARNING] No merchant location available for {sku}")
+            
+            # Debug: Print the policy ID being used (already set above)
+            print(f"[DEBUG] Creating offer for {sku} with fulfillmentPolicyId: {policy_id_used}")
+            print(f"[DEBUG] Policy IDs being set:")
+            print(f"  - Root level listingPolicies: {policy_id_used}")
+            print(f"  - Nested listing.listingPolicies: {policy_id_used}")
+            
+            # Create or update offer (handles existing offers)
+            offer_result = self.api_client.create_or_update_offer(offer_data)
+            if offer_result.get("success"):
+                offer_id = offer_result.get("data", {}).get("offerId") or offer_result.get("data", {}).get("offerId")
+                if not offer_id:
+                    # Try to get it from the response
+                    offer_id = offer_result.get("offerId")
+                print(f"  [OK] Created/updated offer for {sku}: {offer_id}")
+                offers_created += 1
+                
+                # CRITICAL: eBay API may not return description in GET requests immediately
+                # So we ALWAYS update the offer after creation to ensure description is set
+                print(f"  [FIX] Ensuring description is set by updating offer immediately...")
+                # Removed sleep - update immediately
+                
+                # Build complete update payload with description
+                # Only include payment policy if it's set (it's optional)
+                update_listing_policies = {
+                    "fulfillmentPolicyId": policy_id_used
+                }
+                if payment_policy_id and payment_policy_id.strip():
+                    update_listing_policies["paymentPolicyId"] = payment_policy_id
+                if return_policy_id and return_policy_id.strip():
+                    update_listing_policies["returnPolicyId"] = return_policy_id
+                
+                update_offer_data = {
+                    "sku": sku,
+                    "marketplaceId": "EBAY_US",
+                    "format": "FIXED_PRICE",
+                    "categoryId": str(category_id),
+                    "listingDescription": listing_description,  # CRITICAL: eBay requires at root level
+                    "listing": {
+                        "title": group_title,
+                        "description": listing_description,  # CRITICAL: Also in listing object
+                        "listingPolicies": update_listing_policies
+                    },
+                    "listingPolicies": update_listing_policies,
+                    "pricingSummary": offer_data.get('pricingSummary', {}),
+                    "quantity": offer_data.get('quantity', quantity),
+                    "availableQuantity": offer_data.get('availableQuantity', quantity),
+                    "listingDuration": offer_data.get('listingDuration', 'GTC')
+                }
+                
+                # Add listingStartDate if scheduling (CRITICAL - must be in update too!)
+                if listing_start_date:
+                    update_offer_data["listingStartDate"] = listing_start_date
+                    print(f"  [SCHEDULE] ✅ Added listingStartDate to offer update for {sku}: {listing_start_date}")
+                elif schedule_draft and publish:
+                    # Safety check: ensure listingStartDate is in update
+                    if not listing_start_date:
+                        from datetime import datetime, timedelta, timezone
+                        # Use longer delay for production to ensure scheduled status
+                        min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
+                        actual_hours = max(schedule_hours, min_hours)
+                        try:
+                            start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
+                            listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                        except (OSError, ValueError):
+                            start_time = datetime.utcnow() + timedelta(hours=actual_hours)
+                            listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
+                    update_offer_data["listingStartDate"] = listing_start_date
+                    print(f"  [SCHEDULE] [FIX] ⚠️ Added listingStartDate to offer update for {sku} (calculated): {listing_start_date}")
+                
+                # CRITICAL: Verify listingStartDate is in update_offer_data
+                if schedule_draft and publish:
+                    if "listingStartDate" in update_offer_data:
+                        print(f"  [DEBUG] ✅ CONFIRMED: listingStartDate is in update_offer_data for {sku}: {update_offer_data['listingStartDate']}")
+                    else:
+                        print(f"  [DEBUG] ❌ ERROR: listingStartDate is MISSING from update_offer_data for {sku}!")
+                        # Force add it
+                        if not listing_start_date:
+                            from datetime import datetime, timedelta, timezone
+                            min_hours = 48 if self.config.EBAY_ENVIRONMENT == 'production' else 24
+                            actual_hours = max(schedule_hours, min_hours)
+                            try:
+                                start_time = datetime.now(timezone.utc) + timedelta(hours=actual_hours)
+                                listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                            except (OSError, ValueError):
+                                start_time = datetime.utcnow() + timedelta(hours=actual_hours)
+                                listing_start_date = start_time.strftime('%Y-%m-%dT%H:%M:%S') + '.000Z'
+                        update_offer_data["listingStartDate"] = listing_start_date
+                        print(f"  [DEBUG] [FIXED] Added listingStartDate: {listing_start_date}")
+                
+                if merchant_location_key:
+                    update_offer_data["merchantLocationKey"] = merchant_location_key
+                
+                print(f"  [DEBUG] ========== FORCE UPDATE OFFER WITH DESCRIPTION ==========")
+                print(f"  [DEBUG] Description in update payload: {update_offer_data['listing']['description'][:100]}...")
+                print(f"  [DEBUG] Description length: {len(update_offer_data['listing']['description'])}")
+                print(f"  [DEBUG] =========================================================")
+                
+                if offer_id:
+                    update_result = self.api_client.update_offer(offer_id, update_offer_data)
+                    if update_result.get('success'):
+                        print(f"  [OK] Successfully updated offer with description!")
+                    else:
+                        print(f"  [WARNING] Update failed but continuing: {update_result.get('error')}")
+            else:
                 error_msg = offer_result.get('error', 'Unknown error')
                 if isinstance(error_msg, dict):
                     errors = error_msg.get('errors', [])
@@ -1766,6 +1686,19 @@ Thank you for your interest!"""
                         error_msg = errors[0].get('message', str(error_msg))
                 offer_errors.append(f"Failed to create offer for {sku}: {error_msg}")
                 print(f"  [ERROR] Failed to create offer for {sku}: {error_msg}")
+        
+        print(f"[INFO] Created {offers_created}/{len(created_items)} offers for variation group {group_key}")
+        if offers_created == 0 and created_items:
+            return {
+                "success": False,
+                "error": "No offers were created for any cards in the variation group.",
+                "created_items": len(created_items),
+                "offers_created": 0,
+                "group_key": group_key,
+                "errors": offer_errors,
+            }
+        if offers_created < len(created_items):
+            print(f"[WARNING] Only {offers_created}/{len(created_items)} offers created — listing may be incomplete")
         
         if offer_errors and len(offer_errors) == len(created_items):
             # All offers failed
@@ -3472,6 +3405,8 @@ Thank you for your interest!"""
             "groupKey": group_key,  # Keep for backward compatibility
             "itemsCreated": len(created_items),
             "cardsCreated": len(created_items),  # Alias for consistency
+            "offers_created": offers_created,
+            "offersCreated": offers_created,
             "warnings": errors if errors else [],
             "published": publish,
             "ebay_url": f"{base_url}/sh/account/listings" if not listing_id else f"{base_url}/itm/{listing_id}",

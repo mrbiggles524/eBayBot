@@ -855,47 +855,8 @@ This listing allows you to choose from multiple card options, each with individu
             time.sleep(2)
             print(f"[DEBUG] [CRITICAL] Wait complete - description should now be stored in eBay")
             
-            # CRITICAL: Link offers to the group (eBay may not auto-link if offers were created first)
-            print(f"[DEBUG] [CRITICAL] Linking offers to group...")
-            offers_linked = 0
-            for item in created_items:
-                sku = item["sku"]
-                offer_result = self.api_client.get_offer_by_sku(sku)
-                if offer_result.get('success'):
-                    offer = offer_result.get('offer', {})
-                    offer_id = offer.get('offerId')
-                    current_group_key = offer.get('inventoryItemGroupKey')
-                    
-                    if current_group_key != group_key:
-                        print(f"[DEBUG] [LINK] Linking offer {sku} to group {group_key}...")
-                        # Update offer to link it to the group
-                        offer_update = {
-                            "sku": sku,
-                            "marketplaceId": "EBAY_US",
-                            "format": "FIXED_PRICE",
-                            "inventoryItemGroupKey": group_key,  # CRITICAL: Link to group
-                            "categoryId": offer.get('categoryId', category_id),
-                            "pricingSummary": offer.get('pricingSummary', {}),
-                            "listingPolicies": offer.get('listingPolicies', {}),
-                            "availableQuantity": offer.get('availableQuantity', 1),
-                            "listingDuration": offer.get('listingDuration', 'GTC')
-                        }
-                        
-                        # Include listing data if present
-                        if 'listing' in offer:
-                            offer_update['listing'] = offer['listing']
-                        
-                        update_result = self.api_client.update_offer(offer_id, offer_update)
-                        if update_result.get('success'):
-                            offers_linked += 1
-                            print(f"[DEBUG] [LINK] ✅ Linked offer {sku} to group")
-                        else:
-                            print(f"[DEBUG] [LINK] ❌ Failed to link offer {sku}: {update_result.get('error')}")
-                    else:
-                        offers_linked += 1
-                        print(f"[DEBUG] [LINK] ✅ Offer {sku} already linked to group")
-            
-            print(f"[DEBUG] [LINK] Linked {offers_linked}/{len(created_items)} offers to group")
+            # Offers are created in Step 4 below — linking runs after offer creation
+            print(f"[DEBUG] [LINK] Offer-to-group linking deferred until after Step 4 (offer creation)")
         else:
             print(f"[DEBUG] [ERROR] Group creation failed!")
             print(f"[DEBUG] Error: {group_result.get('error')}")
@@ -1495,6 +1456,7 @@ Thank you for your interest!"""
                 "sku": sku,
                 "marketplaceId": "EBAY_US",
                 "format": "FIXED_PRICE",
+                "inventoryItemGroupKey": group_key,  # CRITICAL: link offer to variation group for publish
                 "categoryId": str(category_id),  # REQUIRED for publishing
                 "listingDescription": listing_description,  # CRITICAL: eBay requires this at root level
                 "listing": {
@@ -1610,6 +1572,7 @@ Thank you for your interest!"""
                     "sku": sku,
                     "marketplaceId": "EBAY_US",
                     "format": "FIXED_PRICE",
+                    "inventoryItemGroupKey": group_key,  # CRITICAL: preserve group link on update
                     "categoryId": str(category_id),
                     "listingDescription": listing_description,  # CRITICAL: eBay requires at root level
                     "listing": {
@@ -1686,6 +1649,60 @@ Thank you for your interest!"""
                         error_msg = errors[0].get('message', str(error_msg))
                 offer_errors.append(f"Failed to create offer for {sku}: {error_msg}")
                 print(f"  [ERROR] Failed to create offer for {sku}: {error_msg}")
+            
+            # Brief pause to avoid eBay rate limits on large variation sets
+            if len(created_items) > 10:
+                time.sleep(0.05)
+        
+        # Step 4b: Ensure every offer is linked to the variation group (required for group publish)
+        print(f"[DEBUG] [LINK] Linking offers to group {group_key}...")
+        offers_linked = 0
+        for item in created_items:
+            sku = item["sku"]
+            offer_result = self.api_client.get_offer_by_sku(sku)
+            if not offer_result.get('success') or not offer_result.get('offer'):
+                print(f"[DEBUG] [LINK] ⚠️ No offer found for {sku} — skipping link")
+                continue
+            offer = offer_result['offer']
+            offer_id = offer.get('offerId')
+            if not offer_id:
+                continue
+            current_group_key = offer.get('inventoryItemGroupKey')
+            if current_group_key == group_key:
+                offers_linked += 1
+                continue
+            offer_update = {
+                "sku": sku,
+                "marketplaceId": "EBAY_US",
+                "format": "FIXED_PRICE",
+                "inventoryItemGroupKey": group_key,
+                "categoryId": offer.get('categoryId', category_id),
+                "pricingSummary": offer.get('pricingSummary', {}),
+                "listingPolicies": offer.get('listingPolicies', {}),
+                "availableQuantity": offer.get('availableQuantity', 1),
+                "listingDuration": offer.get('listingDuration', 'GTC'),
+            }
+            if 'listing' in offer:
+                offer_update['listing'] = offer['listing']
+            if merchant_location_key:
+                offer_update['merchantLocationKey'] = merchant_location_key
+            update_result = self.api_client.update_offer(offer_id, offer_update)
+            if update_result.get('success'):
+                offers_linked += 1
+                print(f"[DEBUG] [LINK] ✅ Linked offer {sku} to group")
+            else:
+                print(f"[DEBUG] [LINK] ❌ Failed to link offer {sku}: {update_result.get('error')}")
+        print(f"[DEBUG] [LINK] Linked {offers_linked}/{len(created_items)} offers to group {group_key}")
+        if offers_created > 0 and offers_linked == 0:
+            return {
+                "success": False,
+                "error": "Offers were created but none could be linked to the variation group. Cannot publish.",
+                "created_items": len(created_items),
+                "offers_created": offers_created,
+                "offers_linked": 0,
+                "group_key": group_key,
+                "errors": offer_errors,
+            }
         
         print(f"[INFO] Created {offers_created}/{len(created_items)} offers for variation group {group_key}")
         if offers_created == 0 and created_items:

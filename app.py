@@ -47,6 +47,17 @@ def _live_version():
     except Exception:
         return VERSION
 
+def _default_publish_image_url():
+    """Public HTTPS default image URL for eBay publish (self-hosted on Render when configured)."""
+    from features.image_utils import resolve_default_image_url
+    try:
+        base = (request.host_url or '').strip().rstrip('/')
+        if base.startswith('http'):
+            return resolve_default_image_url(base)
+    except RuntimeError:
+        pass
+    return resolve_default_image_url()
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
 
@@ -1244,11 +1255,11 @@ def app_page():
         v = _live_version()
         # Owner always has access
         if email.lower() == OWNER_EMAIL.lower():
-            resp = make_response(render_template('app.html', email=email, version=v))
+            resp = make_response(render_template('app.html', email=email, version=v, default_image_url=_default_publish_image_url()))
         elif not is_subscribed(email):
             return redirect('/subscribe')
         else:
-            resp = make_response(render_template('app.html', email=email, version=v))
+            resp = make_response(render_template('app.html', email=email, version=v, default_image_url=_default_publish_image_url()))
         
         resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         resp.headers['Pragma'] = 'no-cache'
@@ -1863,8 +1874,13 @@ def create_listing():
         sport = data.get('sport', '').strip()
         description = data.get('description', '')
         cards = data.get('cards', [])
-        from features.image_utils import sanitize_image_url, DEFAULT_PLACEHOLDER_IMAGE
-        image_url = sanitize_image_url(data.get('imageUrl', ''))
+        from features.image_utils import sanitize_image_url, DEFAULT_PLACEHOLDER_IMAGE, resolve_default_image_url
+        default_image = _default_publish_image_url()
+        image_url = sanitize_image_url(
+            data.get('imageUrl', '') or default_image,
+            allow_placeholder=True,
+            placeholder_url=default_image,
+        ) or default_image
         payment_id = data.get('paymentPolicyId', '').strip() or None  # Default to None (Managed by eBay)
         shipping_id = data.get('shippingPolicyId')
         return_id = data.get('returnPolicyId')
@@ -1882,7 +1898,8 @@ def create_listing():
             img = sanitize_image_url(
                 card.get('imageUrl') or card.get('image_url', '') or image_url,
                 allow_placeholder=True,
-            ) or DEFAULT_PLACEHOLDER_IMAGE
+                placeholder_url=default_image,
+            ) or default_image
             card_data = {
                 'name': card.get('name', ''),
                 'number': str(card.get('number', '')),
@@ -2268,11 +2285,18 @@ def api_fetch_images():
                 set_name = slug.replace('-', ' ').replace('  ', ' ').strip().title()
                 print(f"[FETCH-IMAGES] Extracted setName from URL: '{set_name}'", flush=True)
         fetcher = CardImageFetcher()
+        fetcher.placeholder = _default_publish_image_url()
         updated = fetcher.fetch_images_for_cards(cards, set_name, source_url)
-        ph = getattr(fetcher, 'placeholder', '')
+        ph = fetcher.placeholder
         with_img = sum(1 for c in updated if (c.get('image_url') or c.get('imageUrl')) and (c.get('image_url') or c.get('imageUrl')) != ph)
-        print(f"[FETCH-IMAGES] Done: {with_img}/{len(updated)} cards with images (v{VERSION})", flush=True)
-        resp = {"success": True, "cards": updated, "version": VERSION, "withImages": with_img}
+        # Ensure every card has at least the default placeholder URL
+        for c in updated:
+            if not c.get('image_url') and not c.get('imageUrl'):
+                c['image_url'] = ph
+                c['imageUrl'] = ph
+        with_default = sum(1 for c in updated if c.get('image_url') or c.get('imageUrl'))
+        print(f"[FETCH-IMAGES] Done: {with_img}/{len(updated)} cards with fetched images, {with_default}/{len(updated)} with URLs incl. default (v{VERSION})", flush=True)
+        resp = {"success": True, "cards": updated, "version": VERSION, "withImages": with_img, "withDefaultImages": with_default, "defaultImageUrl": ph}
         if with_img < len(updated) and not os.environ.get('SERPAPI_KEY', '').strip():
             resp["hint"] = "Add SERPAPI_KEY in .env (or Render env) for better image fetch. Free at serpapi.com"
         return jsonify(resp)

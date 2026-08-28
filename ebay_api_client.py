@@ -4,6 +4,7 @@ import time
 import json
 from typing import Dict, List, Optional
 from config import Config
+from features.image_utils import ensure_publish_image_urls, resolve_default_image_url
 
 class eBayAPIClient:
     """Enhanced eBay API client with retry logic and policy management."""
@@ -495,6 +496,9 @@ class eBayAPIClient:
     def create_inventory_item(self, sku: str, item_data: Dict) -> Dict:
         """Create or update an inventory item."""
         endpoint = f"/sell/inventory/v1/inventory_item/{sku}"
+        product = item_data.get('product') if isinstance(item_data, dict) else None
+        if isinstance(product, dict):
+            product['imageUrls'] = ensure_publish_image_urls(product.get('imageUrls') or [])
         response = self._make_request('PUT', endpoint, data=item_data)
         
         if response.status_code in [200, 201, 204]:
@@ -948,7 +952,7 @@ This is a variation listing where you can select from multiple card options. Eac
         }
         # eBay 25717: imageUrls cannot be null or empty - add placeholder if missing
         if not api_payload["imageUrls"]:
-            api_payload["imageUrls"] = ["https://i.ebayimg.com/images/g/WYsAAOSwpkFnRxqE/s-l1600.webp"]
+            api_payload["imageUrls"] = ensure_publish_image_urls([])
             print(f"[DEBUG] [EBAY] imageUrls was empty - added placeholder (required for Error 25717)")
         if "inventoryItemGroup" in clean_data:
             inv = clean_data["inventoryItemGroup"]

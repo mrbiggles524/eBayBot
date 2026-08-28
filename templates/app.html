@@ -961,7 +961,7 @@
                 </div>
                 <div class="form-group">
                     <label>Default Image URL (Optional)</label>
-                    <input type="text" id="imageUrl" placeholder="Leave empty for no default image" value="">
+                    <input type="text" id="imageUrl" placeholder="Optional default image URL (auto placeholder if empty)" value="">
                 </div>
             </div>
             <div class="form-group">
@@ -1195,7 +1195,7 @@
         <!-- Actions -->
         <div class="actions">
             <div id="imagesBeforePublish" style="margin-bottom: 12px; padding: 10px 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 0.95rem; color: #aaa;">
-                <span id="imagesStatusText">🖼️ Images: Click "Fetch Images" above, then List when ready</span>
+                <span id="imagesStatusText">🖼️ Default placeholder used when no card image is set</span>
             </div>
             <button class="btn btn-success" id="publishBtn" onclick="publishListing()" style="width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold;">🚀 Publish to eBay (Live Listing)</button>
             <p style="color: #ffc107; margin-top: 10px; text-align: center; font-size: 0.9rem;">
@@ -1267,6 +1267,7 @@
     </div>
     
     <script>
+        const DEFAULT_PUBLISH_IMAGE_URL = {{ default_image_url|default('https://i.ebayimg.com/images/g/WYsAAOSwpkFnRxqE/s-l1600.webp')|tojson }};
         let cards = [];
         let policies = {};
         let currentChecklistId = null;
@@ -1792,9 +1793,15 @@
             const pending = window._pendingImageFetch;
             if (!pending || !pending.cards || !cards) return;
             let updated = 0;
+            let placeholders = 0;
+            const defaultImg = DEFAULT_PUBLISH_IMAGE_URL || '';
             pending.cards.forEach(fc => {
                 const idx = fc._idx;
-                const img = fc.image_url || fc.imageUrl;
+                let img = fc.image_url || fc.imageUrl;
+                if (!img && defaultImg) {
+                    img = defaultImg;
+                    placeholders++;
+                }
                 if (idx != null && cards[idx] && img) {
                     cards[idx].imageUrl = img;
                     updated++;
@@ -1802,29 +1809,39 @@
             });
             window._pendingImageFetch = null;
             renderCards();
-            if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = 'Images for ' + updated + '/' + pending.toProcessCount + ' cards applied (v' + pending.version + ')';
+            let statusText = 'Images for ' + updated + '/' + pending.toProcessCount + ' cards applied (v' + pending.version + ')';
+            if (placeholders > 0) statusText += ' • ' + placeholders + ' used default placeholder';
+            if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = statusText;
             updateImagesBeforePublishStatus();
         }
         function updateImagesBeforePublishStatus() {
             const el = document.getElementById('imagesStatusText');
             if (!el || !cards) return;
             const valid = cards.filter(c => (c.qty || 0) > 0);
-            const withImg = valid.filter(c => !!(c.imageUrl || c.image_url)).length;
+            const withRealImg = valid.filter(c => {
+                const u = c.imageUrl || c.image_url;
+                return u && u !== DEFAULT_PUBLISH_IMAGE_URL;
+            }).length;
             const total = valid.length;
+            const defaultImg = DEFAULT_PUBLISH_IMAGE_URL || '';
             if (total === 0) {
                 el.textContent = '🖼️ Add cards with quantity > 0 first';
                 el.parentElement.style.borderColor = 'rgba(255,255,255,0.1)';
                 el.parentElement.style.background = 'rgba(0,0,0,0.3)';
-            } else if (withImg === total) {
-                el.textContent = '✅ Images ready: ' + withImg + '/' + total + ' cards have images';
+            } else if (withRealImg === total) {
+                el.textContent = '✅ Images ready: ' + withRealImg + '/' + total + ' cards have images';
                 el.parentElement.style.borderColor = 'rgba(0, 200, 100, 0.5)';
                 el.parentElement.style.background = 'rgba(0, 200, 100, 0.08)';
-            } else if (withImg > 0) {
-                el.textContent = '⚠️ ' + withImg + '/' + total + ' cards have images – fetch or add for rest';
+            } else if (withRealImg > 0) {
+                el.textContent = '⚠️ ' + withRealImg + '/' + total + ' cards have images – default placeholder for rest';
                 el.parentElement.style.borderColor = 'rgba(255, 193, 7, 0.5)';
                 el.parentElement.style.background = 'rgba(255, 193, 7, 0.08)';
+            } else if (defaultImg) {
+                el.textContent = '✅ Default placeholder will be used for all ' + total + ' cards (swap images anytime)';
+                el.parentElement.style.borderColor = 'rgba(0, 200, 100, 0.5)';
+                el.parentElement.style.background = 'rgba(0, 200, 100, 0.08)';
             } else {
-                el.textContent = '🖼️ No images yet – click "Fetch Images" above before publishing';
+                el.textContent = '🖼️ No images yet – click "Fetch Images" or publish uses auto placeholder';
                 el.parentElement.style.borderColor = 'rgba(255, 165, 0, 0.5)';
                 el.parentElement.style.background = 'rgba(255, 165, 0, 0.08)';
             }
@@ -2685,13 +2702,13 @@
                 setName: document.getElementById('setName').value,
                 sport: document.getElementById('sport')?.value || '',
                 description: document.getElementById('description').value,
-                imageUrl: document.getElementById('imageUrl').value,
+                imageUrl: document.getElementById('imageUrl').value || DEFAULT_PUBLISH_IMAGE_URL || '',
                 cards: validCards.map(c => ({
                     number: c.number,
                     name: c.name,
                     price: c.price,
                     quantity: c.qty,
-                    imageUrl: c.imageUrl || ''
+                    imageUrl: c.imageUrl || c.image_url || DEFAULT_PUBLISH_IMAGE_URL || ''
                 })),
                 paymentPolicyId: document.getElementById('paymentPolicy').value,
                 shippingPolicyId: document.getElementById('shippingPolicy').value,
@@ -2780,11 +2797,16 @@
                 
                 // Background job flow: poll for result
                 if (result.job_id && result.status === 'processing') {
+                    let warnedSlow = false;
                     const pollInterval = setInterval(async () => {
                         const elapsed = (Date.now() - startTime) / 1000;
-                        const simProgress = Math.min(90, 5 + elapsed * 2);  // 5% + 2%/sec
+                        const simProgress = Math.min(95, 5 + elapsed * 1.5);
                         document.getElementById('publishProgressBar').style.width = simProgress + '%';
                         document.getElementById('publishStatusText').textContent = statusMessages[Math.floor(elapsed / 4) % statusMessages.length];
+                        if (elapsed > 120 && !warnedSlow) {
+                            warnedSlow = true;
+                            showToast('Large listings can take several minutes. Still publishing...', 'warning');
+                        }
                         
                         try {
                             const statusRes = await fetch('/api/list-status/' + result.job_id);
@@ -2805,10 +2827,10 @@
                             }
                         } catch (e) { console.error('[poll]', e); }
                         
-                        if (elapsed > 90) {
+                        if (elapsed > 600) {
                             clearInterval(pollInterval);
                             document.getElementById('publishModal').classList.remove('active');
-                            showToast('Publish is taking longer than expected. Check Seller Hub.', 'warning');
+                            showToast('Publish timed out after 10 minutes – check Seller Hub or try fewer cards.', 'warning');
                         }
                     }, 2000);
                     return;

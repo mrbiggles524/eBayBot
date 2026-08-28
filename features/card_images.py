@@ -117,7 +117,8 @@ class CardImageFetcher:
             'Referer': 'https://www.ebay.com/',
         })
         self.rate_limit_delay = rate_limit_delay
-        self.placeholder = "https://i.ebayimg.com/images/g/WYsAAOSwpkFnRxqE/s-l1600.webp"
+        from features.image_utils import resolve_default_image_url
+        self.placeholder = resolve_default_image_url()
         self._cloud = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}) if _HAS_CLOUDSCRAPER else None
     
     def fetch_images_for_cards(

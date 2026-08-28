@@ -5,6 +5,7 @@ import time
 from typing import List, Dict, Optional, Union
 from config import Config
 from ebay_api_client import eBayAPIClient
+from features.image_utils import sanitize_image_url, ensure_publish_image_urls, DEFAULT_PLACEHOLDER_IMAGE
 
 class eBayListingManager:
     """Manages eBay listings with variation support."""
@@ -391,7 +392,7 @@ Please select the specific card you want from the variation dropdown menu."""
             print(json_module.dumps(inventory_item, indent=2)[:500])
             
             # Add imageUrls - check both image_url and imageUrl (fetch returns image_url, listing sends imageUrl)
-            img_url = card.get('image_url') or card.get('imageUrl') or ''
+            img_url = sanitize_image_url(card.get('image_url') or card.get('imageUrl') or '')
             if img_url:
                 inventory_item["product"]["imageUrls"] = [img_url]
                 print(f"[DEBUG] [IMAGE] {sku}: using image (len={len(str(img_url))})")
@@ -715,7 +716,7 @@ This listing allows you to choose from multiple card options, each with individu
         cards_without_images = []
         for item in created_items:
             card = item.get("card", {})
-            image_url = card.get('image_url') or card.get('imageUrl')
+            image_url = sanitize_image_url(card.get('image_url') or card.get('imageUrl') or '')
             if image_url:
                 image_urls_set.add(image_url)
             else:
@@ -739,10 +740,10 @@ This listing allows you to choose from multiple card options, each with individu
         
         # Last resort: eBay requires at least one image - use known working URL (Error 25717 otherwise)
         if not image_urls_set:
-            image_urls_set.add("https://i.ebayimg.com/images/g/WYsAAOSwpkFnRxqE/s-l1600.webp")
+            image_urls_set.add(DEFAULT_PLACEHOLDER_IMAGE)
             print(f"[DEBUG] [FALLBACK] No card images - using default placeholder (Error 25717 would occur otherwise)")
         
-        clean_group_data["imageUrls"] = list(image_urls_set)
+        clean_group_data["imageUrls"] = ensure_publish_image_urls(list(image_urls_set))
         print(f"[DEBUG] [CRITICAL] Added {len(clean_group_data['imageUrls'])} image URL(s) to group")
         print(f"[DEBUG] Image URLs: {clean_group_data['imageUrls']}")
         
@@ -2545,11 +2546,8 @@ This is a variation listing where you can select from multiple card options. Eac
                                 print(f"[WORKAROUND] Using image from inventory item: {final_update_payload['imageUrls']}")
                             else:
                                 # CRITICAL: eBay requires at least one image for variation listings
-                                # Use a minimal valid eBay image URL (must be from eBay CDN)
-                                # This is a fallback - user should provide images
-                                print(f"[WORKAROUND] ⚠️ WARNING: No images found - imageUrls may be required for publishing")
-                                print(f"[WORKAROUND] ⚠️ eBay may require at least one image in imageUrls array")
-                                final_update_payload['imageUrls'] = []  # Try without images first
+                                print(f"[WORKAROUND] ⚠️ WARNING: No images found - using placeholder for publish")
+                                final_update_payload['imageUrls'] = [DEFAULT_PLACEHOLDER_IMAGE]
                         
                         print(f"[WORKAROUND] Final update payload includes:")
                         print(f"  - title: {title_final}")

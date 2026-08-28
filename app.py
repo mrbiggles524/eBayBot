@@ -1606,6 +1606,44 @@ def fetch_checklist():
         print(f"[APP] STEP 5: After formatting")
         print(f"[APP] Formatted cards count: {len(formatted_cards)}")
         print(f"[APP] ========================================")
+
+        # Apply bundled preset + user draft (price/qty persistence)
+        preset_applied = None
+        draft_applied = False
+        checklist_id = None
+        preset_set_name = None
+        try:
+            from features.static_presets import (
+                find_matching_preset,
+                filter_cards_by_preset,
+                merge_preset_into_cards,
+            )
+            from features.checklist_drafts import (
+                ChecklistDraftManager,
+                checklist_id_from_url,
+                merge_draft_into_cards,
+            )
+            checklist_id = checklist_id_from_url(url, checklist_type)
+            preset = find_matching_preset(url, checklist_type)
+            if preset:
+                if preset.get('filter'):
+                    before = len(formatted_cards)
+                    formatted_cards = filter_cards_by_preset(formatted_cards, preset['filter'])
+                    print(f"[APP] Preset filter: {before} -> {len(formatted_cards)} cards")
+                formatted_cards = merge_preset_into_cards(formatted_cards, preset.get('cards', []))
+                preset_applied = preset.get('id') or preset.get('name')
+                if preset.get('setName'):
+                    preset_set_name = preset['setName']
+                print(f"[APP] Applied bundled preset: {preset_applied}")
+            email = session.get('user_email', '')
+            dm = ChecklistDraftManager(user_email=email)
+            draft = dm.load_draft(checklist_id)
+            if draft and draft.get('cards'):
+                formatted_cards = merge_draft_into_cards(formatted_cards, draft['cards'])
+                draft_applied = True
+                print(f"[APP] Merged server draft for {checklist_id}")
+        except Exception as preset_err:
+            print(f"[APP] Preset/draft merge warning: {preset_err}")
         
         # Try to extract set name from description if available
         set_name = ""
@@ -1628,6 +1666,9 @@ def fetch_checklist():
                     set_name = url_match.group(1).replace('-cards', '').replace('-card', '').replace('-', ' ').title()
                 else:
                     set_name = "Beckett Checklist Set"
+
+        if preset_set_name:
+            set_name = preset_set_name
         
         # Simple logging - no restrictive validation
         formatted_count = len(formatted_cards)
@@ -1639,13 +1680,17 @@ def fetch_checklist():
         print(f"[APP] Format: {'PREFIXED' if has_prefix else 'PLAIN NUMBERS'}")
         print(f"[APP] ========================================")
         
+        formatted_count = len(formatted_cards)
         response_data = {
             "success": True,
             "cards": formatted_cards,
             "count": formatted_count,
             "setName": set_name,
             "source": "beckett" if 'beckett.com' in url else ("cardsmiths" if 'cardsmithsbreaks.com' in url else "universal"),
-            "checklistType": checklist_type
+            "checklistType": checklist_type,
+            "checklistId": checklist_id,
+            "presetApplied": preset_applied,
+            "draftApplied": draft_applied,
         }
         
         # For parallels/#'ed, include the list of available parallel types
@@ -1814,7 +1859,8 @@ def create_listing():
         sport = data.get('sport', '').strip()
         description = data.get('description', '')
         cards = data.get('cards', [])
-        image_url = data.get('imageUrl', '')  # No default image - only use if provided
+        from features.image_utils import sanitize_image_url, DEFAULT_PLACEHOLDER_IMAGE
+        image_url = sanitize_image_url(data.get('imageUrl', ''))
         payment_id = data.get('paymentPolicyId', '').strip() or None  # Default to None (Managed by eBay)
         shipping_id = data.get('shippingPolicyId')
         return_id = data.get('returnPolicyId')
@@ -1829,7 +1875,10 @@ def create_listing():
         listing_cards = []
         prices = {}
         for card in valid_cards:
-            img = card.get('imageUrl') or card.get('image_url', '') or image_url
+            img = sanitize_image_url(
+                card.get('imageUrl') or card.get('image_url', '') or image_url,
+                allow_placeholder=True,
+            ) or DEFAULT_PLACEHOLDER_IMAGE
             card_data = {
                 'name': card.get('name', ''),
                 'number': str(card.get('number', '')),
@@ -2297,6 +2346,38 @@ def api_apply_market_pricing():
     except Exception as e:
         import traceback
         return jsonify({"success": False, "error": str(e), "debug": traceback.format_exc()[:500]}), 500
+
+@app.route('/api/checklist-draft', methods=['GET', 'POST', 'DELETE'])
+@require_subscription
+def api_checklist_draft():
+    """Save/load price-qty drafts keyed by checklist URL + type."""
+    try:
+        from features.checklist_drafts import ChecklistDraftManager, checklist_id_from_url
+        email = session.get('user_email', '')
+        dm = ChecklistDraftManager(user_email=email)
+        if request.method == 'GET':
+            url = request.args.get('url', '')
+            ctype = request.args.get('type', 'base')
+            cid = request.args.get('checklistId') or checklist_id_from_url(url, ctype)
+            draft = dm.load_draft(cid)
+            return jsonify({"success": True, "checklistId": cid, "draft": draft})
+        elif request.method == 'POST':
+            data = request.json or {}
+            url = data.get('url', '')
+            ctype = data.get('type', 'base')
+            cid = data.get('checklistId') or checklist_id_from_url(url, ctype)
+            cards = data.get('cards', [])
+            meta = data.get('meta') or {}
+            dm.save_draft(cid, cards, meta=meta)
+            return jsonify({"success": True, "checklistId": cid})
+        else:
+            cid = request.args.get('checklistId', '')
+            if cid:
+                dm.delete_draft(cid)
+            return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/api/presets', methods=['GET', 'POST', 'DELETE'])
 @require_subscription

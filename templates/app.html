@@ -877,6 +877,7 @@
                         <datalist id="checklistUrlSuggestions">
                             <option value="https://cardsmithsbreaks.com/full-checklist/2025-26-topps-chrome-basketball-hobby/">
                             <option value="https://cardsmithsbreaks.com/full-checklist/2024-25-topps-chrome-basketball-hobby/">
+                            <option value="https://www.beckett.com/news/2026-bowman-baseball-cards/">
                             <option value="https://www.beckett.com/news/2025-26-topps-chrome-basketball-cards/">
                             <option value="https://www.beckett.com/news/2024-25-topps-chrome-basketball-cards/">
                             <option value="https://www.cardboardconnection.com/2025-26-topps-chrome-basketball-cards">
@@ -1248,6 +1249,94 @@
     <script>
         let cards = [];
         let policies = {};
+        let currentChecklistId = null;
+        let currentChecklistUrl = '';
+        let currentChecklistType = 'base';
+        let _draftSaveTimer = null;
+
+        function getLocalDraftKey(checklistId) {
+            return 'cardpilot_draft_' + (checklistId || 'unknown');
+        }
+
+        function mergeDraftEntriesOntoCards(draftCards) {
+            if (!draftCards || !draftCards.length) return;
+            const byNum = {};
+            draftCards.forEach(d => {
+                const n = String(d.number || '').trim();
+                if (n) byNum[n] = d;
+            });
+            cards.forEach(card => {
+                const saved = byNum[String(card.number || '').trim()];
+                if (!saved) return;
+                if (saved.price != null) card.price = parseFloat(saved.price) || card.price;
+                if (saved.quantity != null) card.qty = parseInt(saved.quantity) || 0;
+                else if (saved.qty != null) card.qty = parseInt(saved.qty) || 0;
+            });
+        }
+
+        function saveDraftLocal() {
+            if (!currentChecklistId || !cards.length) return;
+            try {
+                const payload = {
+                    checklistId: currentChecklistId,
+                    url: currentChecklistUrl,
+                    type: currentChecklistType,
+                    updated: new Date().toISOString(),
+                    cards: cards.map(c => ({
+                        number: c.number,
+                        name: c.name,
+                        team: c.team || '',
+                        price: c.price,
+                        quantity: c.qty
+                    }))
+                };
+                localStorage.setItem(getLocalDraftKey(currentChecklistId), JSON.stringify(payload));
+            } catch (e) {
+                console.warn('[DRAFT] localStorage save failed', e);
+            }
+        }
+
+        function loadDraftLocal(checklistId) {
+            try {
+                const raw = localStorage.getItem(getLocalDraftKey(checklistId));
+                if (!raw) return null;
+                return JSON.parse(raw);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function scheduleDraftSave() {
+            clearTimeout(_draftSaveTimer);
+            _draftSaveTimer = setTimeout(() => {
+                saveDraftLocal();
+                saveDraftServer();
+            }, 800);
+        }
+
+        async function saveDraftServer() {
+            if (!currentChecklistId || !cards.length) return;
+            try {
+                await fetch('/api/checklist-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        checklistId: currentChecklistId,
+                        url: currentChecklistUrl,
+                        type: currentChecklistType,
+                        cards: cards.map(c => ({
+                            number: c.number,
+                            name: c.name,
+                            team: c.team || '',
+                            price: c.price,
+                            quantity: c.qty
+                        }))
+                    })
+                });
+            } catch (e) {
+                console.warn('[DRAFT] server save failed', e);
+            }
+        }
         
         // Load policies on page load
         async function loadPolicies() {
@@ -1453,6 +1542,10 @@
                 console.log('[FETCH] Validation passed - processing', result.count, 'cards');
                 
                 if (result.success) {
+                    currentChecklistUrl = url;
+                    currentChecklistType = type;
+                    currentChecklistId = result.checklistId || null;
+
                     // For parallels/#'ed, populate parallel type dropdown
                     if ((type === 'parallels' || type === 'numbered') && result.parallelTypes && result.parallelTypes.length > 0) {
                         const parallelTypeSelect = document.getElementById('parallelType');
@@ -1480,13 +1573,26 @@
                             qty: parseInt(card.quantity),
                             selected: true,
                             parallelType: card.parallelType || '',
-                            numbering: card.numbering || ''
+                            numbering: card.numbering || '',
+                            imageUrl: card.imageUrl || card.image_url || ''
                         });
                     });
+
+                    // Merge local draft on top of server preset/draft (local wins for unsaved session edits)
+                    if (currentChecklistId) {
+                        const localDraft = loadDraftLocal(currentChecklistId);
+                        if (localDraft && localDraft.cards && localDraft.cards.length) {
+                            mergeDraftEntriesOntoCards(localDraft.cards);
+                        }
+                    }
                     
                     // Update set name if found
                     if (result.setName) {
                         document.getElementById('setName').value = result.setName;
+                    }
+                    if (result.presetApplied && result.presetApplied.includes('bowman')) {
+                        const sportEl = document.getElementById('sport');
+                        if (sportEl) sportEl.value = 'Baseball';
                     }
                     
                     // Update description if extracted from checklist page - AUTOMATICALLY
@@ -1539,7 +1645,10 @@
                     }
                     
                     statusDiv.innerHTML = `<span style="color: #00ff00;">Found ${result.count} cards from ${result.source}</span>`;
-                    showToast(`Loaded ${result.count} cards!`, 'success');
+                    let toastMsg = `Loaded ${result.count} cards!`;
+                    if (result.presetApplied) toastMsg += ` (preset: ${result.presetApplied})`;
+                    if (result.draftApplied) toastMsg += ' + saved draft';
+                    showToast(toastMsg, 'success');
                 } else {
                     // CRITICAL: Clear cards array on error to prevent showing old/cached data
                     cards = [];
@@ -1857,16 +1966,36 @@
                 if (field === 'selected') value = Boolean(value);
                 card[field] = value;
                 
-                // Re-render to update visual styling for zero qty
+                // Avoid full table re-render on every qty keystroke (fixes UI freeze with 100+ cards)
                 if (field === 'qty') {
-                    renderCards();
-                    // Re-apply filters if zero qty filter is active
-                    if (hideZeroQty) {
-                        applyZeroQtyFilter();
-                    }
+                    updateQtyRowStyle(id, value);
+                    updateSummary();
+                    scheduleDraftSave();
+                } else if (field === 'price') {
+                    updateSummary();
+                    scheduleDraftSave();
                 } else {
                     updateSummary();
+                    scheduleDraftSave();
                 }
+            }
+        }
+
+        function updateQtyRowStyle(id, qty) {
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (!row) return;
+            const n = parseInt(qty) || 0;
+            const isZeroQty = n === 0;
+            row.style.opacity = isZeroQty ? '0.5' : '';
+            row.style.background = isZeroQty ? 'rgba(255,255,255,0.02)' : '';
+            const qtyInput = row.querySelector('.qty-input');
+            if (qtyInput) {
+                qtyInput.style.borderColor = isZeroQty ? 'rgba(255, 193, 7, 0.5)' : '';
+                qtyInput.style.background = isZeroQty ? 'rgba(255, 193, 7, 0.1)' : '';
+                qtyInput.title = isZeroQty ? 'Quantity 0 - will be excluded from listing' : '';
+            }
+            if (hideZeroQty) {
+                filterCards();
             }
         }
         
@@ -2031,7 +2160,7 @@
                     <td><input type="text" value="${card.name}" onchange="updateCard(${card.id}, 'name', this.value)" placeholder="Player Name" style="width: 170px; max-width: 170px;"></td>
                     <td><input type="text" value="${card.team || ''}" onchange="updateCard(${card.id}, 'team', this.value)" placeholder="Team" style="width: 190px; min-width: 190px;"></td>
                     <td style="vertical-align: middle; text-align: center;">${getWantOfferBtn(card.id)}</td>
-                    <td><input type="number" class="price-input" value="${card.price}" step="0.25" min="0" onchange="updateCard(${card.id}, 'price', this.value)" style="width: 70px;"></td>
+                    <td><input type="number" class="price-input" value="${card.price}" step="0.25" min="0" oninput="updateCard(${card.id}, 'price', this.value)" style="width: 70px;"></td>
                     <td><input type="number" class="qty-input" value="${qty}" min="0" data-card-id="${card.id}" oninput="updateCard(${card.id}, 'qty', this.value)" style="width: 50px; ${qtyStyle}" title="${isZeroQty ? 'Quantity 0 - will be excluded from listing' : ''}"></td>
                     <td><button class="remove-btn" onclick="removeCard(${card.id})" style="padding: 4px 8px;">X</button></td>
                 </tr>
@@ -2806,8 +2935,10 @@
             });
         }
         
-        // Clear localStorage cache
-        const cacheKeys = Object.keys(localStorage).filter(key => key.includes('cache') || key.includes('fetch'));
+        // Clear localStorage cache keys only (preserve price/qty drafts)
+        const cacheKeys = Object.keys(localStorage).filter(key =>
+            (key.includes('cache') || key.includes('fetch')) && !key.startsWith('cardpilot_draft_')
+        );
         cacheKeys.forEach(key => {
             localStorage.removeItem(key);
             console.log('[CACHE] Cleared localStorage:', key);

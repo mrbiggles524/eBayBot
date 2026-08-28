@@ -10,102 +10,712 @@
     "plainNumbersOnly": true,
     "minNumber": 1,
     "maxNumber": 100,
-    "excludePrefixes": ["BP-", "BDP-", "BCP-"]
+    "excludePrefixes": [
+      "BP-",
+      "BDP-",
+      "BCP-"
+    ]
   },
   "cards": [
-    {"number": "1", "name": "Aaron Judge", "team": "NY Yankees", "price": 1.75, "quantity": 1},
-    {"number": "2", "name": "Yoshinobu Yamamoto", "team": "LA Dodgers", "price": 1.0, "quantity": 8},
-    {"number": "3", "name": "Chase Burns", "team": "Cincinnati Reds", "price": 2.49, "quantity": 1},
-    {"number": "4", "name": "Jackson Chourio", "team": "Milwaukee Brewers", "price": 1.0, "quantity": 9},
-    {"number": "5", "name": "Julio Rodríguez", "team": "Seattle Mariners", "price": 1.0, "quantity": 15},
-    {"number": "6", "name": "Sal Stewart", "team": "Cincinnati Reds", "price": 2.99, "quantity": 1},
-    {"number": "7", "name": "Bryce Harper", "team": "Philadelphia Phillies", "price": 1.0, "quantity": 9},
-    {"number": "8", "name": "Ernie Clement", "team": "Toronto Blue Jays", "price": 1.0, "quantity": 9},
-    {"number": "9", "name": "Munetaka Murakami", "team": "Chicago White Sox", "price": 2.99, "quantity": 1},
-    {"number": "10", "name": "Nick Kurtz", "team": "Athletics", "price": 1.0, "quantity": 7},
-    {"number": "11", "name": "Corey Seager", "team": "Texas Rangers", "price": 1.0, "quantity": 16},
-    {"number": "12", "name": "Jhostynxon Garcia", "team": "Pittsburgh Pirates", "price": 1.0, "quantity": 3},
-    {"number": "14", "name": "Drake Baldwin", "team": "Atlanta Braves", "price": 1.0, "quantity": 8},
-    {"number": "15", "name": "Max Fried", "team": "New York Yankees", "price": 1.0, "quantity": 13},
-    {"number": "16", "name": "Carson Whisenhunt", "team": "San Francisco Giants", "price": 1.0, "quantity": 7},
-    {"number": "17", "name": "Francisco Lindor", "team": "New York Mets", "price": 1.0, "quantity": 8},
-    {"number": "19", "name": "Kyle Teel", "team": "Chicago White Sox", "price": 1.99, "quantity": 4},
-    {"number": "20", "name": "Kyle Schwarber", "team": "Philadelphia Phillies", "price": 1.0, "quantity": 10},
-    {"number": "21", "name": "Michael Harris II", "team": "Atlanta Braves", "price": 1.0, "quantity": 9},
-    {"number": "22", "name": "Andrew McCutchen", "team": "Pittsburgh Pirates", "price": 1.0, "quantity": 12},
-    {"number": "23", "name": "Ronald Acuña Jr.", "team": "Atlanta Braves", "price": 1.0, "quantity": 7},
-    {"number": "24", "name": "Will Smith", "team": "Los Angeles Dodgers", "price": 1.0, "quantity": 10},
-    {"number": "25", "name": "Bobby Witt Jr.", "team": "Kansas City Royals", "price": 1.0, "quantity": 12},
-    {"number": "26", "name": "Payton Tolle", "team": "Boston Red Sox", "price": 1.99, "quantity": 3},
-    {"number": "27", "name": "Bo Bichette", "team": "Toronto Blue Jays", "price": 1.0, "quantity": 10},
-    {"number": "28", "name": "Kazuma Okamoto", "team": "Toronto Blue Jays", "price": 2.49, "quantity": 1},
-    {"number": "29", "name": "Geraldo Perdomo", "team": "Arizona Diamondbacks", "price": 1.0, "quantity": 12},
-    {"number": "30", "name": "Brice Turang", "team": "Milwaukee Brewers", "price": 1.0, "quantity": 8},
-    {"number": "31", "name": "Pete Crow-Armstrong", "team": "Chicago Cubs", "price": 1.0, "quantity": 13},
-    {"number": "32", "name": "Ketel Marte", "team": "Arizona Diamondbacks", "price": 1.0, "quantity": 9},
-    {"number": "33", "name": "Brandon Sproat", "team": "New York Mets", "price": 1.0, "quantity": 5},
-    {"number": "34", "name": "Kyle Stowers", "team": "Miami Marlins", "price": 1.0, "quantity": 7},
-    {"number": "35", "name": "Jacob Misiorowski", "team": "Milwaukee Brewers", "price": 3.99, "quantity": 1},
-    {"number": "36", "name": "Jimmy Crooks", "team": "St. Louis Cardinals", "price": 1.0, "quantity": 8},
-    {"number": "37", "name": "Chase DeLauter", "team": "Cleveland Guardians", "price": 1.99, "quantity": 1},
-    {"number": "38", "name": "Matt Olson", "team": "Atlanta Braves", "price": 1.0, "quantity": 9},
-    {"number": "39", "name": "Carson Williams", "team": "Tampa Bay Rays", "price": 1.99, "quantity": 1},
-    {"number": "40", "name": "Drew Gilbert", "team": "San Francisco Giants", "price": 1.49, "quantity": 8},
-    {"number": "41", "name": "Trey Yesavage", "team": "Toronto Blue Jays", "price": 1.99, "quantity": 1},
-    {"number": "42", "name": "Zach Neto", "team": "Los Angeles Angels", "price": 1.0, "quantity": 9},
-    {"number": "43", "name": "Jackson Holliday", "team": "Baltimore Orioles", "price": 1.0, "quantity": 11},
-    {"number": "44", "name": "Elly De La Cruz", "team": "Cincinnati Reds", "price": 1.49, "quantity": 7},
-    {"number": "46", "name": "Freddie Freeman", "team": "Los Angeles Dodgers", "price": 1.49, "quantity": 8},
-    {"number": "47", "name": "Fernando Tatis Jr.", "team": "San Diego Padres", "price": 1.0, "quantity": 8},
-    {"number": "48", "name": "Riley Greene", "team": "Detroit Tigers", "price": 1.0, "quantity": 12},
-    {"number": "49", "name": "Luis Morales", "team": "Athletics", "price": 1.0, "quantity": 9},
-    {"number": "50", "name": "Jackson Merrill", "team": "San Diego Padres", "price": 1.0, "quantity": 13},
-    {"number": "51", "name": "Garrett Crochet", "team": "Boston Red Sox", "price": 1.0, "quantity": 8},
-    {"number": "52", "name": "Shohei Ohtani", "team": "Los Angeles Dodgers", "price": 5.99, "quantity": 1},
-    {"number": "53", "name": "Cam Schlittler", "team": "New York Yankees", "price": 3.99, "quantity": 1},
-    {"number": "54", "name": "Dylan Crews", "team": "Washington Nationals", "price": 1.25, "quantity": 8},
-    {"number": "55", "name": "Cristopher Sánchez", "team": "Philadelphia Phillies", "price": 1.0, "quantity": 8},
-    {"number": "56", "name": "Brice Matthews", "team": "Houston Astros", "price": 1.49, "quantity": 9},
-    {"number": "57", "name": "Luke Keaschall", "team": "Minnesota Twins", "price": 1.0, "quantity": 11},
-    {"number": "58", "name": "Bryce Eldridge", "team": "San Francisco Giants", "price": 2.75, "quantity": 1},
-    {"number": "59", "name": "Junior Caminero", "team": "Tampa Bay Rays", "price": 1.0, "quantity": 10},
-    {"number": "60", "name": "Manny Machado", "team": "San Diego Padres", "price": 1.0, "quantity": 9},
-    {"number": "61", "name": "Vladimir Guerrero Jr.", "team": "Toronto Blue Jays", "price": 1.0, "quantity": 12},
-    {"number": "62", "name": "Owen Caissie", "team": "Chicago Cubs", "price": 1.25, "quantity": 9},
-    {"number": "63", "name": "Roki Sasaki", "team": "Los Angeles Dodgers", "price": 1.0, "quantity": 7},
-    {"number": "64", "name": "Jacob deGrom", "team": "Texas Rangers", "price": 1.0, "quantity": 6},
-    {"number": "65", "name": "Jonah Tong", "team": "New York Mets", "price": 1.99, "quantity": 9},
-    {"number": "66", "name": "Carter Jensen", "team": "Kansas City Royals", "price": 1.99, "quantity": 9},
-    {"number": "67", "name": "Yordan Alvarez", "team": "Houston Astros", "price": 1.0, "quantity": 8},
-    {"number": "69", "name": "Dylan Beavers", "team": "Baltimore Orioles", "price": 1.0, "quantity": 8},
-    {"number": "70", "name": "Alex Freeland", "team": "Los Angeles Dodgers", "price": 1.49, "quantity": 9},
-    {"number": "71", "name": "Trea Turner", "team": "Philadelphia Phillies", "price": 1.0, "quantity": 8},
-    {"number": "72", "name": "Masyn Winn", "team": "St. Louis Cardinals", "price": 1.0, "quantity": 9},
-    {"number": "74", "name": "Tatsuya Imai", "team": "Houston Astros", "price": 1.49, "quantity": 9},
-    {"number": "75", "name": "Jac Caglianone", "team": "Kansas City Royals", "price": 2.49, "quantity": 1},
-    {"number": "76", "name": "Tarik Skubal", "team": "Detroit Tigers", "price": 1.0, "quantity": 13},
-    {"number": "77", "name": "José Ramírez", "team": "Cleveland Guardians", "price": 1.0, "quantity": 7},
-    {"number": "78", "name": "Cole Young", "team": "Seattle Mariners", "price": 1.0, "quantity": 9},
-    {"number": "79", "name": "James Wood", "team": "Washington Nationals", "price": 1.0, "quantity": 8},
-    {"number": "80", "name": "Corbin Carroll", "team": "Arizona Diamondbacks", "price": 1.0, "quantity": 8},
-    {"number": "81", "name": "Mookie Betts", "team": "Los Angeles Dodgers", "price": 1.49, "quantity": 8},
-    {"number": "82", "name": "Hunter Goodman", "team": "Colorado Rockies", "price": 1.0, "quantity": 9},
-    {"number": "83", "name": "Bubba Chandler", "team": "Pittsburgh Pirates", "price": 1.99, "quantity": 1},
-    {"number": "84", "name": "Harry Ford", "team": "Washington Nationals", "price": 1.0, "quantity": 8},
-    {"number": "85", "name": "Nolan McLean", "team": "New York Mets", "price": 1.99, "quantity": 1},
-    {"number": "86", "name": "Jakob Marsee", "team": "Miami Marlins", "price": 1.0, "quantity": 7},
-    {"number": "87", "name": "Jacob Melton", "team": "Tampa Bay Rays", "price": 1.0, "quantity": 9},
-    {"number": "88", "name": "Wyatt Langford", "team": "Texas Rangers", "price": 1.0, "quantity": 11},
-    {"number": "89", "name": "Rafael Devers", "team": "San Francisco Giants", "price": 1.0, "quantity": 9},
-    {"number": "90", "name": "Marcelo Mayer", "team": "Boston Red Sox", "price": 1.0, "quantity": 8},
-    {"number": "91", "name": "Yanquiel Fernández", "team": "Colorado Rockies", "price": 1.0, "quantity": 7},
-    {"number": "92", "name": "Brady House", "team": "Washington Nationals", "price": 1.0, "quantity": 4},
-    {"number": "93", "name": "Samuel Basallo", "team": "Baltimore Orioles", "price": 1.99, "quantity": 1},
-    {"number": "94", "name": "Byron Buxton", "team": "Minnesota Twins", "price": 1.0, "quantity": 9},
-    {"number": "95", "name": "George Springer", "team": "Toronto Blue Jays", "price": 1.0, "quantity": 14},
-    {"number": "96", "name": "Jacob Wilson", "team": "Athletics", "price": 1.0, "quantity": 12},
-    {"number": "97", "name": "Juan Soto", "team": "New York Mets", "price": 1.0, "quantity": 14},
-    {"number": "98", "name": "C.J. Kayfus", "team": "Cleveland Guardians", "price": 1.49, "quantity": 9},
-    {"number": "99", "name": "Christian Moore", "team": "Los Angeles Angels", "price": 1.25, "quantity": 3}
+    {
+      "number": "1",
+      "name": "Aaron Judge",
+      "team": "NY Yankees",
+      "price": 1.75,
+      "quantity": 1
+    },
+    {
+      "number": "2",
+      "name": "Yoshinobu Yamamoto",
+      "team": "LA Dodgers",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "3",
+      "name": "Chase Burns",
+      "team": "Cincinnati Reds",
+      "price": 2.49,
+      "quantity": 1
+    },
+    {
+      "number": "4",
+      "name": "Jackson Chourio",
+      "team": "Milwaukee Brewers",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "5",
+      "name": "Julio Rodríguez",
+      "team": "Seattle Mariners",
+      "price": 1.0,
+      "quantity": 15
+    },
+    {
+      "number": "6",
+      "name": "Sal Stewart",
+      "team": "Cincinnati Reds",
+      "price": 2.99,
+      "quantity": 1
+    },
+    {
+      "number": "7",
+      "name": "Bryce Harper",
+      "team": "Philadelphia Phillies",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "8",
+      "name": "Ernie Clement",
+      "team": "Toronto Blue Jays",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "9",
+      "name": "Munetaka Murakami",
+      "team": "Chicago White Sox",
+      "price": 2.99,
+      "quantity": 1
+    },
+    {
+      "number": "10",
+      "name": "Nick Kurtz",
+      "team": "Athletics",
+      "price": 1.0,
+      "quantity": 7
+    },
+    {
+      "number": "11",
+      "name": "Corey Seager",
+      "team": "Texas Rangers",
+      "price": 1.0,
+      "quantity": 16
+    },
+    {
+      "number": "12",
+      "name": "Jhostynxon Garcia",
+      "team": "Pittsburgh Pirates",
+      "price": 1.0,
+      "quantity": 3
+    },
+    {
+      "number": "13",
+      "name": "Cal Raleigh",
+      "team": "Seattle Mariners",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "14",
+      "name": "Drake Baldwin",
+      "team": "Atlanta Braves",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "15",
+      "name": "Max Fried",
+      "team": "New York Yankees",
+      "price": 1.0,
+      "quantity": 13
+    },
+    {
+      "number": "16",
+      "name": "Carson Whisenhunt",
+      "team": "San Francisco Giants",
+      "price": 1.0,
+      "quantity": 7
+    },
+    {
+      "number": "17",
+      "name": "Francisco Lindor",
+      "team": "New York Mets",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "18",
+      "name": "Roman Anthony",
+      "team": "Boston Red Sox",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "19",
+      "name": "Kyle Teel",
+      "team": "Chicago White Sox",
+      "price": 1.99,
+      "quantity": 4
+    },
+    {
+      "number": "20",
+      "name": "Kyle Schwarber",
+      "team": "Philadelphia Phillies",
+      "price": 1.0,
+      "quantity": 10
+    },
+    {
+      "number": "21",
+      "name": "Michael Harris II",
+      "team": "Atlanta Braves",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "22",
+      "name": "Andrew McCutchen",
+      "team": "Pittsburgh Pirates",
+      "price": 1.0,
+      "quantity": 12
+    },
+    {
+      "number": "23",
+      "name": "Ronald Acuña Jr.",
+      "team": "Atlanta Braves",
+      "price": 1.0,
+      "quantity": 7
+    },
+    {
+      "number": "24",
+      "name": "Will Smith",
+      "team": "Los Angeles Dodgers",
+      "price": 1.0,
+      "quantity": 10
+    },
+    {
+      "number": "25",
+      "name": "Bobby Witt Jr.",
+      "team": "Kansas City Royals",
+      "price": 1.0,
+      "quantity": 12
+    },
+    {
+      "number": "26",
+      "name": "Payton Tolle",
+      "team": "Boston Red Sox",
+      "price": 1.99,
+      "quantity": 3
+    },
+    {
+      "number": "27",
+      "name": "Bo Bichette",
+      "team": "Toronto Blue Jays",
+      "price": 1.0,
+      "quantity": 10
+    },
+    {
+      "number": "28",
+      "name": "Kazuma Okamoto",
+      "team": "Toronto Blue Jays",
+      "price": 2.49,
+      "quantity": 1
+    },
+    {
+      "number": "29",
+      "name": "Geraldo Perdomo",
+      "team": "Arizona Diamondbacks",
+      "price": 1.0,
+      "quantity": 12
+    },
+    {
+      "number": "30",
+      "name": "Brice Turang",
+      "team": "Milwaukee Brewers",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "31",
+      "name": "Pete Crow-Armstrong",
+      "team": "Chicago Cubs",
+      "price": 1.0,
+      "quantity": 13
+    },
+    {
+      "number": "32",
+      "name": "Ketel Marte",
+      "team": "Arizona Diamondbacks",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "33",
+      "name": "Brandon Sproat",
+      "team": "New York Mets",
+      "price": 1.0,
+      "quantity": 5
+    },
+    {
+      "number": "34",
+      "name": "Kyle Stowers",
+      "team": "Miami Marlins",
+      "price": 1.0,
+      "quantity": 7
+    },
+    {
+      "number": "35",
+      "name": "Jacob Misiorowski",
+      "team": "Milwaukee Brewers",
+      "price": 3.99,
+      "quantity": 1
+    },
+    {
+      "number": "36",
+      "name": "Jimmy Crooks",
+      "team": "St. Louis Cardinals",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "37",
+      "name": "Chase DeLauter",
+      "team": "Cleveland Guardians",
+      "price": 1.99,
+      "quantity": 1
+    },
+    {
+      "number": "38",
+      "name": "Matt Olson",
+      "team": "Atlanta Braves",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "39",
+      "name": "Carson Williams",
+      "team": "Tampa Bay Rays",
+      "price": 1.99,
+      "quantity": 1
+    },
+    {
+      "number": "40",
+      "name": "Drew Gilbert",
+      "team": "San Francisco Giants",
+      "price": 1.49,
+      "quantity": 8
+    },
+    {
+      "number": "41",
+      "name": "Trey Yesavage",
+      "team": "Toronto Blue Jays",
+      "price": 1.99,
+      "quantity": 1
+    },
+    {
+      "number": "42",
+      "name": "Zach Neto",
+      "team": "Los Angeles Angels",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "43",
+      "name": "Jackson Holliday",
+      "team": "Baltimore Orioles",
+      "price": 1.0,
+      "quantity": 11
+    },
+    {
+      "number": "44",
+      "name": "Elly De La Cruz",
+      "team": "Cincinnati Reds",
+      "price": 1.49,
+      "quantity": 7
+    },
+    {
+      "number": "45",
+      "name": "Connelly Early",
+      "team": "Boston Red Sox",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "46",
+      "name": "Freddie Freeman",
+      "team": "Los Angeles Dodgers",
+      "price": 1.49,
+      "quantity": 8
+    },
+    {
+      "number": "47",
+      "name": "Fernando Tatis Jr.",
+      "team": "San Diego Padres",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "48",
+      "name": "Riley Greene",
+      "team": "Detroit Tigers",
+      "price": 1.0,
+      "quantity": 12
+    },
+    {
+      "number": "49",
+      "name": "Luis Morales",
+      "team": "Athletics",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "50",
+      "name": "Jackson Merrill",
+      "team": "San Diego Padres",
+      "price": 1.0,
+      "quantity": 13
+    },
+    {
+      "number": "51",
+      "name": "Garrett Crochet",
+      "team": "Boston Red Sox",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "52",
+      "name": "Shohei Ohtani",
+      "team": "Los Angeles Dodgers",
+      "price": 5.99,
+      "quantity": 1
+    },
+    {
+      "number": "53",
+      "name": "Cam Schlittler",
+      "team": "New York Yankees",
+      "price": 3.99,
+      "quantity": 1
+    },
+    {
+      "number": "54",
+      "name": "Dylan Crews",
+      "team": "Washington Nationals",
+      "price": 1.25,
+      "quantity": 8
+    },
+    {
+      "number": "55",
+      "name": "Cristopher Sánchez",
+      "team": "Philadelphia Phillies",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "56",
+      "name": "Brice Matthews",
+      "team": "Houston Astros",
+      "price": 1.49,
+      "quantity": 9
+    },
+    {
+      "number": "57",
+      "name": "Luke Keaschall",
+      "team": "Minnesota Twins",
+      "price": 1.0,
+      "quantity": 11
+    },
+    {
+      "number": "58",
+      "name": "Bryce Eldridge",
+      "team": "San Francisco Giants",
+      "price": 2.75,
+      "quantity": 1
+    },
+    {
+      "number": "59",
+      "name": "Junior Caminero",
+      "team": "Tampa Bay Rays",
+      "price": 1.0,
+      "quantity": 10
+    },
+    {
+      "number": "60",
+      "name": "Manny Machado",
+      "team": "San Diego Padres",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "61",
+      "name": "Vladimir Guerrero Jr.",
+      "team": "Toronto Blue Jays",
+      "price": 1.0,
+      "quantity": 12
+    },
+    {
+      "number": "62",
+      "name": "Owen Caissie",
+      "team": "Chicago Cubs",
+      "price": 1.25,
+      "quantity": 9
+    },
+    {
+      "number": "63",
+      "name": "Roki Sasaki",
+      "team": "Los Angeles Dodgers",
+      "price": 1.0,
+      "quantity": 7
+    },
+    {
+      "number": "64",
+      "name": "Jacob deGrom",
+      "team": "Texas Rangers",
+      "price": 1.0,
+      "quantity": 6
+    },
+    {
+      "number": "65",
+      "name": "Jonah Tong",
+      "team": "New York Mets",
+      "price": 1.99,
+      "quantity": 9
+    },
+    {
+      "number": "66",
+      "name": "Carter Jensen",
+      "team": "Kansas City Royals",
+      "price": 1.99,
+      "quantity": 9
+    },
+    {
+      "number": "67",
+      "name": "Yordan Alvarez",
+      "team": "Houston Astros",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "68",
+      "name": "Colson Montgomery",
+      "team": "Chicago White Sox",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "69",
+      "name": "Dylan Beavers",
+      "team": "Baltimore Orioles",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "70",
+      "name": "Alex Freeland",
+      "team": "Los Angeles Dodgers",
+      "price": 1.49,
+      "quantity": 9
+    },
+    {
+      "number": "71",
+      "name": "Trea Turner",
+      "team": "Philadelphia Phillies",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "72",
+      "name": "Masyn Winn",
+      "team": "St. Louis Cardinals",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "73",
+      "name": "Gunnar Henderson",
+      "team": "Baltimore Orioles",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "74",
+      "name": "Tatsuya Imai",
+      "team": "Houston Astros",
+      "price": 1.49,
+      "quantity": 9
+    },
+    {
+      "number": "75",
+      "name": "Jac Caglianone",
+      "team": "Kansas City Royals",
+      "price": 2.49,
+      "quantity": 1
+    },
+    {
+      "number": "76",
+      "name": "Tarik Skubal",
+      "team": "Detroit Tigers",
+      "price": 1.0,
+      "quantity": 13
+    },
+    {
+      "number": "77",
+      "name": "José Ramírez",
+      "team": "Cleveland Guardians",
+      "price": 1.0,
+      "quantity": 7
+    },
+    {
+      "number": "78",
+      "name": "Cole Young",
+      "team": "Seattle Mariners",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "79",
+      "name": "James Wood",
+      "team": "Washington Nationals",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "80",
+      "name": "Corbin Carroll",
+      "team": "Arizona Diamondbacks",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "81",
+      "name": "Mookie Betts",
+      "team": "Los Angeles Dodgers",
+      "price": 1.49,
+      "quantity": 8
+    },
+    {
+      "number": "82",
+      "name": "Hunter Goodman",
+      "team": "Colorado Rockies",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "83",
+      "name": "Bubba Chandler",
+      "team": "Pittsburgh Pirates",
+      "price": 1.99,
+      "quantity": 1
+    },
+    {
+      "number": "84",
+      "name": "Harry Ford",
+      "team": "Washington Nationals",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "85",
+      "name": "Nolan McLean",
+      "team": "New York Mets",
+      "price": 1.99,
+      "quantity": 1
+    },
+    {
+      "number": "86",
+      "name": "Jakob Marsee",
+      "team": "Miami Marlins",
+      "price": 1.0,
+      "quantity": 7
+    },
+    {
+      "number": "87",
+      "name": "Jacob Melton",
+      "team": "Tampa Bay Rays",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "88",
+      "name": "Wyatt Langford",
+      "team": "Texas Rangers",
+      "price": 1.0,
+      "quantity": 11
+    },
+    {
+      "number": "89",
+      "name": "Rafael Devers",
+      "team": "San Francisco Giants",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "90",
+      "name": "Marcelo Mayer",
+      "team": "Boston Red Sox",
+      "price": 1.0,
+      "quantity": 8
+    },
+    {
+      "number": "91",
+      "name": "Yanquiel Fernández",
+      "team": "Colorado Rockies",
+      "price": 1.0,
+      "quantity": 7
+    },
+    {
+      "number": "92",
+      "name": "Brady House",
+      "team": "Washington Nationals",
+      "price": 1.0,
+      "quantity": 4
+    },
+    {
+      "number": "93",
+      "name": "Samuel Basallo",
+      "team": "Baltimore Orioles",
+      "price": 1.99,
+      "quantity": 1
+    },
+    {
+      "number": "94",
+      "name": "Byron Buxton",
+      "team": "Minnesota Twins",
+      "price": 1.0,
+      "quantity": 9
+    },
+    {
+      "number": "95",
+      "name": "George Springer",
+      "team": "Toronto Blue Jays",
+      "price": 1.0,
+      "quantity": 14
+    },
+    {
+      "number": "96",
+      "name": "Jacob Wilson",
+      "team": "Athletics",
+      "price": 1.0,
+      "quantity": 12
+    },
+    {
+      "number": "97",
+      "name": "Juan Soto",
+      "team": "New York Mets",
+      "price": 1.0,
+      "quantity": 14
+    },
+    {
+      "number": "98",
+      "name": "C.J. Kayfus",
+      "team": "Cleveland Guardians",
+      "price": 1.49,
+      "quantity": 9
+    },
+    {
+      "number": "99",
+      "name": "Christian Moore",
+      "team": "Los Angeles Angels",
+      "price": 1.25,
+      "quantity": 3
+    },
+    {
+      "number": "100",
+      "name": "Mike Trout",
+      "team": "Los Angeles Angels",
+      "price": 1.0,
+      "quantity": 9
+    }
   ]
 }

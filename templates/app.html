@@ -907,6 +907,7 @@
                         <label>Type</label>
                         <select id="checklistType" onchange="onChecklistTypeChange()">
                             <option value="base">Base Cards</option>
+                            <option value="prospects">Prospects (BP-)</option>
                             <option value="inserts">Insert Cards</option>
                             <option value="autographs">Autographs</option>
                             <option value="numbered">#'ed</option>
@@ -1671,8 +1672,11 @@
                         searchContainer.style.display = 'block';
                     }
                     
-                    statusDiv.innerHTML = `<span style="color: #00ff00;">Found ${result.count} cards from ${result.source}</span>`;
-                    let toastMsg = `Loaded ${result.count} cards!`;
+                    const typeLabel = type === 'prospects' ? 'Prospects (BP-)' : (type === 'base' ? 'Base Cards' : type);
+                    statusDiv.innerHTML = `<span style="color: #00ff00;">Found ${result.count} ${typeLabel} from ${result.source}</span>`;
+                    let toastMsg = type === 'prospects'
+                        ? `Loaded ${result.count} Prospects (BP-)!`
+                        : (type === 'base' ? `Loaded ${result.count} Base Cards!` : `Loaded ${result.count} cards!`);
                     if (result.presetApplied) toastMsg += ` (preset: ${result.presetApplied})`;
                     if (result.draftApplied) toastMsg += ' + saved draft';
                     showToast(toastMsg, 'success');
@@ -3109,6 +3113,18 @@
             });
         }
         
+
+        // One-time: clear stale Bowman base draft prices from finished listing
+        (function clearStaleBowmanDraft() {
+            const flag = 'cardpilot_draft_reset_bowman_base_v4162';
+            if (localStorage.getItem(flag)) return;
+            try {
+                localStorage.removeItem('cardpilot_draft_2026-bowman-baseball-cards:base');
+                localStorage.setItem(flag, '1');
+                console.log('[DRAFT] Cleared stale 2026 Bowman base price/qty draft');
+            } catch (e) {}
+        })();
+
         // Clear localStorage cache keys only (preserve price/qty drafts)
         const cacheKeys = Object.keys(localStorage).filter(key =>
             (key.includes('cache') || key.includes('fetch')) && !key.startsWith('cardpilot_draft_')
@@ -3176,7 +3192,7 @@
         // ========== WALKTHROUGH ==========
         const WALKTHROUGH_STEPS = [
             { target: 'checklistUrl', title: '1. Checklist URL', text: 'Find a checklist of the cards you want to list (Beckett, Cardsmiths Breaks, or Cardboard Connection). Copy the full URL and paste it here.' },
-            { target: 'checklistType', title: '2. Card Type', text: 'Select the type: Base Cards, Insert Cards, Autographs, #\'ed, or Parallels. This filters which cards to fetch.' },
+            { target: 'checklistType', title: '2. Card Type', text: 'Select the type: Base Cards (plain #s), Prospects (BP-), Inserts, Autographs, #\'ed, or Parallels.' },
             { target: 'fetchBtn', title: '3. Fetch Checklist', text: 'Set default price and quantity, then click Fetch Checklist. This loads your cards and auto-fills set name and description.' },
             { target: 'setName', title: '4. Listing Details', text: 'Set name and description are auto-filled from the checklist. Edit as needed. Use Step 3 to fetch images or market prices.' },
             { target: 'cardsSection', title: '5. Your Cards', text: 'Set Price and Quantity for each card. Only cards with quantity > 0 are listed. Use Fetch Images or Market Price to auto-populate.' },

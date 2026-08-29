@@ -553,6 +553,7 @@ class CardChecklistFetcher:
                 print(f"[PARSER] CRITICAL: Must ONLY return base cards 1-300, NO INSERTS")
                 print(f"[PARSER] ========================================")
                 result = self._fetch_base_cards_from_beckett(url, soup=soup)
+                result = self._split_bowman_base_vs_prospects(result, 'base')
                 print(f"[PARSER] ========================================")
                 print(f"[PARSER] BASE CARDS PARSER RETURNED")
                 print(f"[PARSER] Result type: {type(result)}")
@@ -719,6 +720,20 @@ class CardChecklistFetcher:
                 print(f"[PARSER] Returning tuple: (cards, description)")
                 print(f"[PARSER] ========================================")
                 return (result, description)
+            elif checklist_type in ('prospects', 'bp', 'base_prospects', 'base-prospects'):
+                print(f"[PARSER] ROUTING TO BASE PROSPECTS (BP-) PARSER")
+                result = self._fetch_base_cards_from_beckett(url, soup=soup)
+                result = self._split_bowman_base_vs_prospects(result, 'prospects')
+                if result:
+                    def _bp_key(card):
+                        n = str(card.get('number', ''))
+                        try:
+                            return int(n.split('-', 1)[1])
+                        except Exception:
+                            return 9999
+                    result = sorted(result, key=_bp_key)
+                print(f"[PARSER] Prospects result: {len(result) if result else 0} BP- cards")
+                return (result, description)
             elif checklist_type == 'inserts':
                 cards = self._fetch_inserts_from_beckett(url, soup=soup)
                 return (cards, description)
@@ -745,6 +760,11 @@ class CardChecklistFetcher:
             # Route to appropriate parser based on type - pass soup to avoid re-fetching
             if checklist_type == 'base':
                 result = self._fetch_base_cards_from_beckett(url, soup=soup)
+                result = self._split_bowman_base_vs_prospects(result, 'base')
+                return (result, description)
+            elif checklist_type in ('prospects', 'bp', 'base_prospects', 'base-prospects'):
+                result = self._fetch_base_cards_from_beckett(url, soup=soup)
+                result = self._split_bowman_base_vs_prospects(result, 'prospects')
                 return (result, description)
             elif checklist_type == 'inserts':
                 cards = self._fetch_inserts_from_beckett(url, soup=soup)
@@ -1862,6 +1882,28 @@ class CardChecklistFetcher:
                 break
             out.append(lines[j])
         return out
+
+
+    def _split_bowman_base_vs_prospects(self, cards, checklist_type='base'):
+        """For Bowman Baseball: Base = plain #s only; Prospects = BP-* only."""
+        if not cards:
+            return cards or []
+        ctype = (checklist_type or 'base').lower()
+        plain = [c for c in cards if str(c.get('number', '')).strip().isdigit()]
+        bp = [c for c in cards if str(c.get('number', '')).strip().upper().startswith('BP-')]
+        other_pref = [
+            c for c in cards
+            if '-' in str(c.get('number', ''))
+            and not str(c.get('number', '')).strip().upper().startswith('BP-')
+        ]
+        mixed_bowman = bool(plain) and bool(bp) and not other_pref
+        if ctype in ('prospects', 'bp', 'base_prospects', 'base-prospects'):
+            print(f"[PARSER] Prospects mode: keeping {len(bp)} BP- cards (from {len(cards)} total)")
+            return bp
+        if mixed_bowman and ctype == 'base':
+            print(f"[PARSER] Base Cards mode (Bowman): keeping {len(plain)} plain cards; dropping {len(bp)} BP-")
+            return plain
+        return cards
 
     def _fetch_base_cards_from_beckett(self, url: str, soup: BeautifulSoup = None) -> List[Dict]:
         """

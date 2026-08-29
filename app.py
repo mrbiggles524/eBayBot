@@ -1673,7 +1673,9 @@ def fetch_checklist():
                 ChecklistDraftManager,
                 checklist_id_from_url,
                 merge_draft_into_cards,
+                clear_stale_bowman_base_drafts_once,
             )
+            clear_stale_bowman_base_drafts_once()
             checklist_id = checklist_id_from_url(url, checklist_type)
             preset = find_matching_preset(url, checklist_type)
             if preset:

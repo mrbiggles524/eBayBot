@@ -1,0 +1,16 @@
+{
+  "id": "2026-bowman-prospects-bp",
+  "name": "2026 Bowman Baseball Prospects BP-1-150",
+  "url": "https://www.beckett.com/news/2026-bowman-baseball-cards/",
+  "beckettUrl": "https://www.beckett.com/news/2026-bowman-baseball-cards/",
+  "type": "prospects",
+  "setName": "2026 Bowman Baseball Prospects",
+  "sport": "Baseball",
+  "filter": {
+    "includePrefixes": [
+      "BP-"
+    ],
+    "excludePlainNumbers": true
+  },
+  "cards": []
+}

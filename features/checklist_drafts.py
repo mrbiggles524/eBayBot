@@ -98,3 +98,32 @@ def merge_draft_into_cards(cards: List[Dict], draft_entries: List[Dict]) -> List
         if 'quantity' in saved:
             card['quantity'] = int(saved['quantity'])
     return cards
+
+def clear_stale_bowman_base_drafts_once():
+    """One-time: drop finished-listing prices for 2026 Bowman base drafts."""
+    flag_key = '__cleared_bowman_base_v4162__'
+    checklist_id = '2026-bowman-baseball-cards:base'
+    if not os.path.exists(DRAFTS_FILE):
+        return
+    try:
+        with open(DRAFTS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception:
+        return
+    if data.get(flag_key):
+        return
+    cleared = 0
+    for user, drafts in list(data.items()):
+        if not isinstance(drafts, dict) or user.startswith('__'):
+            continue
+        if checklist_id in drafts:
+            del drafts[checklist_id]
+            cleared += 1
+    data[flag_key] = True
+    try:
+        with open(DRAFTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+        print(f'[DRAFTS] Cleared stale Bowman base drafts for {cleared} user(s)')
+    except Exception as e:
+        print(f'[DRAFTS] Failed to clear stale drafts: {e}')
+

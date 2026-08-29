@@ -34,6 +34,9 @@ def find_matching_preset(url: str, checklist_type: str = 'base') -> Optional[Dic
     """Find a bundled preset matching URL and checklist type."""
     norm_url = _normalize_url(url)
     ctype = (checklist_type or 'base').lower()
+    # Aliases so UI "Prospects" matches prospects presets
+    if ctype in ('bp', 'base_prospects', 'base-prospects'):
+        ctype = 'prospects'
     for preset in list_static_presets():
         preset_url = _normalize_url(preset.get('url') or preset.get('beckettUrl') or '')
         preset_type = (preset.get('type') or 'base').lower()
@@ -49,23 +52,32 @@ def find_matching_preset(url: str, checklist_type: str = 'base') -> Optional[Dic
 
 
 def filter_cards_by_preset(cards: List[Dict], flt: Dict) -> List[Dict]:
-    """Filter cards per preset rules (e.g. plain 1-100 only, no BP-)."""
+    """Filter cards per preset rules (e.g. plain 1-100 only, or BP- only)."""
     if not flt:
         return cards
     max_num = flt.get('maxNumber')
     min_num = flt.get('minNumber', 1)
     exclude_prefixes = flt.get('excludePrefixes') or []
+    include_prefixes = flt.get('includePrefixes') or []
     plain_only = flt.get('plainNumbersOnly', False)
+    exclude_plain = flt.get('excludePlainNumbers', False)
     result = []
     for card in cards:
         num = str(card.get('number', '')).strip()
+        if not num:
+            continue
+        if exclude_plain and num.isdigit():
+            continue
         if plain_only and not num.isdigit():
             continue
+        if include_prefixes and not any(num.startswith(p) for p in include_prefixes):
+            continue
+        excluded = False
         for prefix in exclude_prefixes:
             if num.startswith(prefix):
-                num = ''  # exclude
+                excluded = True
                 break
-        if not num:
+        if excluded:
             continue
         if num.isdigit():
             n = int(num)
@@ -78,7 +90,7 @@ def filter_cards_by_preset(cards: List[Dict], flt: Dict) -> List[Dict]:
 
 
 def merge_preset_into_cards(cards: List[Dict], preset_cards: List[Dict]) -> List[Dict]:
-    """Apply preset price/qty (and optional team) by card number; inject preset-only cards."""
+    """Apply preset metadata by card number; only overwrite price/qty when present on preset."""
     if not preset_cards:
         return cards
     by_num = {}
@@ -93,11 +105,11 @@ def merge_preset_into_cards(cards: List[Dict], preset_cards: List[Dict]) -> List
         pc = by_num.get(num)
         if not pc:
             continue
-        if 'price' in pc:
+        if 'price' in pc and pc['price'] is not None:
             card['price'] = float(pc['price'])
-        if 'quantity' in pc:
+        if 'quantity' in pc and pc['quantity'] is not None:
             card['quantity'] = int(pc['quantity'])
-        elif 'qty' in pc:
+        elif 'qty' in pc and pc['qty'] is not None:
             card['quantity'] = int(pc['qty'])
         if pc.get('team'):
             card['team'] = pc['team']
@@ -106,14 +118,23 @@ def merge_preset_into_cards(cards: List[Dict], preset_cards: List[Dict]) -> List
     for num, pc in by_num.items():
         if num in existing_nums:
             continue
-        cards.append({
+        entry = {
             'number': num,
             'name': pc.get('name', ''),
             'team': pc.get('team', ''),
-            'price': float(pc.get('price', 1.0)),
-            'quantity': int(pc.get('quantity', pc.get('qty', 0))),
             'imageUrl': pc.get('imageUrl', pc.get('image_url', '')),
-        })
+        }
+        if 'price' in pc and pc['price'] is not None:
+            entry['price'] = float(pc['price'])
+        else:
+            entry['price'] = float(cards[0].get('price', 1.0)) if cards else 1.0
+        if 'quantity' in pc and pc['quantity'] is not None:
+            entry['quantity'] = int(pc['quantity'])
+        elif 'qty' in pc and pc['qty'] is not None:
+            entry['quantity'] = int(pc['qty'])
+        else:
+            entry['quantity'] = int(cards[0].get('quantity', 0)) if cards else 0
+        cards.append(entry)
     if cards and all(str(c.get('number', '')).isdigit() for c in cards):
         cards.sort(key=lambda c: int(c['number']))
     return cards

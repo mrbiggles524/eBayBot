@@ -2428,33 +2428,51 @@ def api_fetch_images():
                 slug = m.group(1)
                 set_name = slug.replace('-', ' ').replace('  ', ' ').strip().title()
                 print(f"[FETCH-IMAGES] Extracted setName from URL: '{set_name}'", flush=True)
-        first = (cards[0].get('name'), cards[0].get('number')) if cards else (None, None)
-        print(f"[FETCH-IMAGES] Queueing {len(cards)} cards, setName: '{set_name}', defaultPrice={default_price}, first: {first}", flush=True)
+        from features.card_images import TOP_N_IMAGES, select_top_cards_by_price
+        # Only queue the top N most expensive cards for image fetch
+        top_cards = select_top_cards_by_price(cards, TOP_N_IMAGES)
+        target_labels = [
+            ((c.get('name') or '?') + (f" #{c.get('number')}" if c.get('number') else '')
+             + (f" (${c.get('price')})" if c.get('price') is not None else ''))
+            for c in top_cards
+        ]
+        first = (top_cards[0].get('name'), top_cards[0].get('number')) if top_cards else (None, None)
+        print(
+            f"[FETCH-IMAGES] Queueing top {len(top_cards)}/{len(cards)} by price, "
+            f"setName: '{set_name}', defaultPrice={default_price}, first: {first}",
+            flush=True,
+        )
 
         job_id = str(uuid.uuid4())
         job_data = {
-            'cards': cards,
+            'cards': top_cards,
             'set_name': set_name,
             'source_url': source_url,
             'default_price': default_price,
             'placeholder': _default_publish_image_url(),
+            'top_n': TOP_N_IMAGES,
+            'target_labels': target_labels,
         }
+        msg = f"Fetching images for top {len(top_cards)} by price…"
         _save_image_job(job_id, {
             "status": "processing",
             "phase": "queued",
             "progress": 0,
-            "total": len(cards),
-            "message": "Image fetch queued...",
+            "total": len(top_cards),
+            "message": msg,
             "started_at": datetime.now().isoformat(),
             "version": VERSION,
+            "targets": target_labels,
         })
         threading.Thread(target=_run_image_fetch_job, args=(job_id, job_data), daemon=True).start()
         return jsonify({
             "job_id": job_id,
             "status": "processing",
-            "total": len(cards),
+            "total": len(top_cards),
+            "topN": TOP_N_IMAGES,
+            "targets": target_labels,
             "version": VERSION,
-            "message": "Fetching images in background — poll /api/fetch-images-status/" + job_id,
+            "message": msg + " poll /api/fetch-images-status/" + job_id,
         })
     except Exception as e:
         print(f"[FETCH-IMAGES] ERROR: {e}", flush=True)
@@ -2491,56 +2509,69 @@ def _run_image_fetch_job(job_id, job_data):
     keepalive_thread = threading.Thread(target=_keep_render_alive, daemon=True)
     keepalive_thread.start()
     try:
-        from features.card_images import CardImageFetcher
+        from features.card_images import CardImageFetcher, TOP_N_IMAGES
         cards = job_data.get('cards') or []
         set_name = job_data.get('set_name') or ''
         source_url = job_data.get('source_url') or ''
         default_price = job_data.get('default_price', 1.0)
+        top_n = int(job_data.get('top_n') or TOP_N_IMAGES)
+        target_labels = job_data.get('target_labels') or []
         fetcher = CardImageFetcher()
         fetcher.placeholder = job_data.get('placeholder') or _default_publish_image_url()
-        _update_image_job(job_id, message='Starting image fetch...', total=len(cards), progress=0)
+        _update_image_job(
+            job_id,
+            message=f'Fetching images for top {min(len(cards), top_n)} by price…',
+            total=min(len(cards), top_n),
+            progress=0,
+            targets=target_labels,
+        )
         updated = fetcher.fetch_images_for_cards(
             cards,
             set_name,
             source_url,
             progress_callback=_progress,
             default_price=default_price,
-            max_cards=150,
+            max_cards=top_n,
         )
         ph = fetcher.placeholder
-        for c in updated:
-            if not c.get('image_url') and not c.get('imageUrl'):
-                c['image_url'] = ph
-                c['imageUrl'] = ph
+        result_cards = updated
         with_img = sum(
-            1 for c in updated
+            1 for c in result_cards
             if (c.get('image_url') or c.get('imageUrl'))
             and (c.get('image_url') or c.get('imageUrl')) != ph
+            and str(c.get('image_url') or c.get('imageUrl') or '').startswith('http')
         )
-        with_default = sum(1 for c in updated if c.get('image_url') or c.get('imageUrl'))
         print(
-            f"[FETCH-IMAGES] Job {job_id} done: {with_img}/{len(updated)} fetched "
-            f"(v{VERSION})",
+            f"[FETCH-IMAGES] Job {job_id} done: {with_img}/{len(result_cards)} fetched "
+            f"(top {top_n} by price, v{VERSION})",
             flush=True,
         )
+        targets_out = target_labels or [
+            ((c.get('name') or '?') + (f" #{c.get('number')}" if c.get('number') else ''))
+            for c in result_cards
+        ]
         resp = {
             "success": True,
-            "cards": updated,
+            "cards": result_cards,
             "version": VERSION,
             "withImages": with_img,
-            "withDefaultImages": with_default,
+            "withDefaultImages": with_img,
             "defaultImageUrl": ph,
+            "topN": top_n,
+            "targets": targets_out,
+            "onlyTopByPrice": True,
         }
-        if with_img < len(updated) and not os.environ.get('SERPAPI_KEY', '').strip():
+        if with_img < len(result_cards) and not os.environ.get('SERPAPI_KEY', '').strip():
             resp["hint"] = "Add SERPAPI_KEY in .env (or Render env) for better image fetch. Free at serpapi.com"
         _update_image_job(
             job_id,
             status='completed',
             phase='done',
-            progress=len(updated),
-            total=len(updated),
-            message=f'Done: {with_img}/{len(updated)} images found',
+            progress=len(result_cards),
+            total=len(result_cards),
+            message=f'Done: {with_img}/{len(result_cards)} images for top {top_n} by price',
             result=resp,
+            targets=targets_out,
         )
     except Exception as e:
         print(f"[FETCH-IMAGES] Job {job_id} ERROR: {e}", flush=True)
@@ -2565,6 +2596,8 @@ def api_fetch_images_status(job_id):
         "message": job.get("message", ""),
         "error": job.get("error"),
         "version": job.get("version") or VERSION,
+        "targets": job.get("targets") or [],
+        "topN": (job.get("result") or {}).get("topN") if isinstance(job.get("result"), dict) else job.get("total"),
     }
     if job.get("status") == "completed" and job.get("result"):
         out["result"] = job["result"]

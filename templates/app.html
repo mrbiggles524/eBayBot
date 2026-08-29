@@ -1005,7 +1005,7 @@
                     <option value="price-low">Price (Low to High)</option>
                     <option value="qty">Quantity</option>
                 </select>
-                <button class="btn btn-secondary" onclick="fetchCardImages()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4);" title="Fetch images for cards with qty &gt; 0 (expensive first, max 150)">🖼️ Fetch Images</button>
+                <button class="btn btn-secondary" onclick="fetchCardImages()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4);" title="Fetch images for the top 10 most expensive cards with qty &gt; 0 (single-card match)">🖼️ Fetch Images (Top 10)</button>
                 <button class="btn btn-secondary" onclick="applyMarketPricing()" style="padding: 8px 16px; background: rgba(255, 165, 0, 0.2); color: #ffa500; border: 2px solid rgba(255, 165, 0, 0.4);" title="Look up eBay sold prices for cards with qty&gt;0 (max 50). No results = $1">💰 Market Price</button>
                 <button class="btn btn-secondary" onclick="validateCards()" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Check for missing data">✓ Validate</button>
                 <button class="btn btn-secondary" onclick="toggleZeroQtyFilter()" id="zeroQtyFilterBtn" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Hide/show cards with quantity 0">🔍 Hide Qty=0</button>
@@ -1035,7 +1035,7 @@
             <div id="imageConfirmModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 1100; overflow-y: auto; padding: 20px;">
                 <div style="max-width: 700px; margin: 0 auto; background: rgba(15, 15, 26, 0.98); border: 2px solid rgba(0, 255, 255, 0.5); border-radius: 16px; padding: 24px; box-shadow: 0 0 40px rgba(0, 255, 255, 0.3);">
                     <h3 style="color: #00ffff; margin-bottom: 12px; text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);">🖼️ Images Fetched</h3>
-                    <p style="color: #aaa; margin-bottom: 20px; font-size: 0.95rem;">Do these images look correct for the cards you want to list?</p>
+                    <p style="color: #aaa; margin-bottom: 20px; font-size: 0.95rem;">These are images for your <strong>top 10 most expensive</strong> cards only. Cheaper cards were skipped. Confirm each is the correct single card.</p>
                     <div id="imageConfirmGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin-bottom: 24px; max-height: 320px; overflow-y: auto;"></div>
                     <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
                         <button onclick="imageConfirmYes()" style="padding: 12px 24px; background: linear-gradient(90deg, #00aa44, #00cc55); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 0 15px rgba(0, 200, 100, 0.5);">✓ Yes, these are correct</button>
@@ -1214,7 +1214,7 @@
         <div id="fetchImagesModal" class="fetch-images-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
             <div class="publish-modal-card">
                 <div class="publish-modal-title"><span class="icon">🖼️</span> Fetching Card Images</div>
-                <div class="publish-modal-sub">Searching eBay for matching images... (up to 50 cards)</div>
+                <div class="publish-modal-sub">Fetching images for the top 10 most expensive cards only (single-card match)…</div>
                 <div class="publish-progress-wrap">
                     <div class="publish-progress-bar" id="fetchImagesProgressBar" style="width: 15%; animation: progressShimmer 1.5s linear infinite;"></div>
                 </div>
@@ -1726,32 +1726,40 @@
                 return;
             }
             const defaultPrice = parseFloat(document.getElementById('defaultPrice')?.value) || 1;
-            // Prefer expensive cards (price > default) first, highest price first; defer $1/default cards
+            const TOP_N = 10;
+            // Top N most expensive cards with qty > 0 only
             const toProcess = cards
                 .map((c, i) => ({ ...c, _idx: i }))
                 .filter(c => (c.qty || 0) > 0)
                 .sort((a, b) => {
                     const pa = parseFloat(a.price) || 0;
                     const pb = parseFloat(b.price) || 0;
-                    const aAbove = pa > defaultPrice ? 1 : 0;
-                    const bAbove = pb > defaultPrice ? 1 : 0;
-                    if (bAbove !== aAbove) return bAbove - aAbove;
                     return pb - pa;
                 })
-                .slice(0, 150);
+                .slice(0, TOP_N);
             if (toProcess.length === 0) {
-                showToast('Set quantity &gt; 0 on cards first', 'error');
+                showToast('Set quantity > 0 on cards first', 'error');
                 return;
             }
+            const targetList = toProcess.map(c => {
+                const n = c.number ? ('#' + c.number + ' ') : '';
+                const p = (c.price != null && c.price !== '') ? (' $' + c.price) : '';
+                return n + (c.name || 'Card') + p;
+            });
             const statusDiv = document.getElementById('fetchImagesStatus');
             const modal = document.getElementById('fetchImagesModal');
             const progressBar = document.getElementById('fetchImagesProgressBar');
             const statusText = document.getElementById('fetchImagesStatusText');
             const fetchBtn = document.querySelector('button[onclick*="fetchCardImages"]');
             if (fetchBtn) fetchBtn.disabled = true;
-            if (statusDiv) statusDiv.textContent = 'Fetching images for ' + toProcess.length + ' cards (expensive first)...';
+            const toastMsg = 'Fetching images for top ' + toProcess.length + ' by price…';
+            showToast(toastMsg, 'info');
+            if (statusDiv) {
+                statusDiv.innerHTML = toastMsg + '<br><span style="color:#aaa;font-size:0.85em;">'
+                    + targetList.map(t => String(t).replace(/</g,'&lt;')).join(' · ') + '</span>';
+            }
             if (modal) modal.classList.add('active');
-            if (statusText) statusText.textContent = 'Starting background image fetch...';
+            if (statusText) statusText.textContent = toastMsg + ' ' + targetList.slice(0, 3).join(', ') + (targetList.length > 3 ? '…' : '');
             if (progressBar) progressBar.style.width = '5%';
 
             const parseJsonSafe = async (res) => {
@@ -1806,7 +1814,7 @@
                         const withImg = startData.withImages != null ? startData.withImages : startData.cards.filter(fc => fc.image_url || fc.imageUrl).length;
                         window._pendingImageFetch = { cards: startData.cards, toProcessCount: toProcess.length, version: startData.version || '' };
                         showImageConfirmModal(startData.cards);
-                        let st = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (startData.version || '') + ')';
+                        let st = 'Review top ' + toProcess.length + ' by price: ' + withImg + '/' + toProcess.length + ' images (v' + (startData.version || '') + ')';
                         if (startData.hint) st += ' • ' + startData.hint;
                         if (statusDiv) statusDiv.textContent = st;
                     }, 400);
@@ -1828,7 +1836,7 @@
                             const withImg = data.withImages != null ? data.withImages : data.cards.filter(fc => fc.image_url || fc.imageUrl).length;
                             window._pendingImageFetch = { cards: data.cards, toProcessCount: toProcess.length, version: data.version || '' };
                             showImageConfirmModal(data.cards);
-                            let st = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
+                            let st = 'Review top ' + toProcess.length + ' by price: ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
                             if (data.hint) st += ' • ' + data.hint;
                             if (statusDiv) statusDiv.textContent = st;
                         } else {
@@ -1923,8 +1931,9 @@
             pending.cards.forEach(fc => {
                 const idx = fc._idx;
                 let img = fc.image_url || fc.imageUrl;
-                if (!img && defaultImg) {
-                    img = defaultImg;
+                // Only apply real matched URLs — never blank out or force placeholder onto non-matches
+                if (!img || !String(img).startsWith('http')) return;
+                if (defaultImg && img === defaultImg) {
                     placeholders++;
                 }
                 if (idx != null && cards[idx] && img) {
@@ -1934,7 +1943,7 @@
             });
             window._pendingImageFetch = null;
             renderCards();
-            let statusText = 'Images for ' + updated + '/' + pending.toProcessCount + ' cards applied (v' + pending.version + ')';
+            let statusText = 'Top ' + pending.toProcessCount + ' by price: ' + updated + ' images applied (v' + pending.version + ') — other cards unchanged';
             if (placeholders > 0) statusText += ' • ' + placeholders + ' used default placeholder';
             if (document.getElementById('fetchImagesStatus')) document.getElementById('fetchImagesStatus').textContent = statusText;
             updateImagesBeforePublishStatus();

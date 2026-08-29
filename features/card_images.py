@@ -1,11 +1,15 @@
-"""Auto-fetch card images from eBay Browse API, SerpAPI, and fallback sources."""
+﻿"""Auto-fetch card images from eBay Browse API, SerpAPI, and fallback sources.
+
+Fetch Images targets only the top N most expensive cards (TOP_N_IMAGES),
+with strict single-card title matching (player + number + set).
+"""
 import os
 import requests
 import re
 import time
 import sys
 import base64
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from bs4 import BeautifulSoup
 
 try:
@@ -20,8 +24,27 @@ try:
 except ImportError:
     _HAS_CLOUDSCRAPER = False
 
+# Only fetch images for the N highest-priced cards per request.
+TOP_N_IMAGES = 10
+
 # eBay Browse API app token cache (scope: commerce.browse.product)
 _browse_token_cache = {"token": None, "expires": 0}
+
+# Lot / multi-card listing noise in titles
+_LOT_RE = re.compile(
+    r"(?i)\b("
+    r"lot\s+of|lots?\b|lotto|multi[\s-]?card|multi[\s-]?pack|"
+    r"breaker?s?|break\b|bundle|set\s+of|collection\b|"
+    r"x\s*\d+|\d+\s*x\b|\(\s*\d+\s*\)|"
+    r"team\s+lot|player\s+lot|card\s+lot|wholesale|"
+    r"you\s+pick|pick\s+your|random\s+lot"
+    r")\b"
+)
+
+# Prefer raw / near-mint singles when present in title
+_QUALITY_BONUS_RE = re.compile(r"(?i)\b(nm|near[\s-]?mint|mint|raw|ungraded|single)\b")
+_GRADED_RE = re.compile(r"(?i)\b(psa|bgs|sgc|cgc)\s*\d")
+
 
 def _get_ebay_browse_token() -> Optional[str]:
     """Get application access token for eBay Browse API (no user login needed)."""
@@ -67,33 +90,193 @@ def _normalize_player_name(name: str) -> str:
     return n
 
 
+def _player_tokens(name: str) -> List[str]:
+    """Significant name tokens for matching (skip initials/short words)."""
+    if not name:
+        return []
+    parts = re.findall(r"[A-Za-z']+", name)
+    return [p.lower() for p in parts if len(p) > 1]
+
+
+def _title_has_player(title: str, player_name: str) -> bool:
+    """True if title contains the player (full name or last name + another token)."""
+    if not title or not player_name:
+        return False
+    t = title.lower()
+    full = player_name.strip().lower()
+    if full and full in t:
+        return True
+    tokens = _player_tokens(player_name)
+    if not tokens:
+        return False
+    last = tokens[-1]
+    if last not in t:
+        return False
+    if len(tokens) == 1:
+        return True
+    return any(tok in t for tok in tokens[:-1])
+
+
+def _card_number_variants(card_number: str) -> List[str]:
+    """Variants of a card number for title matching: BP-64, BP64, #BP-64, etc."""
+    raw = (card_number or "").strip()
+    if not raw:
+        return []
+    raw = raw.lstrip("#").strip()
+    variants = {raw.lower(), raw.upper(), raw}
+    no_hyphen = re.sub(r"[-_\s]+", "", raw)
+    if no_hyphen:
+        variants.add(no_hyphen.lower())
+        variants.add(no_hyphen.upper())
+    m = re.match(r"^([A-Za-z]+)(\d+[A-Za-z]?)$", no_hyphen)
+    if m:
+        hyphenated = f"{m.group(1)}-{m.group(2)}"
+        variants.add(hyphenated.lower())
+        variants.add(hyphenated.upper())
+        variants.add(hyphenated)
+    m2 = re.search(r"(\d+[A-Za-z]?)$", no_hyphen)
+    if m2 and m:
+        variants.add(f"#{m2.group(1)}")
+        variants.add(f"#{hyphenated}")
+    variants.add(f"#{raw}")
+    variants.add(f"#{no_hyphen}")
+    out = []
+    seen = set()
+    for v in variants:
+        key = v.lower()
+        if key and key not in seen:
+            seen.add(key)
+            out.append(v)
+    return out
+
+
+def _title_has_card_number(title: str, card_number: str) -> bool:
+    """True if title contains the card number in a recognizable form."""
+    if not title or not (card_number or "").strip():
+        return False
+    t = title.lower()
+    for v in _card_number_variants(card_number):
+        vl = v.lower()
+        if len(vl) < 2:
+            continue
+        if re.search(rf"(?<![a-z0-9]){re.escape(vl)}(?![a-z0-9])", t, re.I):
+            return True
+    return False
+
+
+def _is_lot_title(title: str) -> bool:
+    """Reject multi-card / lot / break listings."""
+    if not title:
+        return False
+    return bool(_LOT_RE.search(title))
+
+
 def _set_keywords(set_name: str) -> list:
     """Extract searchable keywords from set name for title matching."""
     if not set_name:
         return []
-    # "2024-25 Topps Chrome Basketball" -> ["2024", "25", "topps", "chrome", "basketball"]
     words = re.findall(r'\b[\w\-]+\b', (set_name or '').lower())
     return [w for w in words if len(w) > 1 and w not in ('the', 'and', 'or')]
 
 
 def _title_matches_set(title: str, set_keywords: list) -> bool:
-    """True if title contains at least 2 set keywords (e.g. Topps Chrome)."""
-    if not title or not set_keywords or len(set_keywords) < 2:
-        return True  # No filter when few keywords
+    """True if title contains enough set keywords (e.g. Bowman + 2026)."""
+    if not title or not set_keywords or len(set_keywords) < 1:
+        return True
     t = title.lower()
-    hits = sum(1 for k in set_keywords if len(k) > 2 and k in t)
-    return hits >= 2
+    meaningful = [k for k in set_keywords if len(k) > 2]
+    if not meaningful:
+        return True
+    hits = sum(1 for k in meaningful if k in t)
+    years = [k for k in meaningful if re.fullmatch(r"20\d{2}", k)]
+    brands = [k for k in meaningful if not re.fullmatch(r"20\d{2}", k)]
+    if years and any(y in t for y in years) and any(b in t for b in brands):
+        return True
+    need = 2 if len(meaningful) >= 2 else 1
+    return hits >= need
+
+
+def _score_listing(title: str, player_name: str, set_name: str, card_number: str) -> int:
+    """
+    Score a listing title for this card. Higher is better.
+    Returns -1 to reject (wrong player, lot, etc.).
+    """
+    if not title:
+        return -1
+    if _is_lot_title(title):
+        return -1
+    if not _title_has_player(title, player_name):
+        return -1
+
+    score = 40  # base: correct player, not a lot
+    if _title_has_card_number(title, card_number):
+        score += 50
+    set_kw = _set_keywords(set_name)
+    if set_kw and _title_matches_set(title, set_kw):
+        score += 25
+    elif set_kw:
+        t = title.lower()
+        if any(k in t for k in set_kw if len(k) > 2):
+            score += 8
+    if _QUALITY_BONUS_RE.search(title):
+        score += 8
+    if _GRADED_RE.search(title):
+        score -= 3
+    if (card_number or "").strip() and not _title_has_card_number(title, card_number):
+        if set_kw and _title_matches_set(title, set_kw):
+            score -= 20
+        else:
+            return -1
+    return score
+
+
+def _pick_best_image(
+    items: List[dict],
+    player_name: str,
+    set_name: str,
+    card_number: str,
+    extract_img,
+    title_key: str = "title",
+) -> Optional[str]:
+    """Rank listing candidates; return best matching image URL or None."""
+    scored: List[Tuple[int, str]] = []
+    for it in items:
+        title = it.get(title_key) or it.get("title") or ""
+        sc = _score_listing(title, player_name, set_name, card_number)
+        if sc < 0:
+            continue
+        url = extract_img(it)
+        if url:
+            scored.append((sc, url))
+    if not scored:
+        return None
+    scored.sort(key=lambda x: -x[0])
+    best_score, best_url = scored[0]
+    if (card_number or "").strip() and best_score < 70:
+        _log(f"  Best score {best_score} too weak for numbered card — skip")
+        return None
+    return best_url
 
 
 def _build_search_query(player_name: str, set_name: str, card_number: str) -> str:
-    """Build optimized query: set first (more specific) + player + #number."""
+    """Build query: player + card number + set keywords (Bowman 2026 etc.)."""
     parts = []
+    if player_name:
+        parts.append(player_name.strip())
+    num = (card_number or "").strip().lstrip("#")
+    if num:
+        no_hyphen = re.sub(r"[-_\s]+", "", num)
+        m = re.match(r"^([A-Za-z]+)(\d+[A-Za-z]?)$", no_hyphen)
+        if m:
+            parts.append(f"{m.group(1)}-{m.group(2)}")
+        else:
+            parts.append(num if "-" in num or not num.isdigit() else f"#{num}")
     if set_name:
-        parts.append(set_name.strip())
-    parts.append(player_name)
-    if card_number and str(card_number).strip():
-        parts.append(f"#{card_number.strip()}")
-    return ' '.join(parts).strip()[:120]
+        sn = re.sub(r"(?i)\b(hobby|blaster|retail|checklist)\b", "", set_name).strip()
+        sn = re.sub(r"\s+", " ", sn).strip()
+        if sn:
+            parts.append(sn)
+    return " ".join(parts).strip()[:120]
 
 
 def _log(msg: str):
@@ -105,8 +288,22 @@ def _log(msg: str):
         print(f"[IMAGE-FETCH] {msg}", flush=True)
 
 
+def select_top_cards_by_price(cards: List[Dict], top_n: int = TOP_N_IMAGES) -> List[Dict]:
+    """Return the top_n cards sorted by price descending (stable for ties)."""
+    def _card_price(c):
+        try:
+            return float(c.get('price') if c.get('price') is not None else 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    n = max(1, int(top_n or TOP_N_IMAGES))
+    indexed = list(enumerate(cards))
+    indexed.sort(key=lambda pair: (-_card_price(pair[1]), pair[0]))
+    return [c for _, c in indexed[:n]]
+
+
 class CardImageFetcher:
-    """Fetch card images from multiple sources: TCDB, eBay search, placeholder."""
+    """Fetch card images from multiple sources: eBay Browse, SerpAPI, HTML scrape."""
     
     def __init__(self, rate_limit_delay: float = 0.2):
         self.session = requests.Session()
@@ -120,6 +317,7 @@ class CardImageFetcher:
         from features.image_utils import resolve_default_image_url
         self.placeholder = resolve_default_image_url()
         self._cloud = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False}) if _HAS_CLOUDSCRAPER else None
+        self.last_targets: List[Dict] = []
     
     def fetch_images_for_cards(
         self,
@@ -129,36 +327,29 @@ class CardImageFetcher:
         max_per_card: int = 1,
         progress_callback=None,
         default_price: float = 1.0,
-        max_cards: int = 150,
+        max_cards: int = TOP_N_IMAGES,
     ) -> List[Dict]:
         """
-        Attempt to fetch images for cards. Tries: TCDB -> eBay search -> placeholder.
-        Modifies cards in place with image_url, returns updated list.
-        Prioritizes cards priced above default_price (highest first).
+        Fetch images only for the top max_cards (default TOP_N_IMAGES) by price.
+        Does not modify image_url on cards outside that top set.
+        Returns the full cards list; only top-N entries may gain new image URLs.
         """
-        def _card_price(c):
-            try:
-                return float(c.get('price') if c.get('price') is not None else 0)
-            except (TypeError, ValueError):
-                return 0.0
+        top_n = max(1, min(int(max_cards or TOP_N_IMAGES), TOP_N_IMAGES))
 
-        try:
-            dp = float(default_price if default_price is not None else 1.0)
-        except (TypeError, ValueError):
-            dp = 1.0
-
-        # Price > default first, then highest price; keep stable order within ties
-        indexed = list(enumerate(cards))
-        indexed.sort(key=lambda pair: (
-            0 if _card_price(pair[1]) > dp else 1,
-            -_card_price(pair[1]),
-            pair[0],
-        ))
-        to_process = [c for _, c in indexed[:max(1, int(max_cards or 150))]]
+        to_process = select_top_cards_by_price(cards, top_n)
+        self.last_targets = [
+            {
+                "name": c.get("name"),
+                "number": c.get("number"),
+                "price": c.get("price"),
+                "_idx": c.get("_idx"),
+            }
+            for c in to_process
+        ]
         set_name = (set_name or '').strip()
         _log(
-            f"Starting fetch for {len(to_process)} cards, set_name='{set_name}', "
-            f"default_price={dp} (expensive first; IMAGE_FETCH_DEBUG=1 for per-card logs)"
+            f"Starting fetch for top {len(to_process)}/{len(cards)} by price, "
+            f"set_name='{set_name}' (TOP_N={TOP_N_IMAGES})"
         )
 
         def _progress(done, total, message=None):
@@ -169,11 +360,21 @@ class CardImageFetcher:
             except Exception:
                 pass
 
-        _progress(0, len(to_process), 'Starting image fetch...')
+        names_preview = ", ".join(
+            (c.get("name") or c.get("number") or "?") for c in to_process[:5]
+        )
+        more = f" (+{len(to_process) - 5} more)" if len(to_process) > 5 else ""
+        _progress(0, len(to_process), f'Top {len(to_process)} by price: {names_preview}{more}')
 
         for i, card in enumerate(to_process):
             label = (card.get('name') or card.get('number') or '?')
-            _progress(i, len(to_process), f'Fetching {i}/{len(to_process)}: {label}')
+            num = str(card.get('number') or '')
+            _progress(
+                i,
+                len(to_process),
+                f'Top {len(to_process)} by price — {i + 1}/{len(to_process)}: {label}'
+                + (f' #{num}' if num else ''),
+            )
             try:
                 existing = (card.get('image_url') or card.get('imageUrl') or '').strip()
                 if existing and existing != self.placeholder:
@@ -197,20 +398,21 @@ class CardImageFetcher:
                     card['imageUrl'] = img
                     _log(f"  [{i+1}/{len(to_process)}] {name} - FOUND: {img[:60]}...")
                 else:
-                    card['image_url'] = self.placeholder
-                    card['imageUrl'] = self.placeholder
-                    _log(f"  [{i+1}/{len(to_process)}] {name} - placeholder (no result)")
+                    card['image_url'] = ''
+                    card['imageUrl'] = ''
+                    _log(f"  [{i+1}/{len(to_process)}] {name} - no confident match")
                 
                 time.sleep(self.rate_limit_delay)
             except Exception as e:
                 _log(f"  [{i+1}/{len(to_process)}] EXCEPTION: {e}")
-                card['image_url'] = self.placeholder
-                card['imageUrl'] = self.placeholder
 
-        _progress(len(to_process), len(to_process), 'Done')
-        ph = self.placeholder
-        found = sum(1 for c in to_process if (c.get('image_url') or '').startswith('http') and (c.get('image_url') or '') != ph)
-        _log(f"Done: {found} from eBay, {len(to_process)-found} placeholders")
+        _progress(len(to_process), len(to_process), f'Done — top {len(to_process)} by price')
+        found = sum(
+            1 for c in to_process
+            if (c.get('image_url') or '').startswith('http')
+            and (c.get('image_url') or '') != self.placeholder
+        )
+        _log(f"Done: {found}/{len(to_process)} matched images (only top {top_n} attempted)")
         return cards
 
     def _search_ebay_browse_api(self, player_name: str, set_name: str, card_number: str = '') -> Optional[str]:
@@ -219,44 +421,21 @@ class CardImageFetcher:
         if not token or not player_name:
             return None
         q = _build_search_query(player_name, set_name, card_number)
-        set_kw = _set_keywords(set_name)
         try:
             r = self.session.get(
                 "https://api.ebay.com/buy/browse/v1/item_summary/search",
                 headers={"Authorization": f"Bearer {token}", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
-                params={"q": q, "category_ids": "261328", "limit": 12, "sort": "price"},
+                params={"q": q, "category_ids": "261328", "limit": 20, "sort": "bestMatch"},
                 timeout=12
             )
             if r.status_code != 200:
                 return None
             data = r.json() or {}
             items = data.get("itemSummaries") or []
-            player_lower = (player_name or "").lower()
-            # Prefer: player in title AND set keywords in title
-            for it in items:
-                title = (it.get("title") or "")
-                if player_lower and title.lower() and player_lower not in title.lower():
-                    continue
-                if set_kw and not _title_matches_set(title, set_kw):
-                    continue
-                url = self._extract_img_url(it)
-                if url:
-                    _log(f"  eBay Browse API: found for {player_name}")
-                    return url
-            # Fallback: player in title only
-            for it in items:
-                title = (it.get("title") or "").lower()
-                if player_lower and title and player_lower not in title:
-                    continue
-                url = self._extract_img_url(it)
-                if url:
-                    _log(f"  eBay Browse API: found (loose) for {player_name}")
-                    return url
-            # Last: any item with image
-            for it in items[:6]:
-                url = self._extract_img_url(it)
-                if url:
-                    return url
+            url = _pick_best_image(items, player_name, set_name, card_number, self._extract_img_url)
+            if url:
+                _log(f"  eBay Browse API: matched for {player_name} {card_number}")
+            return url
         except Exception as e:
             _log(f"  eBay Browse: {type(e).__name__}: {e}")
         return None
@@ -284,7 +463,6 @@ class CardImageFetcher:
                 _log("SerpAPI skip: no SERPAPI_KEY in env")
             return None
         query = _build_search_query(player_name, set_name, card_number)
-        set_kw = _set_keywords(set_name)
         try:
             r = self.session.get('https://serpapi.com/search.json', params={
                 'engine': 'ebay', '_nkw': query, 'ebay_domain': 'ebay.com', 'api_key': api_key,
@@ -305,38 +483,16 @@ class CardImageFetcher:
             results = data.get('organic_results') or []
             if not results:
                 _log(f"  SerpAPI eBay: 0 results for '{query[:50]}'")
-            player_lower = (player_name or '').lower()
-            # Prefer: player + set in title
-            for item in results[:12]:
-                title = (item.get('title') or '')
-                if player_lower and title.lower() and player_lower not in title.lower():
-                    continue
-                if set_kw and not _title_matches_set(title, set_kw):
-                    continue
-                url = self._extract_img_url(item)
-                if url:
-                    _log(f"  SerpAPI eBay: found for {player_name}")
-                    return url
-            # Fallback: player in title only
-            for item in results[:10]:
-                title = (item.get('title') or '').lower()
-                if player_lower and title and player_lower not in title:
-                    continue
-                url = self._extract_img_url(item)
-                if url:
-                    _log(f"  SerpAPI eBay: found (loose) for {player_name}")
-                    return url
-            # Last: any item with image
-            for item in results[:8]:
-                url = self._extract_img_url(item)
-                if url:
-                    return url
+            url = _pick_best_image(results, player_name, set_name, card_number, self._extract_img_url)
+            if url:
+                _log(f"  SerpAPI eBay: matched for {player_name} {card_number}")
+            return url
         except Exception as e:
             _log(f"SerpAPI exception: {type(e).__name__}: {e}")
         return None
 
     def _search_serpapi_google_images(self, player_name: str, set_name: str, card_number: str = '') -> Optional[str]:
-        """Fallback: SerpAPI Google Images - returns image URLs from various sources (eBay, TCDB, etc)."""
+        """Fallback: SerpAPI Google Images — only accept results whose title/source match card."""
         api_key = _get_serpapi_key()
         if not api_key or not player_name:
             return None
@@ -352,37 +508,40 @@ class CardImageFetcher:
             if r.status_code != 200 or data.get('error'):
                 return None
             images = data.get('images_results') or []
-            for img in images[:12]:
+            candidates = []
+            for img in images[:16]:
+                title = (img.get('title') or img.get('source') or '') + ' ' + (img.get('link') or '')
+                sc = _score_listing(title, player_name, set_name, card_number)
+                if sc < 0:
+                    continue
                 url = img.get('original') or img.get('thumbnail') or img.get('image')
-                if isinstance(url, str) and url.startswith('http'):
-                    if 'ebayimg.com' in url:
-                        hi = re.sub(r'/s-l\d+\.', '/s-l1600.', url)
-                        _log(f"  SerpAPI Google: found eBay img for {player_name}")
-                        return hi
-            for img in images[:8]:
-                url = img.get('original') or img.get('thumbnail') or img.get('image')
-                if isinstance(url, str) and url.startswith('http'):
-                    if any(d in url.lower() for d in ('ebayimg', 'tcdb', 'tradingcard', 'comc', 'sportscard')):
-                        _log(f"  SerpAPI Google: found card img for {player_name}")
-                        return url
+                if not (isinstance(url, str) and url.startswith('http')):
+                    continue
+                if 'ebayimg.com' in url:
+                    url = re.sub(r'/s-l\d+\.', '/s-l1600.', url)
+                    sc += 5
+                elif not any(d in url.lower() for d in ('ebayimg', 'tcdb', 'tradingcard', 'comc', 'sportscard')):
+                    continue
+                candidates.append((sc, url))
+            if not candidates:
+                return None
+            candidates.sort(key=lambda x: -x[0])
+            if (card_number or "").strip() and candidates[0][0] < 70:
+                return None
+            _log(f"  SerpAPI Google: matched for {player_name}")
+            return candidates[0][1]
         except Exception as e:
             _log(f"  SerpAPI Google: {type(e).__name__}: {e}")
         return None
 
     def _search_ebay_for_image(self, player_name: str, set_name: str, card_number: str = '') -> Optional[str]:
-        """
-        Search eBay for listings and extract image URL.
-        Uses player + set + card number in query for better matching.
-        Tries listing blocks first (img + title) to prefer listings where title contains player name.
-        """
+        """Search eBay HTML; reject lots and wrong players."""
         if not player_name:
             _log("  eBay search: no player_name, skip")
             return None
         query = _build_search_query(player_name, set_name, card_number)
         from urllib.parse import quote_plus
         url = f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(query)}&_sacat=261328&_sop=15"
-        if card_number:
-            url += "&Features=Base%2520Set"
         sess = self.session
         for attempt in range(2):
             try:
@@ -395,66 +554,60 @@ class CardImageFetcher:
                 if r.status_code != 200:
                     _log(f"  eBay: status {r.status_code}")
                     continue
-                html = r.text
-                # 1) Try structured extraction (listing blocks with title verification)
-                img_url = self._extract_ebay_image_from_html(html, player_name)
+                img_url = self._extract_ebay_image_from_html(r.text, player_name, set_name, card_number)
                 if img_url:
                     return img_url
-                # 2) Regex fallback: find any i.ebayimg.com URL in raw HTML
-                m = re.search(r'https?://i\.ebayimg\.com/images/[^\s"\'<>]+', html)
-                if m:
-                    src = m.group(0).split('"')[0].split("'")[0].strip()
-                    hi = re.sub(r'/s-l\d+\.', '/s-l1600.', src)
-                    if hi and hi.startswith('http'):
-                        _log(f"  eBay: regex fallback found image")
-                        return hi
             except requests.exceptions.Timeout:
                 _log(f"  eBay: TIMEOUT (attempt {attempt+1}) for {player_name}")
             except requests.exceptions.RequestException as e:
                 _log(f"  eBay: RequestException: {e}")
             except Exception as e:
                 _log(f"  eBay: Exception: {type(e).__name__}: {e}")
-            time.sleep(1.0)  # Brief pause before retry
+            time.sleep(1.0)
         return None
 
-    def _extract_ebay_image_from_html(self, html: str, player_name: str) -> Optional[str]:
-        """Extract image from eBay HTML, preferring listings where title contains player name."""
+    def _extract_ebay_image_from_html(
+        self,
+        html: str,
+        player_name: str,
+        set_name: str = '',
+        card_number: str = '',
+    ) -> Optional[str]:
+        """Extract image from eBay HTML using scored title matching."""
         soup = BeautifulSoup(html, 'html.parser')
-        player_lower = (player_name or '').lower()
-        imgs = (
-            soup.select('img.s-item__image-img') or
-            soup.select('img[class*="s-item__image"]') or
-            soup.find_all('img', src=re.compile(r'ebayimg\.com')) or
-            soup.find_all('img', attrs={'src': re.compile(r'i\.ebayimg\.com')})
-        )
-        _log(f"  eBay: found {len(imgs)} img tags")
-        for img in imgs[:12]:
+        items = soup.select('li.s-item') or soup.select('div.s-item') or soup.select('[class*="s-item"]')
+        candidates = []
+        for item in items[:24]:
+            title_el = item.select_one('.s-item__title') or item.select_one('[class*="title"]')
+            title = (title_el.get_text(strip=True) if title_el else '')[:240]
+            if not title or title.lower().startswith('shop on ebay'):
+                continue
+            sc = _score_listing(title, player_name, set_name, card_number)
+            if sc < 0:
+                continue
+            img = (
+                item.select_one('img.s-item__image-img')
+                or item.select_one('img[class*="s-item__image"]')
+                or item.find('img', src=re.compile(r'ebayimg\.com'))
+            )
+            if not img:
+                continue
             src = (
-                img.get('src') or
-                img.get('data-src') or
-                img.get('data-lazy-src') or
-                img.get('data-zoom-image')
+                img.get('src') or img.get('data-src') or img.get('data-lazy-src') or img.get('data-zoom-image')
             )
             if not src or 'ebayimg.com' not in str(src) or 'lazy' in str(src).lower():
                 continue
-            # Verify: try to find parent listing and check title contains player
-            parent = img.find_parent('div', class_=re.compile(r's-item'))
-            if parent and player_lower:
-                title_el = parent.select_one('.s-item__title')
-                title = (title_el.get_text(strip=True) if title_el else '')[:200]
-                if title and player_lower not in title.lower():
-                    continue  # Skip if title doesn't contain player
             hi = re.sub(r'/s-l\d+\.', '/s-l1600.', str(src))
-            if hi and hi.startswith('http'):
-                return hi
-        # No verified match - return first valid image anyway
-        for img in imgs[:8]:
-            src = img.get('src') or img.get('data-src') or img.get('data-lazy-src') or img.get('data-zoom-image')
-            if src and 'ebayimg.com' in str(src) and 'lazy' not in str(src).lower():
-                hi = re.sub(r'/s-l\d+\.', '/s-l1600.', str(src))
-                if hi and hi.startswith('http'):
-                    return hi
-        return None
+            if hi.startswith('http'):
+                candidates.append((sc, hi))
+        if not candidates:
+            _log(f"  eBay HTML: no scored matches for {player_name}")
+            return None
+        candidates.sort(key=lambda x: -x[0])
+        if (card_number or "").strip() and candidates[0][0] < 70:
+            _log(f"  eBay HTML: best score {candidates[0][0]} too weak")
+            return None
+        return candidates[0][1]
     
     def get_placeholder(self) -> str:
         return self.placeholder

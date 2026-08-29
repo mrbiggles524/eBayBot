@@ -127,3 +127,32 @@ def clear_stale_bowman_base_drafts_once():
     except Exception as e:
         print(f'[DRAFTS] Failed to clear stale drafts: {e}')
 
+
+def clear_stale_bowman_prospects_drafts_once():
+    """One-time: drop stale prospects drafts so BP-91 qty=9 (and other preset fixes) apply."""
+    flag_key = '__cleared_bowman_prospects_v4164__'
+    checklist_id = '2026-bowman-baseball-cards:prospects'
+    if not os.path.exists(DRAFTS_FILE):
+        return
+    try:
+        with open(DRAFTS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception:
+        return
+    if data.get(flag_key):
+        return
+    cleared = 0
+    for user, drafts in list(data.items()):
+        if not isinstance(drafts, dict) or user.startswith('__'):
+            continue
+        if checklist_id in drafts:
+            del drafts[checklist_id]
+            cleared += 1
+    data[flag_key] = True
+    try:
+        with open(DRAFTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+        print(f'[DRAFTS] Cleared stale Bowman prospects drafts for {cleared} user(s)')
+    except Exception as e:
+        print(f'[DRAFTS] Failed to clear stale prospects drafts: {e}')
+

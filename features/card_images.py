@@ -126,21 +126,59 @@ class CardImageFetcher:
         cards: List[Dict],
         set_name: str,
         source_url: Optional[str] = None,
-        max_per_card: int = 1
+        max_per_card: int = 1,
+        progress_callback=None,
+        default_price: float = 1.0,
+        max_cards: int = 150,
     ) -> List[Dict]:
         """
         Attempt to fetch images for cards. Tries: TCDB -> eBay search -> placeholder.
         Modifies cards in place with image_url, returns updated list.
+        Prioritizes cards priced above default_price (highest first).
         """
-        to_process = cards[:50]
-        set_name = (set_name or '').strip()
-        _log(f"Starting fetch for {len(to_process)} cards, set_name='{set_name}' (enable IMAGE_FETCH_DEBUG=1 for per-card logs)")
-        
-        for i, card in enumerate(to_process):
+        def _card_price(c):
             try:
-                if card.get('image_url') or card.get('imageUrl'):
-                    card['image_url'] = card.get('image_url') or card.get('imageUrl')
-                    card['imageUrl'] = card['image_url']
+                return float(c.get('price') if c.get('price') is not None else 0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        try:
+            dp = float(default_price if default_price is not None else 1.0)
+        except (TypeError, ValueError):
+            dp = 1.0
+
+        # Price > default first, then highest price; keep stable order within ties
+        indexed = list(enumerate(cards))
+        indexed.sort(key=lambda pair: (
+            0 if _card_price(pair[1]) > dp else 1,
+            -_card_price(pair[1]),
+            pair[0],
+        ))
+        to_process = [c for _, c in indexed[:max(1, int(max_cards or 150))]]
+        set_name = (set_name or '').strip()
+        _log(
+            f"Starting fetch for {len(to_process)} cards, set_name='{set_name}', "
+            f"default_price={dp} (expensive first; IMAGE_FETCH_DEBUG=1 for per-card logs)"
+        )
+
+        def _progress(done, total, message=None):
+            if not progress_callback:
+                return
+            try:
+                progress_callback(done, total, message)
+            except Exception:
+                pass
+
+        _progress(0, len(to_process), 'Starting image fetch...')
+
+        for i, card in enumerate(to_process):
+            label = (card.get('name') or card.get('number') or '?')
+            _progress(i, len(to_process), f'Fetching {i}/{len(to_process)}: {label}')
+            try:
+                existing = (card.get('image_url') or card.get('imageUrl') or '').strip()
+                if existing and existing != self.placeholder:
+                    card['image_url'] = existing
+                    card['imageUrl'] = existing
                     _log(f"  [{i+1}/{len(to_process)}] {card.get('name','?')} - already has image, skip")
                     continue
                 name = (card.get('name') or '').strip()
@@ -168,7 +206,8 @@ class CardImageFetcher:
                 _log(f"  [{i+1}/{len(to_process)}] EXCEPTION: {e}")
                 card['image_url'] = self.placeholder
                 card['imageUrl'] = self.placeholder
-        
+
+        _progress(len(to_process), len(to_process), 'Done')
         ph = self.placeholder
         found = sum(1 for c in to_process if (c.get('image_url') or '').startswith('http') and (c.get('image_url') or '') != ph)
         _log(f"Done: {found} from eBay, {len(to_process)-found} placeholders")

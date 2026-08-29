@@ -64,6 +64,54 @@ def _update_listing_job(job_id, **fields):
     _save_listing_job(job_id, job)
     return job
 
+# Background image-fetch jobs (avoid Render 30s HTTP timeout on batch fetches)
+image_jobs = {}
+IMAGE_JOBS_DIR = os.path.join(os.path.dirname(__file__) or '.', 'data', 'image_jobs')
+
+def _image_job_path(job_id):
+    return os.path.join(IMAGE_JOBS_DIR, f'{job_id}.json')
+
+def _save_image_job(job_id, data):
+    os.makedirs(IMAGE_JOBS_DIR, exist_ok=True)
+    # Don't persist huge card payloads to disk mid-run; keep result in memory only when completed
+    image_jobs[job_id] = data
+    try:
+        slim = {k: v for k, v in data.items() if k not in ('result', 'cards')}
+        if data.get('status') == 'completed' and isinstance(data.get('result'), dict):
+            # Persist summary only; full cards stay in memory for this process
+            slim['result_summary'] = {
+                'success': data['result'].get('success'),
+                'withImages': data['result'].get('withImages'),
+                'withDefaultImages': data['result'].get('withDefaultImages'),
+                'version': data['result'].get('version'),
+                'cardCount': len(data['result'].get('cards') or []),
+            }
+        with open(_image_job_path(job_id), 'w', encoding='utf-8') as f:
+            json.dump(slim, f)
+    except Exception as e:
+        print(f"[WARN] Could not persist image job {job_id}: {e}", flush=True)
+
+def _load_image_job(job_id):
+    if job_id in image_jobs:
+        return image_jobs[job_id]
+    path = _image_job_path(job_id)
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                image_jobs[job_id] = data
+                return data
+        except Exception as e:
+            print(f"[WARN] Could not load image job {job_id}: {e}", flush=True)
+    return {}
+
+def _update_image_job(job_id, **fields):
+    job = _load_image_job(job_id) or {"status": "processing"}
+    job.update(fields)
+    job['updated_at'] = datetime.now().isoformat()
+    _save_image_job(job_id, job)
+    return job
+
 # =============================================================================
 # VERSION - Auto from VERSION file (written at build: 4.<git rev-list count>)
 # =============================================================================
@@ -1663,6 +1711,7 @@ def fetch_checklist():
         draft_applied = False
         checklist_id = None
         preset_set_name = None
+        preset_revision = None
         try:
             from features.static_presets import (
                 find_matching_preset,
@@ -1674,10 +1723,13 @@ def fetch_checklist():
                 checklist_id_from_url,
                 merge_draft_into_cards,
                 clear_stale_bowman_base_drafts_once,
+                clear_stale_bowman_prospects_drafts_once,
             )
             clear_stale_bowman_base_drafts_once()
+            clear_stale_bowman_prospects_drafts_once()
             checklist_id = checklist_id_from_url(url, checklist_type)
             preset = find_matching_preset(url, checklist_type)
+            preset_revision = None
             if preset:
                 if preset.get('filter'):
                     before = len(formatted_cards)
@@ -1685,9 +1737,10 @@ def fetch_checklist():
                     print(f"[APP] Preset filter: {before} -> {len(formatted_cards)} cards")
                 formatted_cards = merge_preset_into_cards(formatted_cards, preset.get('cards', []))
                 preset_applied = preset.get('id') or preset.get('name')
+                preset_revision = preset.get('revision')
                 if preset.get('setName'):
                     preset_set_name = preset['setName']
-                print(f"[APP] Applied bundled preset: {preset_applied}")
+                print(f"[APP] Applied bundled preset: {preset_applied} rev={preset_revision}")
             email = session.get('user_email', '')
             dm = ChecklistDraftManager(user_email=email)
             draft = dm.load_draft(checklist_id)
@@ -1743,6 +1796,7 @@ def fetch_checklist():
             "checklistType": checklist_type,
             "checklistId": checklist_id,
             "presetApplied": preset_applied,
+            "presetRevision": preset_revision,
             "draftApplied": draft_applied,
         }
         
@@ -2351,48 +2405,173 @@ def update_token():
 @app.route('/api/fetch-images', methods=['POST'])
 @require_subscription
 def api_fetch_images():
-    """Auto-fetch card images from Beckett/Cardsmiths/eBay."""
+    """Start background card-image fetch (returns immediately to avoid Render 30s timeout)."""
     print(f"[FETCH-IMAGES] Request received", flush=True)
     try:
         from dotenv import load_dotenv
-        load_dotenv(override=True)  # Ensure .env loaded (Render uses env vars, local uses .env)
+        load_dotenv(override=True)
         serp_ok = bool((os.environ.get('SERPAPI_KEY') or '').strip())
         print(f"[FETCH-IMAGES] SERPAPI_KEY {'set' if serp_ok else 'NOT set'}", flush=True)
-        from features.card_images import CardImageFetcher
-        import re
         data = request.json or {}
         cards = data.get('cards', [])
         set_name = (data.get('setName') or '').strip()
         source_url = data.get('sourceUrl', '') or ''
-        first = (cards[0].get('name'), cards[0].get('number')) if cards else (None, None)
-        print(f"[FETCH-IMAGES] Cards: {len(cards)}, setName: '{set_name}', first: {first}", flush=True)
+        try:
+            default_price = float(data.get('defaultPrice') if data.get('defaultPrice') is not None else 1.0)
+        except (TypeError, ValueError):
+            default_price = 1.0
+        if not cards:
+            return jsonify({"success": False, "error": "No cards provided"}), 400
         if not set_name and source_url:
             m = re.search(r'/([a-z0-9\-]+?)(?:-hobby|-blaster|-retail|/)?$', source_url.lower())
             if m:
                 slug = m.group(1)
                 set_name = slug.replace('-', ' ').replace('  ', ' ').strip().title()
                 print(f"[FETCH-IMAGES] Extracted setName from URL: '{set_name}'", flush=True)
-        fetcher = CardImageFetcher()
-        fetcher.placeholder = _default_publish_image_url()
-        updated = fetcher.fetch_images_for_cards(cards, set_name, source_url)
-        ph = fetcher.placeholder
-        with_img = sum(1 for c in updated if (c.get('image_url') or c.get('imageUrl')) and (c.get('image_url') or c.get('imageUrl')) != ph)
-        # Ensure every card has at least the default placeholder URL
-        for c in updated:
-            if not c.get('image_url') and not c.get('imageUrl'):
-                c['image_url'] = ph
-                c['imageUrl'] = ph
-        with_default = sum(1 for c in updated if c.get('image_url') or c.get('imageUrl'))
-        print(f"[FETCH-IMAGES] Done: {with_img}/{len(updated)} cards with fetched images, {with_default}/{len(updated)} with URLs incl. default (v{VERSION})", flush=True)
-        resp = {"success": True, "cards": updated, "version": VERSION, "withImages": with_img, "withDefaultImages": with_default, "defaultImageUrl": ph}
-        if with_img < len(updated) and not os.environ.get('SERPAPI_KEY', '').strip():
-            resp["hint"] = "Add SERPAPI_KEY in .env (or Render env) for better image fetch. Free at serpapi.com"
-        return jsonify(resp)
+        first = (cards[0].get('name'), cards[0].get('number')) if cards else (None, None)
+        print(f"[FETCH-IMAGES] Queueing {len(cards)} cards, setName: '{set_name}', defaultPrice={default_price}, first: {first}", flush=True)
+
+        job_id = str(uuid.uuid4())
+        job_data = {
+            'cards': cards,
+            'set_name': set_name,
+            'source_url': source_url,
+            'default_price': default_price,
+            'placeholder': _default_publish_image_url(),
+        }
+        _save_image_job(job_id, {
+            "status": "processing",
+            "phase": "queued",
+            "progress": 0,
+            "total": len(cards),
+            "message": "Image fetch queued...",
+            "started_at": datetime.now().isoformat(),
+            "version": VERSION,
+        })
+        threading.Thread(target=_run_image_fetch_job, args=(job_id, job_data), daemon=True).start()
+        return jsonify({
+            "job_id": job_id,
+            "status": "processing",
+            "total": len(cards),
+            "version": VERSION,
+            "message": "Fetching images in background — poll /api/fetch-images-status/" + job_id,
+        })
     except Exception as e:
         print(f"[FETCH-IMAGES] ERROR: {e}", flush=True)
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+
+def _run_image_fetch_job(job_id, job_data):
+    """Background worker: fetch card images with progress updates."""
+    stop_keepalive = threading.Event()
+
+    def _keep_render_alive():
+        import urllib.request
+        base = (os.environ.get('RENDER_EXTERNAL_URL') or '').strip().rstrip('/')
+        if not base:
+            port = os.environ.get('PORT', '5001')
+            base = f'http://127.0.0.1:{port}'
+        while not stop_keepalive.wait(45):
+            try:
+                urllib.request.urlopen(f'{base}/health', timeout=15)
+            except Exception:
+                pass
+
+    def _progress(current, total, message=None):
+        _update_image_job(
+            job_id,
+            status='processing',
+            phase='fetching',
+            progress=int(current),
+            total=int(total),
+            message=message or f'Fetching {current}/{total}',
+        )
+
+    keepalive_thread = threading.Thread(target=_keep_render_alive, daemon=True)
+    keepalive_thread.start()
+    try:
+        from features.card_images import CardImageFetcher
+        cards = job_data.get('cards') or []
+        set_name = job_data.get('set_name') or ''
+        source_url = job_data.get('source_url') or ''
+        default_price = job_data.get('default_price', 1.0)
+        fetcher = CardImageFetcher()
+        fetcher.placeholder = job_data.get('placeholder') or _default_publish_image_url()
+        _update_image_job(job_id, message='Starting image fetch...', total=len(cards), progress=0)
+        updated = fetcher.fetch_images_for_cards(
+            cards,
+            set_name,
+            source_url,
+            progress_callback=_progress,
+            default_price=default_price,
+            max_cards=150,
+        )
+        ph = fetcher.placeholder
+        for c in updated:
+            if not c.get('image_url') and not c.get('imageUrl'):
+                c['image_url'] = ph
+                c['imageUrl'] = ph
+        with_img = sum(
+            1 for c in updated
+            if (c.get('image_url') or c.get('imageUrl'))
+            and (c.get('image_url') or c.get('imageUrl')) != ph
+        )
+        with_default = sum(1 for c in updated if c.get('image_url') or c.get('imageUrl'))
+        print(
+            f"[FETCH-IMAGES] Job {job_id} done: {with_img}/{len(updated)} fetched "
+            f"(v{VERSION})",
+            flush=True,
+        )
+        resp = {
+            "success": True,
+            "cards": updated,
+            "version": VERSION,
+            "withImages": with_img,
+            "withDefaultImages": with_default,
+            "defaultImageUrl": ph,
+        }
+        if with_img < len(updated) and not os.environ.get('SERPAPI_KEY', '').strip():
+            resp["hint"] = "Add SERPAPI_KEY in .env (or Render env) for better image fetch. Free at serpapi.com"
+        _update_image_job(
+            job_id,
+            status='completed',
+            phase='done',
+            progress=len(updated),
+            total=len(updated),
+            message=f'Done: {with_img}/{len(updated)} images found',
+            result=resp,
+        )
+    except Exception as e:
+        print(f"[FETCH-IMAGES] Job {job_id} ERROR: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        _update_image_job(job_id, status='failed', phase='failed', error=str(e), message=str(e))
+    finally:
+        stop_keepalive.set()
+
+@app.route('/api/fetch-images-status/<job_id>')
+@require_subscription
+def api_fetch_images_status(job_id):
+    """Poll for background image-fetch job result."""
+    job = _load_image_job(job_id)
+    if not job:
+        return jsonify({"status": "unknown", "error": "Job not found or expired"}), 404
+    out = {
+        "status": job.get("status", "unknown"),
+        "phase": job.get("phase"),
+        "progress": job.get("progress", 0),
+        "total": job.get("total", 0),
+        "message": job.get("message", ""),
+        "error": job.get("error"),
+        "version": job.get("version") or VERSION,
+    }
+    if job.get("status") == "completed" and job.get("result"):
+        out["result"] = job["result"]
+        out["success"] = True
+    elif job.get("status") == "failed":
+        out["success"] = False
+    return jsonify(out)
 
 @app.route('/api/market-price', methods=['POST'])
 @require_subscription

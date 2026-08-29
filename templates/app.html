@@ -1005,7 +1005,7 @@
                     <option value="price-low">Price (Low to High)</option>
                     <option value="qty">Quantity</option>
                 </select>
-                <button class="btn btn-secondary" onclick="fetchCardImages()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4);" title="Fetch images for cards with qty &gt; 0 (max 50)">🖼️ Fetch Images</button>
+                <button class="btn btn-secondary" onclick="fetchCardImages()" style="padding: 8px 16px; background: rgba(0, 255, 255, 0.2); color: #00ffff; border: 2px solid rgba(0, 255, 255, 0.4);" title="Fetch images for cards with qty &gt; 0 (expensive first, max 150)">🖼️ Fetch Images</button>
                 <button class="btn btn-secondary" onclick="applyMarketPricing()" style="padding: 8px 16px; background: rgba(255, 165, 0, 0.2); color: #ffa500; border: 2px solid rgba(255, 165, 0, 0.4);" title="Look up eBay sold prices for cards with qty&gt;0 (max 50). No results = $1">💰 Market Price</button>
                 <button class="btn btn-secondary" onclick="validateCards()" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Check for missing data">✓ Validate</button>
                 <button class="btn btn-secondary" onclick="toggleZeroQtyFilter()" id="zeroQtyFilterBtn" style="padding: 8px 16px; background: rgba(255, 255, 0, 0.2); color: #ffff00; border: 2px solid rgba(255, 255, 0, 0.4); text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);" title="Hide/show cards with quantity 0">🔍 Hide Qty=0</button>
@@ -1280,12 +1280,16 @@
         let currentChecklistId = null;
         let currentChecklistUrl = '';
         let currentChecklistType = 'base';
+        let currentPresetRevision = null;
         let _draftSaveTimer = null;
         let _nextCardId = 1;
         function allocCardId() {
             // Integer IDs only — Date.now()+Math.random() collided across 150-card fetches,
             // so qty edits hit the wrong row (yellow qty=0 box that wouldn't update).
             return _nextCardId++;
+        }
+        function resetCardIds() {
+            _nextCardId = 1;
         }
 
         function getLocalDraftKey(checklistId) {
@@ -1315,6 +1319,7 @@
                     checklistId: currentChecklistId,
                     url: currentChecklistUrl,
                     type: currentChecklistType,
+                    presetRevision: currentPresetRevision,
                     updated: new Date().toISOString(),
                     cards: cards.map(c => ({
                         number: c.number,
@@ -1596,6 +1601,8 @@
                     
                     // Clear existing cards and add fetched ones
                     cards = [];
+                    resetCardIds();
+                    currentPresetRevision = result.presetRevision != null ? result.presetRevision : null;
                     result.cards.forEach(card => {
                         const id = allocCardId();
                         cards.push({
@@ -1612,11 +1619,19 @@
                         });
                     });
 
-                    // Merge local draft on top of server preset/draft (local wins for unsaved session edits)
+                    // Merge local draft on top of server preset/draft (local wins for unsaved session edits).
+                    // Skip if preset revision changed so bundled qty/price fixes (e.g. BP-91=9) apply.
                     if (currentChecklistId) {
                         const localDraft = loadDraftLocal(currentChecklistId);
+                        const draftRev = localDraft && localDraft.presetRevision != null ? localDraft.presetRevision : null;
+                        const serverRev = currentPresetRevision;
                         if (localDraft && localDraft.cards && localDraft.cards.length) {
-                            mergeDraftEntriesOntoCards(localDraft.cards);
+                            if (serverRev != null && draftRev !== serverRev) {
+                                try { localStorage.removeItem(getLocalDraftKey(currentChecklistId)); } catch (e) {}
+                                console.log('[DRAFT] Cleared local draft — preset revision changed', draftRev, '->', serverRev);
+                            } else {
+                                mergeDraftEntriesOntoCards(localDraft.cards);
+                            }
                         }
                     }
                     
@@ -1710,7 +1725,20 @@
                 showToast('Load cards first', 'error');
                 return;
             }
-            const toProcess = cards.map((c, i) => ({ ...c, _idx: i })).filter(c => (c.qty || 0) > 0).slice(0, 50);
+            const defaultPrice = parseFloat(document.getElementById('defaultPrice')?.value) || 1;
+            // Prefer expensive cards (price > default) first, highest price first; defer $1/default cards
+            const toProcess = cards
+                .map((c, i) => ({ ...c, _idx: i }))
+                .filter(c => (c.qty || 0) > 0)
+                .sort((a, b) => {
+                    const pa = parseFloat(a.price) || 0;
+                    const pb = parseFloat(b.price) || 0;
+                    const aAbove = pa > defaultPrice ? 1 : 0;
+                    const bAbove = pb > defaultPrice ? 1 : 0;
+                    if (bAbove !== aAbove) return bAbove - aAbove;
+                    return pb - pa;
+                })
+                .slice(0, 150);
             if (toProcess.length === 0) {
                 showToast('Set quantity &gt; 0 on cards first', 'error');
                 return;
@@ -1721,48 +1749,129 @@
             const statusText = document.getElementById('fetchImagesStatusText');
             const fetchBtn = document.querySelector('button[onclick*="fetchCardImages"]');
             if (fetchBtn) fetchBtn.disabled = true;
-            if (statusDiv) statusDiv.textContent = 'Fetching images for ' + toProcess.length + ' cards...';
+            if (statusDiv) statusDiv.textContent = 'Fetching images for ' + toProcess.length + ' cards (expensive first)...';
             if (modal) modal.classList.add('active');
-            if (statusText) statusText.textContent = 'Searching eBay for card images... (this may take 30-60 sec)';
-            const startTime = Date.now();
-            const simInterval = setInterval(() => {
-                const elapsed = (Date.now() - startTime) / 1000;
-                const pct = Math.min(85, 15 + elapsed * 1.5);
-                if (progressBar) progressBar.style.width = pct + '%';
-                if (statusText) {
-                    if (elapsed < 5) statusText.textContent = 'Searching eBay for card images...';
-                    else if (elapsed < 15) statusText.textContent = 'Still fetching... (' + Math.floor(elapsed) + ' sec)';
-                    else statusText.textContent = 'Almost done... (this can take a minute for many cards)';
+            if (statusText) statusText.textContent = 'Starting background image fetch...';
+            if (progressBar) progressBar.style.width = '5%';
+
+            const parseJsonSafe = async (res) => {
+                const text = await res.text();
+                if (!text || !text.trim()) {
+                    throw new Error('Empty response from server (HTTP ' + res.status + ')');
                 }
-            }, 500);
+                try {
+                    return JSON.parse(text);
+                } catch (err) {
+                    const snippet = text.replace(/\s+/g, ' ').slice(0, 120);
+                    const looksHtml = /^\s*</.test(text) || /gateway|timeout|502|504/i.test(text);
+                    throw new Error(
+                        looksHtml
+                            ? 'Server timed out or returned an error page (HTTP ' + res.status + '). Image fetch now runs in the background — refresh and try again.'
+                            : 'Invalid JSON from server (HTTP ' + res.status + '): ' + snippet
+                    );
+                }
+            };
+
             try {
                 const payload = {
-                    cards: toProcess.map(c => ({ name: c.name, number: c.number, team: c.team || '', image_url: c.imageUrl || '', _idx: c._idx })),
+                    cards: toProcess.map(c => ({
+                        name: c.name,
+                        number: c.number,
+                        team: c.team || '',
+                        price: parseFloat(c.price) || 0,
+                        image_url: c.imageUrl || '',
+                        _idx: c._idx
+                    })),
                     setName: document.getElementById('setName').value || '',
-                    sourceUrl: document.getElementById('checklistUrl').value || ''
+                    sourceUrl: document.getElementById('checklistUrl').value || '',
+                    defaultPrice: defaultPrice
                 };
-                const res = await fetch('/api/fetch-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                const data = await res.json();
-                clearInterval(simInterval);
-                if (progressBar) progressBar.style.width = '100%';
-                if (statusText) statusText.textContent = 'Done!';
-                setTimeout(() => {
-                    if (modal) modal.classList.remove('active');
-                    if (fetchBtn) fetchBtn.disabled = false;
-                    if (data.success && data.cards) {
-                        const withImg = data.withImages != null ? data.withImages : data.cards.filter(fc => fc.image_url || fc.imageUrl).length;
-                        window._pendingImageFetch = { cards: data.cards, toProcessCount: toProcess.length, version: data.version || '' };
-                        showImageConfirmModal(data.cards);
-                        let statusText = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
-                        if (data.hint) statusText += ' • ' + data.hint;
-                        if (statusDiv) statusDiv.textContent = statusText;
-                    } else {
-                        if (statusDiv) statusDiv.textContent = data.error || 'Failed';
-                        showToast(data.error || 'Failed to fetch images', 'error');
-                    }
-                }, 400);
+                const startRes = await fetch('/api/fetch-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const startData = await parseJsonSafe(startRes);
+                if (!startRes.ok || (!startData.job_id && !startData.cards)) {
+                    throw new Error(startData.error || ('Failed to start image fetch (HTTP ' + startRes.status + ')'));
+                }
+
+                // Legacy sync response (if any) — apply immediately
+                if (startData.cards && !startData.job_id) {
+                    if (progressBar) progressBar.style.width = '100%';
+                    if (statusText) statusText.textContent = 'Done!';
+                    setTimeout(() => {
+                        if (modal) modal.classList.remove('active');
+                        if (fetchBtn) fetchBtn.disabled = false;
+                        const withImg = startData.withImages != null ? startData.withImages : startData.cards.filter(fc => fc.image_url || fc.imageUrl).length;
+                        window._pendingImageFetch = { cards: startData.cards, toProcessCount: toProcess.length, version: startData.version || '' };
+                        showImageConfirmModal(startData.cards);
+                        let st = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (startData.version || '') + ')';
+                        if (startData.hint) st += ' • ' + startData.hint;
+                        if (statusDiv) statusDiv.textContent = st;
+                    }, 400);
+                    return;
+                }
+
+                const jobId = startData.job_id;
+                const totalHint = startData.total || toProcess.length;
+                const pollStarted = Date.now();
+                const maxPollMs = 20 * 60 * 1000;
+
+                const finishWithResult = (data) => {
+                    if (progressBar) progressBar.style.width = '100%';
+                    if (statusText) statusText.textContent = 'Done!';
+                    setTimeout(() => {
+                        if (modal) modal.classList.remove('active');
+                        if (fetchBtn) fetchBtn.disabled = false;
+                        if (data.success && data.cards) {
+                            const withImg = data.withImages != null ? data.withImages : data.cards.filter(fc => fc.image_url || fc.imageUrl).length;
+                            window._pendingImageFetch = { cards: data.cards, toProcessCount: toProcess.length, version: data.version || '' };
+                            showImageConfirmModal(data.cards);
+                            let st = 'Review ' + withImg + '/' + toProcess.length + ' images (v' + (data.version || '') + ')';
+                            if (data.hint) st += ' • ' + data.hint;
+                            if (statusDiv) statusDiv.textContent = st;
+                        } else {
+                            if (statusDiv) statusDiv.textContent = data.error || 'Failed';
+                            showToast(data.error || 'Failed to fetch images', 'error');
+                        }
+                    }, 400);
+                };
+
+                await new Promise((resolve, reject) => {
+                    const tick = async () => {
+                        try {
+                            if (Date.now() - pollStarted > maxPollMs) {
+                                reject(new Error('Image fetch timed out after 20 minutes'));
+                                return;
+                            }
+                            const statusRes = await fetch('/api/fetch-images-status/' + jobId);
+                            const job = await parseJsonSafe(statusRes);
+                            const cur = job.progress || 0;
+                            const tot = job.total || totalHint || 1;
+                            const pct = Math.min(95, Math.max(5, Math.round((cur / tot) * 100)));
+                            if (progressBar) progressBar.style.width = pct + '%';
+                            const msg = job.message || ('Fetching ' + cur + '/' + tot + '...');
+                            if (statusText) statusText.textContent = msg;
+                            if (statusDiv) statusDiv.textContent = msg;
+
+                            if (job.status === 'completed' && job.result) {
+                                finishWithResult(job.result);
+                                resolve();
+                                return;
+                            }
+                            if (job.status === 'failed') {
+                                reject(new Error(job.error || job.message || 'Image fetch failed'));
+                                return;
+                            }
+                            setTimeout(tick, 1200);
+                        } catch (e) {
+                            reject(e);
+                        }
+                    };
+                    tick();
+                });
             } catch (e) {
-                clearInterval(simInterval);
                 if (modal) modal.classList.remove('active');
                 if (fetchBtn) fetchBtn.disabled = false;
                 if (statusDiv) statusDiv.textContent = 'Error: ' + e.message;
@@ -2012,16 +2121,17 @@
         }
         
         function updateCard(id, field, value) {
-            const card = cards.find(c => c.id === id);
+            const nid = Number(id);
+            const card = cards.find(c => Number(c.id) === nid);
             if (card) {
                 if (field === 'price') value = parseFloat(value) || 0;
-                if (field === 'qty') value = parseInt(value) || 0; // Allow 0, don't default to 1
+                if (field === 'qty') value = parseInt(value, 10) || 0; // Allow 0, don't default to 1
                 if (field === 'selected') value = Boolean(value);
                 card[field] = value;
                 
                 // Avoid full table re-render on every qty keystroke (fixes UI freeze with 100+ cards)
                 if (field === 'qty') {
-                    updateQtyRowStyle(id, value);
+                    updateQtyRowStyle(nid, value);
                     updateSummary();
                     scheduleDraftSave();
                 } else if (field === 'price') {
@@ -2035,9 +2145,10 @@
         }
 
         function updateQtyRowStyle(id, qty) {
-            const row = document.querySelector(`tr[data-id="${id}"]`);
+            const nid = Number(id);
+            const row = document.querySelector(`tr[data-id="${nid}"]`);
             if (!row) return;
-            const n = parseInt(qty) || 0;
+            const n = parseInt(qty, 10) || 0;
             const isZeroQty = n === 0;
             row.style.opacity = isZeroQty ? '0.5' : '';
             row.style.background = isZeroQty ? 'rgba(255,255,255,0.02)' : '';
@@ -2070,6 +2181,7 @@
         function clearCards() {
             if (confirm('Clear all cards?')) {
                 cards = [];
+                resetCardIds();
                 renderCards();
                 // Hide search bar when cards are cleared
                 const searchContainer = document.getElementById('cardSearchContainer');

@@ -6,6 +6,7 @@
   "type": "prospects",
   "setName": "2026 Bowman Baseball Prospects",
   "sport": "Baseball",
+  "revision": 2,
   "filter": {
     "includePrefixes": [
       "BP-"
@@ -648,7 +649,7 @@
       "name": "Elian Peña",
       "team": "New York Mets",
       "price": 1.0,
-      "quantity": 0
+      "quantity": 9
     },
     {
       "number": "BP-92",

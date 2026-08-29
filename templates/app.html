@@ -228,7 +228,7 @@
         
         .cards-table .num-input { width: 100px; min-width: 100px; text-align: center; }
         .cards-table .price-input { width: 80px; text-align: right; }
-        .cards-table .qty-input { width: 60px; text-align: center; }
+        .cards-table .qty-input { width: 72px; min-width: 72px; text-align: center; }
         
         /* Player Name column - shorter */
         .cards-table td:nth-child(3) input { 
@@ -1070,7 +1070,7 @@
                 <div style="text-align: center;">
                     <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Will List</div>
                     <div style="color: #7b2cbf; font-size: 1.5rem; font-weight: bold;" id="statSelected" title="Cards with quantity > 0 that will be included in listing">0</div>
-                    <div style="color: #666; font-size: 0.7rem; margin-top: 3px;">(qty > 0 only)</div>
+                    <div style="color: #666; font-size: 0.7rem; margin-top: 3px;" id="statSelectedHint">(qty &gt; 0 / total)</div>
                 </div>
                 <div style="text-align: center;">
                     <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Total Value</div>
@@ -1093,7 +1093,7 @@
                         <th style="width: 200px; min-width: 200px;">Team</th>
                         <th style="width: 90px;" title="Marketplace want matches">🔥 Offer</th>
                         <th style="width: 80px;">Price</th>
-                        <th style="width: 60px;">Qty</th>
+                        <th style="width: 76px; min-width: 76px;">Qty</th>
                         <th style="width: 60px;"></th>
                     </tr>
                 </thead>
@@ -1281,6 +1281,12 @@
         let currentChecklistUrl = '';
         let currentChecklistType = 'base';
         let _draftSaveTimer = null;
+        let _nextCardId = 1;
+        function allocCardId() {
+            // Integer IDs only — Date.now()+Math.random() collided across 150-card fetches,
+            // so qty edits hit the wrong row (yellow qty=0 box that wouldn't update).
+            return _nextCardId++;
+        }
 
         function getLocalDraftKey(checklistId) {
             return 'cardpilot_draft_' + (checklistId || 'unknown');
@@ -1591,14 +1597,14 @@
                     // Clear existing cards and add fetched ones
                     cards = [];
                     result.cards.forEach(card => {
-                        const id = Date.now() + Math.random();
+                        const id = allocCardId();
                         cards.push({
                             id,
                             number: card.number,
                             name: card.name,
                             team: card.team || '',
                             price: parseFloat(card.price),
-                            qty: parseInt(card.quantity),
+                            qty: parseInt(card.quantity, 10) || 0,
                             selected: true,
                             parallelType: card.parallelType || '',
                             numbering: card.numbering || '',
@@ -1995,7 +2001,7 @@
         }
         
         function addCard(number = '', name = '', price = '1.00', qty = '0', team = '') {
-            const id = Date.now() + Math.random();
+            const id = allocCardId();
             cards.push({ id, number, name, team, price: parseFloat(price), qty: parseInt(qty) || 0, selected: true });
             renderCards();
         }
@@ -2208,7 +2214,7 @@
                     <td><input type="text" value="${card.team || ''}" onchange="updateCard(${card.id}, 'team', this.value)" placeholder="Team" style="width: 190px; min-width: 190px;"></td>
                     <td style="vertical-align: middle; text-align: center;">${getWantOfferBtn(card.id)}</td>
                     <td><input type="number" class="price-input" value="${card.price}" step="0.25" min="0" oninput="updateCard(${card.id}, 'price', this.value)" style="width: 70px;"></td>
-                    <td><input type="number" class="qty-input" value="${qty}" min="0" data-card-id="${card.id}" oninput="updateCard(${card.id}, 'qty', this.value)" style="width: 50px; ${qtyStyle}" title="${isZeroQty ? 'Quantity 0 - will be excluded from listing' : ''}"></td>
+                    <td><input type="number" class="qty-input" value="${qty}" min="0" data-card-id="${card.id}" oninput="updateCard(${card.id}, 'qty', this.value)" style="width: 72px; min-width: 72px; ${qtyStyle}" title="${isZeroQty ? 'Quantity 0 - will be excluded from listing' : ''}"></td>
                     <td><button class="remove-btn" onclick="removeCard(${card.id})" style="padding: 4px 8px;">X</button></td>
                 </tr>
             `;
@@ -2243,8 +2249,16 @@
             if (statTotalCards) statTotalCards.textContent = cards.length;
             if (statSelected) {
                 const zeroQtyCount = total - validTotal;
-                statSelected.textContent = `${validTotal}${zeroQtyCount > 0 ? `/${total}` : ''}`;
-                statSelected.title = `${validTotal} cards with quantity > 0 will be listed${zeroQtyCount > 0 ? ` (${zeroQtyCount} with qty=0 will be excluded)` : ''}`;
+                statSelected.textContent = `${validTotal}/${cards.length}`;
+                statSelected.title = `${validTotal} of ${cards.length} cards have qty > 0 and will be listed` +
+                    (zeroQtyCount > 0 ? ` (${zeroQtyCount} with qty=0 excluded — yellow qty box)` : '');
+            }
+            const hint = document.getElementById('statSelectedHint');
+            if (hint) {
+                const zeroQtyCount = cards.filter(c => (parseInt(c.qty, 10) || 0) === 0).length;
+                hint.textContent = zeroQtyCount > 0
+                    ? `(${validTotal} with qty > 0 · ${zeroQtyCount} at qty 0)`
+                    : '(all have qty > 0)';
             }
             if (statTotalValue) statTotalValue.textContent = `$${value.toFixed(2)}`;
             if (statTotalQty) statTotalQty.textContent = totalQty;
@@ -2464,7 +2478,7 @@
                             if (confirm(`Load ${template.cards.length} cards? This will replace your current cards.`)) {
                                 cards = template.cards.map(c => ({
                                     ...c,
-                                    id: Date.now() + Math.random() + Math.random() // Ensure unique IDs
+                                    id: allocCardId()
                                 }));
                                 renderCards();
                                 showToast(`Loaded ${cards.length} cards from template`, 'success');

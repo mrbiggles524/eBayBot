@@ -562,18 +562,18 @@ class CardChecklistFetcher:
                     print(f"[PARSER] First card: {result[0]}")
                     if len(result) > 1:
                         print(f"[PARSER] Last card: {result[-1]}")
-                    # Prefixed cards may be valid (BP- prospects, BD-/BDC- draft)
-                    prefixed = [c for c in result if '-' in str(c.get('number', ''))]
+                    # Prefixed cards may be valid (BP-/BD-/BDC-/USC1 glued Update, etc.)
+                    prefixed = [c for c in result if self._is_letter_prefix_number(c.get('number', ''))]
                     if prefixed:
-                        print(f"[PARSER] Found {len(prefixed)} prefixed cards in base result (BP-/BD- OK)")
+                        print(f"[PARSER] Found {len(prefixed)} prefixed cards in base result (BP-/BD-/USC OK)")
                         for c in prefixed[:5]:
                             print(f"[PARSER]   Prefixed: {c.get('number')} {c.get('name')}")
                 print(f"[PARSER] ========================================")
                 
                 # EMERGENCY SAFEGUARD: Check card count based on format
                 if result and len(result) > 0:
-                    # Check if this is a prefixed set (BD-/BDC- can have up to 400 cards: 200 BD- + 200 BDC-)
-                    has_prefix = any('-' in str(c.get('number', '')) for c in result)
+                    # Check if this is a prefixed set (BD-/BDC-/USC can have up to 400 cards)
+                    has_prefix = any(self._is_letter_prefix_number(c.get('number', '')) for c in result)
                     if has_prefix:
                         # Prefixed sets: allow up to 410 cards (e.g., Bowman Draft: 200 BD- + 200 BDC- + small buffer for duplicates)
                         max_cards = 410
@@ -623,11 +623,11 @@ class CardChecklistFetcher:
                     print(f"[PARSER] ========================================")
                     print(f"[PARSER] VALIDATING ALL {len(result)} CARDS...")
                     
-                    # Check if this is a prefixed set
-                    has_prefix = any('-' in str(c.get('number', '')) for c in result)
+                    # Check if this is a prefixed set (hyphen BP-/BD- or glued USC1)
+                    has_prefix = any(self._is_letter_prefix_number(c.get('number', '')) for c in result)
                     
                     plain_cards = [c for c in result if str(c.get('number', '')).isdigit()]
-                    prefixed_cards = [c for c in result if '-' in str(c.get('number', ''))]
+                    prefixed_cards = [c for c in result if self._is_letter_prefix_number(c.get('number', ''))]
                     mixed_bowman = bool(plain_cards) and bool(prefixed_cards) and all(
                         str(c.get('number', '')).startswith('BP-') for c in prefixed_cards
                     )
@@ -653,12 +653,12 @@ class CardChecklistFetcher:
                             print(f"[PARSER] First card: {result[0].get('number')} {result[0].get('name')}")
                             print(f"[PARSER] Last card: {result[-1].get('number')} {result[-1].get('name')}")
                     elif has_prefix:
-                        # Prefixed-only set (BD-/BDC-/etc.): all cards should be prefixed
-                        invalid_cards = [c for c in result if '-' not in str(c.get('number', ''))]
+                        # Prefixed-only set (BD-/BDC-/USC1/etc.): all cards should be prefixed
+                        invalid_cards = [c for c in result if not self._is_letter_prefix_number(c.get('number', ''))]
                         if invalid_cards:
                             print(f"[PARSER] WARNING: Found {len(invalid_cards)} cards without prefixes in prefixed set!")
                             print(f"[PARSER] Removing invalid cards...")
-                            result = [c for c in result if '-' in str(c.get('number', ''))]
+                            result = [c for c in result if self._is_letter_prefix_number(c.get('number', ''))]
                             print(f"[PARSER] Remaining cards: {len(result)}")
                         else:
                             print(f"[PARSER] VALIDATION PASSED - all {len(result)} prefixed cards are valid")
@@ -671,7 +671,7 @@ class CardChecklistFetcher:
                         invalid_cards = []
                         for i, card in enumerate(result):
                             card_num = str(card.get('number', ''))
-                            if '-' in card_num:
+                            if self._is_letter_prefix_number(card_num):
                                 print(f"[PARSER] FATAL: Card #{i+1} has PREFIX: {card_num}")
                                 print(f"[PARSER] Full card data: {card}")
                                 invalid_cards.append((i+1, card_num, card))
@@ -1825,6 +1825,47 @@ class CardChecklistFetcher:
                 time.sleep(2)
         return None
 
+    @staticmethod
+    def _is_letter_prefix_number(num: str) -> bool:
+        """True for USC1 / BP-1 / BD-12 style card numbers (not plain 1..N)."""
+        n = str(num or '').strip()
+        if not n or n.isdigit():
+            return False
+        if '-' in n:
+            return True
+        return bool(re.match(r'^[A-Za-z]{2,}\d+$', n))
+
+    def _parse_glued_prefix_cards(self, line: str, prefix: str):
+        """
+        Parse glued letter+number base cards (no hyphen), e.g. Topps Chrome Update:
+        USC1 Max ScherzerUSC2 Heliot Ramos...
+        Teams are often omitted on Beckett for these sets.
+        """
+        results = []
+        if not prefix or not line:
+            return results
+        escaped = re.escape(prefix)
+        pat = rf'{escaped}(\d+)\s+(.+?)(?={escaped}\d+|$)'
+        for match in re.finditer(pat, line, flags=re.IGNORECASE):
+            num = match.group(1).strip()
+            content = match.group(2).strip()
+            content = re.sub(rf'{escaped}\d+.*$', '', content, flags=re.IGNORECASE).strip()
+            content = content.rstrip('.,;:').strip()
+            if not content or len(content) < 2:
+                continue
+            if ',' in content:
+                name, team = content.split(',', 1)
+                name, team = name.strip(), team.strip().rstrip('.,;:')
+            else:
+                name, team = content, ''
+            # Drop trailing section noise
+            name = re.sub(r'\s+(RC|SP|SSP)$', '', name, flags=re.IGNORECASE).strip()
+            if len(name) < 2:
+                continue
+            # Normalize to PREFIX+number as printed (USC1), uppercase prefix
+            results.append((f'{prefix.upper()}{num}', name, team))
+        return results
+
     def _parse_card_line_matches(self, line: str, mode: str = 'plain'):
         """Parse card entries from a line. mode is plain, BP, or BD."""
         results = []
@@ -1864,23 +1905,36 @@ class CardChecklistFetcher:
                     results.append((f'{prefix}{num}', name, team))
         return results
 
-    def _slice_section_lines(self, lines, start_phrases, stop_phrases):
+    def _slice_section_lines(self, lines, start_phrases, stop_phrases, skip_stop_prefixes=None):
         """Return lines between first start heading and first stop heading."""
-        start_idx = None
+        skip_stop_prefixes = skip_stop_prefixes or ()
+        candidates = []
         for i, line in enumerate(lines):
+            if len(line) >= 120:
+                continue
             low = line.lower()
-            if any(p in low for p in start_phrases):
-                if len(line) < 120:
-                    start_idx = i
-                    break
-        if start_idx is None:
+            for p in start_phrases:
+                if p in low:
+                    candidates.append((len(p), i))
+        if not candidates:
             return []
+        # Prefer longest matching phrase; if tied, earliest line
+        candidates.sort(key=lambda x: (-x[0], x[1]))
+        start_idx = candidates[0][1]
         out = []
         for j in range(start_idx + 1, len(lines)):
-            low = lines[j].lower()
-            if any(p in low for p in stop_phrases) and len(lines[j]) < 120:
+            line = lines[j]
+            low = line.lower()
+            if any(line.lstrip().startswith(pref) for pref in skip_stop_prefixes):
+                out.append(line)
+                continue
+            # Odds label under base (Parallels:) — keep going
+            if low.strip().rstrip(':') == 'parallels' or low.startswith('parallels:'):
+                out.append(line)
+                continue
+            if any(p in low for p in stop_phrases) and len(line) < 120:
                 break
-            out.append(lines[j])
+            out.append(line)
         return out
 
 
@@ -1909,8 +1963,9 @@ class CardChecklistFetcher:
         """
         Beckett base parser.
 
-        Supports plain numbers, BD/BDC draft prefixes, and Bowman Baseball
-        veterans 1-N plus Base Prospects BP-1..BP-150 (before Chrome Prospects).
+        Supports plain numbers, BD/BDC draft prefixes, glued Update prefixes
+        (USC1, etc.), and Bowman Baseball veterans 1-N plus Base Prospects BP-*.
+        Headings: Base Set / Base Set Checklist / Base Cards.
         """
         print(f"[NEW PARSER] ========================================")
         print(f"[NEW PARSER] STARTING BASE CARDS PARSER")
@@ -1929,23 +1984,51 @@ class CardChecklistFetcher:
             lines = [line.strip() for line in page_text.split('\n') if line.strip()]
             print(f"[NEW PARSER] Total lines: {len(lines)}")
 
-            base_prefix = None
+            base_start_phrases = [
+                'base set checklist',
+                'base cards checklist',
+                'base set',
+                'base cards',
+            ]
+
+            base_prefix = None  # 'BD-', 'BP-', 'AS-', or glued letter prefix 'USC'
+            glued_prefix = False  # True when numbers are USC1 (no hyphen)
+
             for i, line in enumerate(lines):
                 low = line.lower()
-                if 'base set checklist' in low or low == 'base set':
-                    for k in range(i + 1, min(i + 40, len(lines))):
-                        if re.match(r'^1\s+[A-Z]', lines[k]):
+                if any(p in low for p in base_start_phrases) and len(line) < 120:
+                    for k in range(i + 1, min(i + 60, len(lines))):
+                        sample = lines[k]
+                        if re.match(r'^1\s+[A-Z]', sample):
                             base_prefix = None
+                            glued_prefix = False
                             print("[NEW PARSER] Detected PLAIN NUMBER format")
                             break
-                        if re.match(r'^BDC?-\d+\s+[A-Z]', lines[k]):
+                        if re.match(r'^BDC?-\d+\s+[A-Z]', sample):
                             base_prefix = 'BD-'
+                            glued_prefix = False
                             print("[NEW PARSER] Detected BD/BDC prefixed format")
                             break
-                        m = re.match(r'^([A-Z]{2,})-\d+\s+[A-Z]', lines[k])
+                        m = re.match(r'^([A-Z]{2,})-\d+\s+[A-Z]', sample)
                         if m:
                             base_prefix = m.group(1) + '-'
+                            glued_prefix = False
                             print(f"[NEW PARSER] Detected PREFIXED format: {base_prefix}")
+                            break
+                        # Glued Update-style: USC1 Max Scherzer... (no hyphen)
+                        m = re.match(r'^([A-Z]{2,})(\d+)\s+[A-Z]', sample)
+                        if m and not sample[len(m.group(1)):len(m.group(1))+1] == '-':
+                            # Avoid matching if it's actually PREFIX-digit (handled above)
+                            base_prefix = m.group(1)
+                            glued_prefix = True
+                            print(f"[NEW PARSER] Detected GLUED PREFIX format: {base_prefix}# (e.g. {base_prefix}{m.group(2)})")
+                            break
+                        # Also detect mid-line concatenation (USC1 NameUSC2 Name)
+                        m = re.search(r'([A-Z]{2,})(\d+)\s+[A-Z][a-z].*?\1\d+\s+[A-Z]', sample)
+                        if m:
+                            base_prefix = m.group(1)
+                            glued_prefix = True
+                            print(f"[NEW PARSER] Detected GLUED PREFIX format (inline): {base_prefix}#")
                             break
                     break
 
@@ -1954,8 +2037,12 @@ class CardChecklistFetcher:
             def add_card(number, name, team):
                 if number in seen:
                     return
-                if len(name) < 2 or len(team) < 2:
+                if len(name) < 2:
                     return
+                # Glued Update checklists often omit teams
+                team = (team or '').strip()
+                if len(team) < 2:
+                    team = ''
                 seen.add(number)
                 cards.append({
                     'number': number,
@@ -1966,14 +2053,44 @@ class CardChecklistFetcher:
                     'rarity': 'Base',
                 })
 
-            if base_prefix == 'BD-':
+            stop_common = [
+                'autograph', 'insert', 'chrome prospects', 'parallels',
+                'team set', 'checklist top', 'master card list',
+                'base prospects', 'etched in glass',
+            ]
+
+            if glued_prefix and base_prefix:
+                # Parallels odds often sit under Base Set Checklist BEFORE the USC list —
+                # do not treat "Parallels:" as end of section.
                 section = self._slice_section_lines(
                     lines,
-                    start_phrases=['base set checklist', 'base set'],
+                    start_phrases=base_start_phrases,
                     stop_phrases=[
-                        'autograph', 'insert', 'chrome prospects', 'parallels',
-                        'team set', 'checklist top', 'master card list',
+                        'checklist top',
+                        'autographs',
+                        'team set',
+                        'insert set',
+                        'master card list',
+                        'base prospects',
+                        'chrome prospects',
                     ],
+                    skip_stop_prefixes=('-',),
+                )
+                for line in section:
+                    for num, name, team in self._parse_glued_prefix_cards(line, base_prefix):
+                        add_card(num, name, team)
+                # Fallback: scan whole page for glued cards if section slice missed them
+                if not cards:
+                    print("[NEW PARSER] Section slice empty for glued prefix — scanning page for USC-style cards")
+                    for line in lines:
+                        for num, name, team in self._parse_glued_prefix_cards(line, base_prefix):
+                            add_card(num, name, team)
+                print(f"[NEW PARSER] Collected {len(cards)} glued {base_prefix}# cards")
+            elif base_prefix == 'BD-':
+                section = self._slice_section_lines(
+                    lines,
+                    start_phrases=base_start_phrases,
+                    stop_phrases=stop_common,
                 )
                 for line in section:
                     for num, name, team in self._parse_card_line_matches(line, 'BD'):
@@ -1983,8 +2100,8 @@ class CardChecklistFetcher:
                 escaped = re.escape(base_prefix)
                 section = self._slice_section_lines(
                     lines,
-                    start_phrases=['base set checklist', 'base set'],
-                    stop_phrases=['autograph', 'insert', 'chrome prospects', 'parallels', 'team set', 'checklist top'],
+                    start_phrases=base_start_phrases,
+                    stop_phrases=stop_common,
                 )
                 pat = rf'{escaped}(\d+)\s+([A-Z][^,\d]+?),\s*([^,\d]+?)(?=\s*{escaped}\d+|{escaped}\d+|$)'
                 for line in section:
@@ -1998,21 +2115,21 @@ class CardChecklistFetcher:
             else:
                 veteran_section = self._slice_section_lines(
                     lines,
-                    start_phrases=['base set checklist'],
+                    start_phrases=['base set checklist', 'base cards checklist'],
                     stop_phrases=[
                         'etched in glass', 'etched-in glass', 'base prospects',
                         'chrome prospects', 'red rc', 'variation', 'autograph',
-                        'insert', 'checklist top', 'prospects',
+                        'insert', 'checklist top', 'prospects', 'team set',
                     ],
                 )
                 if not veteran_section:
                     veteran_section = self._slice_section_lines(
                         lines,
-                        start_phrases=['base set'],
+                        start_phrases=['base set', 'base cards'],
                         stop_phrases=[
                             'etched in glass', 'etched-in glass', 'base prospects',
                             'chrome prospects', 'variation', 'autograph', 'insert',
-                            'checklist top', 'prospects',
+                            'checklist top', 'prospects', 'team set',
                         ],
                     )
                 for line in veteran_section:
@@ -2041,7 +2158,7 @@ class CardChecklistFetcher:
                 print(f"[NEW PARSER] Collected {bp_count} BP- prospect base cards")
 
             def sort_key(card):
-                # Plain veterans (1..N) first, then prefixed groups (BP-/BD-/BDC-) by prefix + number
+                # Plain veterans (1..N) first, then letter-prefix groups
                 num = str(card['number'])
                 if num.isdigit():
                     return (0, '', int(num))
@@ -2049,6 +2166,9 @@ class CardChecklistFetcher:
                     parts = num.split('-', 1)
                     if len(parts) == 2 and parts[1].isdigit():
                         return (1, parts[0], int(parts[1]))
+                m = re.match(r'^([A-Za-z]{2,})(\d+)$', num)
+                if m:
+                    return (1, m.group(1).upper(), int(m.group(2)))
                 return (2, num, 0)
 
             cards.sort(key=sort_key)
